@@ -50,33 +50,73 @@ Where
 - `PA80` is a TCP ACK to port 80
 - `PP` is an ICMP timestamp request
 
-##### Port scan
+##### Port scan Examples
+
+- Perform a discovery scan to ensure the host is active, and then perform a port scan ( SYN scan running as root ) on the top 1000 ports
 
 ```bash
 nmap 192.168.2.56
 ```
 
-Will perform a discovery scan to ensure the host is active, and then perform a port scan on the top 1000 ports
-
-Can also provide an entire network segment, e.g.,
+- Perform a discovery/port scan on the top 1000 ports for the entire network segment
 
 ```bash
 nmap 192.168.2.0/24
 ```
 
-which will scan the entire subnet
-
-or
+- Perform a discovery/port scan on the top 1000 ports for IPs 192.168.2.10 through 192.168.2.50
 
 ```bash
 nmap 192.168.2.10-50
 ```
 
-which will scan IPs that end in 10 until 50.
-
-You can also provide a list of targets from an input file, e.g.,
+- Perform a discovery/port scan on the top 1000 ports for each IP address in `targets.txt`
 
 ```bash
 nmap -iL targets.txt
+```
+
+- Perform a discovery/port scan on all TCP ports
+
+```bash
+nmap 192.168.2.56 -p-
+```
+
+- Perform a discovery/port scan on all ports except for 80 and 443
+
+```bash
+nmap 192.168.1.1 -p- --exclude-ports 80,443
+```
+
+- Perform a discovery/port scan on the top 100 ports
+
+```bash
+nmap 192.168.1.1 --top-ports=100
+```
+
+- Perform a port scan against any open UDP ports
+
+```bash
+nmap 192.168.1.1 -sU
+```
+
+##### Timing
+
+Nmap provides timing flags that allow you to speed up or slow down a port scan depending on your situation, e.g., to potentially avoid being detected by something like a firewall, you can slow your scan down. The timing flags are T0 through T5, where T5 is the fastest. The default is T3.
+
+- Perform a discovery/port scan on all ports with the slowest scan possible
+
+```bash
+nmap 192.168.1.1 -p- -T0
+```
+
+##### Aggressive Scan
+
+Nmap has an option that will allow you, in a single command, to run a discovery and port scan, service enumeration, custom scripts and check for common vulnerabilities via the aggressive flag, `-A`
+
+- Run the aggressive scan on all available TCP ports
+
+```bash
+nmap 192.168.1.1 -p- -A
 ```
 

